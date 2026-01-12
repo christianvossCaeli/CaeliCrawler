@@ -574,25 +574,22 @@ watch(isDark, async () => {
   // Set new style (this removes all layers/sources)
   map.value.setStyle(mapStyle.value)
 
-  // Wait for style to fully load with fallback
+  // Wait for style to fully load - use 'idle' event which fires when map is fully rendered
+  // 'style.load' fires too early and layers may fail to be added
   await new Promise<void>((resolve) => {
     if (!map.value) return resolve()
 
-    // Check if already loaded (can happen with cached styles)
-    if (map.value.isStyleLoaded()) {
+    const onIdle = () => {
+      map.value?.off('idle', onIdle)
       resolve()
-      return
     }
-
-    // Listen for style.load event
-    const onStyleLoad = () => resolve()
-    map.value.once('style.load', onStyleLoad)
+    map.value.on('idle', onIdle)
 
     // Fallback timeout in case event doesn't fire
     setTimeout(() => {
-      map.value?.off('style.load', onStyleLoad)
+      map.value?.off('idle', onIdle)
       resolve()
-    }, 1000)
+    }, 2000)
   })
 
   if (!map.value) return
@@ -603,8 +600,9 @@ watch(isDark, async () => {
   map.value.setBearing(bearing)
   map.value.setPitch(pitch)
 
-  // Reload geo data (re-adds sources and layers)
+  // Reload geo data (re-adds sources and layers) and interactions
   await loadGeoData()
+  setupMapInteractions()
 })
 
 // Lifecycle

@@ -51,6 +51,7 @@ class SummaryTriggerType(str, enum.Enum):
     CRON = "CRON"  # Cron-based schedule
     CRAWL_CATEGORY = "CRAWL_CATEGORY"  # Triggered after category crawl completes
     CRAWL_PRESET = "CRAWL_PRESET"  # Triggered after preset crawl completes
+    AUTO = "AUTO"  # Automatically triggered when matching entity types are crawled
 
 
 class CustomSummary(Base):
@@ -159,6 +160,20 @@ class CustomSummary(Base):
         ForeignKey("crawl_presets.id", ondelete="SET NULL"),
         nullable=True,
         comment="CrawlPreset ID for crawl_preset trigger",
+    )
+
+    # AUTO trigger configuration
+    auto_trigger_entity_types: Mapped[list[str]] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default="[]",
+        comment="Entity type slugs that automatically trigger this summary",
+    )
+    last_auto_trigger_reason: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Last reason why AUTO trigger was activated",
     )
 
     # Scheduling
@@ -280,6 +295,12 @@ class CustomSummary(Base):
         Index("ix_custom_summaries_trigger_preset", "trigger_preset_id"),
         # Composite index for listing favorites sorted by update time
         Index("ix_custom_summaries_user_favorites", "user_id", "is_favorite", "updated_at"),
+        # GIN index for fast entity type matching in AUTO trigger
+        Index(
+            "ix_custom_summaries_auto_entity_types",
+            "auto_trigger_entity_types",
+            postgresql_using="gin",
+        ),
     )
 
     def __repr__(self) -> str:

@@ -45,6 +45,10 @@
   "exportView": {
     "title": "Daten exportieren",
     "subtitle": "Extrahierte Daten sofort exportieren oder große Exporte als Hintergrund-Job starten.",
+    "info": {
+      "title": "Daten mitnehmen",
+      "description": "Exportieren Sie extrahierte Daten in verschiedenen Formaten (CSV, JSON, Excel). Für kleine Datenmengen nutzen Sie den Schnell-Export, für große Datensätze (>5000) den Hintergrund-Export. Filter grenzen die Daten ein: nach Kategorie, Region, Konfidenz oder nur geprüfte Daten. Die API-Endpunkte ermöglichen automatisierte Exporte und Webhooks benachrichtigen externe Systeme."
+    },
     "download": "Daten herunterladen",
     "quickExportTitle": "Schnell-Export",
     "instant": "Sofort",

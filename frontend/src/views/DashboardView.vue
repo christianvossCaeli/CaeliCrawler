@@ -29,6 +29,11 @@
       </template>
     </PageHeader>
 
+    <!-- Info Box -->
+    <PageInfoBox :storage-key="INFO_BOX_STORAGE_KEYS.DASHBOARD" :title="$t('dashboard.info.title')">
+      {{ $t('dashboard.info.description') }}
+    </PageInfoBox>
+
     <!-- Crawl Presets Quick Actions -->
     <CrawlPresetQuickActions v-if="canEdit" class="mb-4" />
 
@@ -202,6 +207,8 @@ import DashboardGrid from '@/widgets/DashboardGrid.vue'
 import WidgetConfigurator from '@/components/dashboard/WidgetConfigurator.vue'
 import CrawlPresetQuickActions from '@/components/crawler/CrawlPresetQuickActions.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
+import PageInfoBox from '@/components/common/PageInfoBox.vue'
+import { INFO_BOX_STORAGE_KEYS } from '@/config/infoBox'
 import { useLogger } from '@/composables/useLogger'
 import { useDateFormatter } from '@/composables'
 import { emitCrawlerEvent } from '@/composables/useCrawlerEvents'

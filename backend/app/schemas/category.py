@@ -214,7 +214,6 @@ class _CategoryFieldsMixin(BaseModel):
         default=False,
         description="If true, automatic crawls are enabled based on schedule_cron. Must be explicitly set to enable scheduled crawling.",
     )
-    is_active: bool = Field(default=True, description="Whether category is active")
 
     # Visibility
     is_public: bool = Field(
@@ -299,7 +298,6 @@ class CategoryUpdate(BaseModel):
     extraction_handler: Literal["default", "event"] | None = None
     schedule_cron: str | None = None
     schedule_enabled: bool | None = None
-    is_active: bool | None = None
     is_public: bool | None = None
     target_entity_type_id: UUID | None = None
     display_fields: dict[str, Any] | None = None
@@ -357,7 +355,7 @@ class CategoryResponse(_CategoryFieldsMixin):
                     "languages": ["de"],
                     "extraction_handler": "default",
                     "schedule_cron": "0 2 * * *",
-                    "is_active": True,
+                    "schedule_enabled": True,
                     "is_public": True,
                     "source_count": 42,
                     "document_count": 1337,

@@ -36,7 +36,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import async_session_factory
 from app.models import Entity, EntityType
-from services.ai_service import AIService
 
 logger = structlog.get_logger(__name__)
 
@@ -120,7 +119,24 @@ async def generate_embeddings(
 
         logger.info(f"Processing {len(entities)} entities...")
 
-        ai_service = AIService()
+        # Get LLM client from DB credentials (not environment variables!)
+        from app.models.user_api_credentials import LLMPurpose
+        from app.utils.similarity.embedding import EMBEDDING_DIMENSIONS
+        from services.llm_client_service import LLMClientService
+
+        llm_service = LLMClientService(session)
+        client, config = await llm_service.get_system_client(LLMPurpose.EMBEDDINGS)
+
+        if not client or not config:
+            logger.error(
+                "No LLM credentials configured in database. "
+                "Please configure API credentials in /admin/api-credentials first."
+            )
+            return 0
+
+        embeddings_model = llm_service.get_model_name(config, for_embeddings=True)
+        logger.info(f"Using embeddings model: {embeddings_model}")
+
         updated_count = 0
         failed_count = 0
 
@@ -133,7 +149,12 @@ async def generate_embeddings(
 
             try:
                 logger.info(f"Processing batch {batch_num}/{total_batches}...")
-                embeddings = await ai_service.generate_embeddings(names)
+                response = await client.embeddings.create(
+                    input=names,
+                    model=embeddings_model,
+                    dimensions=EMBEDDING_DIMENSIONS,
+                )
+                embeddings = [item.embedding for item in response.data]
 
                 for entity, embedding in zip(batch, embeddings, strict=False):
                     try:

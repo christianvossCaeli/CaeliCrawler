@@ -242,6 +242,12 @@ async def get_entity_facets_summary(
                     "target_entity_type_slug": v.target_entity.entity_type.slug
                     if v.target_entity and v.target_entity.entity_type
                     else None,
+                    "target_entity_type_icon": v.target_entity.entity_type.icon
+                    if v.target_entity and v.target_entity.entity_type
+                    else None,
+                    "target_entity_type_color": v.target_entity.entity_type.color
+                    if v.target_entity and v.target_entity.entity_type
+                    else None,
                 }
                 for v in sorted_values[:5]  # Show up to 5 samples
             ]

@@ -2,6 +2,10 @@
   "smartQuery": {
     "title": "Intelligente Suche",
     "subtitle": "Stellen Sie Fragen in natürlicher Sprache",
+    "info": {
+      "title": "Fragen statt klicken",
+      "description": "Stellen Sie Fragen in natürlicher Sprache wie 'Welche Gemeinden haben Windkraft-Probleme?' oder 'Zeige alle Veranstaltungen nächste Woche'. Die KI versteht Ihre Anfrage und durchsucht automatisch alle Datensätze, Dokumente und Ergebnisse. Drei Modi: 'Lesen' für Abfragen, 'Schreiben' für Änderungen (mit Vorschau), 'Planen' für komplexe Aufgaben. Die Beispiele unten zeigen typische Anfragen - klicken Sie zum Ausprobieren."
+    },
     "input": {
       "placeholder": "z.B. 'Zeige mir alle Gemeinden mit Windkraft-Diskussionen'",
       "submit": "Abfragen"

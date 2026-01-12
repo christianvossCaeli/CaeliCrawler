@@ -166,7 +166,9 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useTheme } from 'vuetify'
 import { useI18n } from 'vue-i18n'
-import { useNotifications, type UserEmailAddress, type NotificationPreferences } from '@/composables/useNotifications'
+import { storeToRefs } from 'pinia'
+import { useNotificationsStore, type UserEmailAddress, type NotificationPreferences } from '@/stores/notifications'
+import { useDialogFocus } from '@/composables'
 import { DIALOG_SIZES } from '@/config/ui'
 
 const { t } = useI18n()
@@ -174,15 +176,12 @@ const { t } = useI18n()
 const theme = useTheme()
 const isDark = computed(() => theme.global.current.value.dark)
 
+// Store
+const store = useNotificationsStore()
 const {
   emailAddresses,
   preferences,
-  loadEmailAddresses,
-  loadPreferences,
-  addEmailAddress,
-  deleteEmailAddress,
-  updatePreferences,
-} = useNotifications()
+} = storeToRefs(store)
 
 // Local state
 const saving = ref(false)
@@ -190,6 +189,10 @@ const addEmailDialog = ref(false)
 const deleteEmailDialog = ref(false)
 const emailToDelete = ref<UserEmailAddress | null>(null)
 const emailForm = ref()
+
+// Focus management for accessibility (WCAG 2.1)
+useDialogFocus({ isOpen: addEmailDialog })
+useDialogFocus({ isOpen: deleteEmailDialog })
 
 const localPreferences = ref<NotificationPreferences>({
   notifications_enabled: true,
@@ -225,10 +228,10 @@ const showSnackbar = (message: string, color: string = 'success') => {
 
 const handlePreferencesChange = async () => {
   try {
-    await updatePreferences(localPreferences.value)
+    await store.updatePreferences(localPreferences.value)
     showSnackbar(t('notifications.settings.settingsSaved'))
-  } catch (e) {
-    showSnackbar(t('notifications.settings.settingsError'), 'error')
+  } catch {
+    showSnackbar(t('notifications.errors.updatePreferences'), 'error')
   }
 }
 
@@ -243,14 +246,14 @@ const handleAddEmail = async () => {
 
   saving.value = true
   try {
-    await addEmailAddress({
+    await store.addEmailAddress({
       email: newEmail.value.email,
       label: newEmail.value.label || undefined,
     })
     addEmailDialog.value = false
     showSnackbar(t('notifications.settings.emailAdded'))
-  } catch (e) {
-    showSnackbar(t('notifications.settings.emailAddError'), 'error')
+  } catch {
+    showSnackbar(t('notifications.errors.addEmailAddress'), 'error')
   } finally {
     saving.value = false
   }
@@ -266,19 +269,23 @@ const handleDeleteEmail = async () => {
 
   saving.value = true
   try {
-    await deleteEmailAddress(emailToDelete.value.id)
+    await store.deleteEmailAddress(emailToDelete.value.id)
     deleteEmailDialog.value = false
     showSnackbar(t('notifications.settings.emailDeleted'))
-  } catch (e) {
-    showSnackbar(t('notifications.settings.emailDeleteError'), 'error')
+  } catch {
+    showSnackbar(t('notifications.errors.deleteEmailAddress'), 'error')
   } finally {
     saving.value = false
   }
 }
 
-const resendVerification = async (_email: UserEmailAddress) => {
-  // TODO: Implement resend verification endpoint - _email will be used when endpoint is added
-  showSnackbar(t('notifications.settings.verificationResent'))
+const resendVerification = async (email: UserEmailAddress) => {
+  try {
+    await store.resendVerification(email.id)
+    showSnackbar(t('notifications.settings.verificationResent'))
+  } catch {
+    showSnackbar(t('notifications.errors.resendVerification'), 'error')
+  }
 }
 
 // Dark mode aware styling
@@ -289,7 +296,7 @@ const getPrimaryEmailClass = (email: UserEmailAddress): string => {
 
 // Init
 onMounted(async () => {
-  await loadPreferences()
-  await loadEmailAddresses()
+  await store.loadPreferences()
+  await store.loadEmailAddresses()
 })
 </script>

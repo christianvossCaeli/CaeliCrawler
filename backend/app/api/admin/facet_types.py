@@ -9,7 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import require_admin
 from app.database import get_session
-from app.models import FacetType, FacetValue
+from app.models import FacetType, FacetValue, User
+from app.models.audit_log import AuditAction
+from app.services.audit_service import create_audit_log
 
 router = APIRouter(prefix="/facet-types", tags=["admin-facet-types"])
 
@@ -330,7 +332,7 @@ async def update_facet_type(
     facet_type_id: UUID,
     data: FacetTypeUpdate,
     session: AsyncSession = Depends(get_session),
-    _: None = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ):
     """Update a FacetType."""
 
@@ -342,6 +344,16 @@ async def update_facet_type(
     update_data = data.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(ft, key, value)
+
+    # Create audit log entry
+    await create_audit_log(
+        session=session,
+        action=AuditAction.UPDATE,
+        entity_type="FacetType",
+        entity_id=facet_type_id,
+        entity_name=ft.name,
+        user=current_user,
+    )
 
     await session.commit()
     await session.refresh(ft)
@@ -386,7 +398,7 @@ async def review_facet_type(
     facet_type_id: UUID,
     review: FacetTypeReviewAction,
     session: AsyncSession = Depends(get_session),
-    _: None = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ):
     """Review a FacetType (approve, reject, or merge)."""
 
@@ -397,12 +409,32 @@ async def review_facet_type(
     if review.action == "approve":
         # Approve: Clear needs_review flag
         ft.needs_review = False
+
+        # Create audit log entry
+        await create_audit_log(
+            session=session,
+            action=AuditAction.VERIFY,
+            entity_type="FacetType",
+            entity_id=facet_type_id,
+            entity_name=f"{ft.name} (approved)",
+            user=current_user,
+        )
         await session.commit()
 
     elif review.action == "reject":
         # Reject: Deactivate and delete associated values
         ft.is_active = False
         ft.needs_review = False
+
+        # Create audit log entry
+        await create_audit_log(
+            session=session,
+            action=AuditAction.DELETE,
+            entity_type="FacetType",
+            entity_id=facet_type_id,
+            entity_name=f"{ft.name} (rejected)",
+            user=current_user,
+        )
 
         # Delete associated FacetValues
         await session.execute(FacetValue.__table__.delete().where(FacetValue.facet_type_id == facet_type_id))
@@ -428,6 +460,16 @@ async def review_facet_type(
         # Deactivate source FacetType
         ft.is_active = False
         ft.needs_review = False
+
+        # Create audit log entry
+        await create_audit_log(
+            session=session,
+            action=AuditAction.UPDATE,
+            entity_type="FacetType",
+            entity_id=facet_type_id,
+            entity_name=f"{ft.name} (merged into {review.merge_into_slug})",
+            user=current_user,
+        )
         await session.commit()
 
     await session.refresh(ft)
@@ -471,7 +513,7 @@ async def review_facet_type(
 async def bulk_review_facet_types(
     request: FacetTypeBulkReviewRequest,
     session: AsyncSession = Depends(get_session),
-    _: None = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ):
     """Bulk approve or reject multiple FacetTypes."""
 
@@ -479,6 +521,7 @@ async def bulk_review_facet_types(
         await session.execute(
             update(FacetType).where(FacetType.id.in_(request.facet_type_ids)).values(needs_review=False)
         )
+        action = AuditAction.VERIFY
     elif request.action == "reject":
         # Delete values first
         await session.execute(FacetValue.__table__.delete().where(FacetValue.facet_type_id.in_(request.facet_type_ids)))
@@ -488,6 +531,16 @@ async def bulk_review_facet_types(
             .where(FacetType.id.in_(request.facet_type_ids))
             .values(is_active=False, needs_review=False)
         )
+        action = AuditAction.DELETE
+
+    # Create audit log entry for bulk action
+    await create_audit_log(
+        session=session,
+        action=action,
+        entity_type="FacetType",
+        entity_name=f"bulk {request.action} ({len(request.facet_type_ids)} items)",
+        user=current_user,
+    )
 
     await session.commit()
 

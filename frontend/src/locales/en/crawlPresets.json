@@ -72,9 +72,20 @@
       "scheduleHint": "Schedules use CRON expressions (server time: UTC). You will be notified if scheduled crawls fail.",
       "previewHint": "The preview shows currently matching sources. '0 sources' means no data sources match the selected filters."
     },
-    "category": "Category",
+    "category": "Analysis Topic",
+    "categoryRequired": "Please select an analysis topic",
     "duplicate": "Duplicate",
     "duplicateSuccess": "Preset duplicated – you can now edit it",
-    "duplicateSuffix": "(Copy)"
+    "duplicateSuffix": "(Copy)",
+    "entitySelection": {
+      "title": "Entity Selection (Optional)",
+      "description": "Optionally select specific entities. Only DataSources of these entities will be crawled.",
+      "none": "No Selection",
+      "fixed": "Fixed IDs",
+      "dynamic": "Dynamic Filter",
+      "noneHint": "All DataSources of the category will be crawled, regardless of entities.",
+      "fixedHint": "The selected entity IDs are stored. New entities will not be automatically included.",
+      "dynamicHint": "Uses the entity filters above (entity type, tags). Current entities are determined on each execution."
+    }
   }
 }

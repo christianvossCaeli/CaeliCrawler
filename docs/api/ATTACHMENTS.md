@@ -33,6 +33,78 @@ AZURE_OPENAI_DEPLOYMENT_VISION=gpt-4o
 
 ## Endpoints
 
+### GET /v1/attachments/search
+Volltextsuche ueber alle Attachment-Inhalte.
+
+> **NEU in v2.2.0:** Diese Funktion ermoeglicht die Suche ueber alle Anhaenge im System, unabhaengig von der zugehoerigen Entity.
+
+**Query-Parameter:**
+| Parameter | Typ | Required | Beschreibung |
+|-----------|-----|----------|--------------|
+| `q` | string | Ja | Suchbegriff (min. 2 Zeichen) |
+| `entity_id` | uuid | Nein | Filter nach Entity |
+| `content_type` | string | Nein | Filter nach MIME-Type (z.B. `image/png`, `application/pdf`) |
+| `analysis_status` | string | Nein | Filter nach Status (`PENDING`, `ANALYZING`, `COMPLETED`, `FAILED`) |
+| `page` | int | Nein | Seite (default: 1) |
+| `per_page` | int | Nein | Eintraege pro Seite (1-100, default: 20) |
+
+**Durchsuchte Felder:**
+- Dateiname (`filename`)
+- Beschreibung (`description`)
+- KI-extrahierte Beschreibung (`ai_description`)
+- KI-extrahierter Textinhalt (`ai_extracted_text`) - OCR fuer Bilder, Text-Extraktion fuer PDFs
+
+**Technische Details:**
+- Verwendet PostgreSQL Full-Text Search
+- Deutsche Sprachunterstuetzung (`plainto_tsquery('german', ...)`)
+- Ergebnisse nach Relevanz sortiert
+- Highlights mit `<mark>`-Tags
+
+**Response:**
+```json
+{
+  "items": [
+    {
+      "id": "uuid",
+      "entity_id": "uuid",
+      "entity_name": "Stadt Musterstadt",
+      "filename": "protokoll.pdf",
+      "content_type": "application/pdf",
+      "file_size": 245000,
+      "description": "Sitzungsprotokoll",
+      "analysis_status": "COMPLETED",
+      "headline": "...wurde der <mark>Windpark</mark> Antrag behandelt...",
+      "rank": 0.8912,
+      "created_at": "2025-01-15T10:00:00Z",
+      "analyzed_at": "2025-01-15T10:05:00Z",
+      "is_image": false,
+      "is_pdf": true
+    }
+  ],
+  "total": 42,
+  "page": 1,
+  "per_page": 20,
+  "pages": 3,
+  "query": "Windpark",
+  "search_time_ms": 12.5
+}
+```
+
+**Response-Felder:**
+| Feld | Typ | Beschreibung |
+|------|-----|--------------|
+| `headline` | string | Such-Highlight mit `<mark>`-Tags um Treffer |
+| `rank` | float | Relevanz-Score (0.0 - 1.0, hoeher = relevanter) |
+| `search_time_ms` | float | Suchzeit in Millisekunden |
+| `entity_name` | string | Name der zugehoerigen Entity |
+
+**Beispiel-Anfrage:**
+```http
+GET /v1/attachments/search?q=Windenergie&content_type=application/pdf&page=1&per_page=10
+```
+
+---
+
 ### POST /v1/entities/{entity_id}/attachments
 Datei zu einer Entity hochladen.
 

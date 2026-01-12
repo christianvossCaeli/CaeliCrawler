@@ -2,6 +2,10 @@
   "results": {
     "title": "Ergebnisse",
     "subtitle": "KI-extrahierte Analyseergebnisse aus verarbeiteten Dokumenten",
+    "info": {
+      "title": "KI-Ergebnisse prüfen und freigeben",
+      "description": "Hier landen alle von der KI aus Dokumenten extrahierten Informationen - z.B. Problemfelder, Kontakte oder Termine. Die 'Konfidenz' (0-100%) zeigt, wie sicher sich die KI bei der Extraktion war: Grün (>70%) ist meist zuverlässig, Gelb/Rot sollten Sie prüfen. Klicken Sie auf ein Ergebnis für Details inkl. Quelldokument. Mit 'Verifizieren' bestätigen Sie korrekte Ergebnisse, mit 'Ablehnen' markieren Sie Fehler (diese werden bei künftigen Extraktionen berücksichtigt). Tipp: Nutzen Sie Bulk-Aktionen für schnelles Prüfen vieler Ergebnisse."
+    },
     "aiExtractedData": "KI-extrahierte Daten",
     "emptyState": {
       "title": "Keine Ergebnisse",
@@ -17,9 +21,11 @@
       "location": "Standort",
       "analysisType": "Analyse-Typ",
       "category": "Kategorie",
+      "confidence": "Zuverlässigkeit",
       "minConfidence": "Min. Zuverlässigkeit",
       "dateFrom": "Von",
       "dateTo": "Bis",
+      "showRejected": "Abgelehnte anzeigen",
       "resetFilters": "Filter zurücksetzen"
     },
     "stats": {
@@ -41,15 +47,43 @@
     "actions": {
       "bulkVerify": "als geprüft markieren",
       "csvExport": "CSV Export",
+      "csvExportSelected": "{count} exportieren",
       "refresh": "Aktualisieren",
       "viewDetails": "Details anzeigen",
       "verify": "Als geprüft markieren",
       "verified": "Geprüft",
+      "reject": "Ablehnen",
+      "unreject": "Ablehnung aufheben",
       "goToDocument": "Zum Dokument",
       "exportJson": "JSON exportieren"
     },
+    "status": {
+      "rejected": "Abgelehnt"
+    },
+    "dialogs": {
+      "rejectTitle": "Ergebnis ablehnen?",
+      "rejectMessage": "Das Extraktionsergebnis wird abgelehnt und alle zugehörigen Facets, die aus diesem Dokument extrahiert wurden, werden deaktiviert.",
+      "rejectWarning": "Bereits verifizierte oder korrigierte Facets werden geschützt und nicht deaktiviert.",
+      "unrejectNote": "Hinweis: Wenn Sie die Ablehnung später rückgängig machen, müssen die deaktivierten Facets manuell reaktiviert werden.",
+      "confirmReject": "Ablehnen",
+      "bulkRejectTitle": "Mehrere Ergebnisse ablehnen?",
+      "bulkRejectMessage": "{count} ausgewählte Ergebnisse werden abgelehnt und alle zugehörigen Facets werden deaktiviert.",
+      "confirmBulkReject": "Alle ablehnen"
+    },
+    "bulkActions": {
+      "toolbarLabel": "Massenaktionen für ausgewählte Ergebnisse",
+      "selected": "{count} ausgewählt",
+      "verify": "Bestätigen",
+      "reject": "Ablehnen",
+      "verifySelected": "{count} Ergebnisse bestätigen",
+      "rejectSelected": "{count} Ergebnisse ablehnen",
+      "clearSelection": "Auswahl aufheben"
+    },
     "detail": {
       "title": "Extrahierte Daten",
+      "contentTab": "Inhalt",
+      "facetsTab": "Facets",
+      "metadataTab": "Metadaten",
       "sourceDocument": "Quelldokument",
       "goToDocument": "Zum Dokument",
       "municipality": "Gemeinde",
@@ -86,14 +120,60 @@
     "messages": {
       "verified": "Ergebnis als geprüft markiert",
       "bulkVerified": "Ergebnisse als geprüft markiert",
+      "rejected": "Ergebnis abgelehnt",
+      "bulkRejected": "Ergebnisse abgelehnt",
+      "unrejected": "Ablehnung aufgehoben",
+      "facetsDeactivated": "Facetten deaktiviert",
+      "facetsProtected": "Facetten geschützt",
       "jsonExported": "JSON exportiert",
-      "csvExported": "CSV exportiert",
+      "csvExported": "{count} Ergebnisse als CSV exportiert",
       "copiedToClipboard": "In Zwischenablage kopiert",
       "errorVerifying": "Fehler beim Markieren als geprüft",
       "errorBulkVerifying": "Fehler bei der Massenmarkierung",
-      "errorLoading": "Fehler beim Laden der Daten"
+      "errorRejecting": "Fehler beim Ablehnen",
+      "errorBulkRejecting": "Fehler bei der Massenablehnung",
+      "errorUnrejecting": "Fehler beim Aufheben der Ablehnung",
+      "errorLoading": "Fehler beim Laden der Daten",
+      "errorExporting": "Fehler beim Exportieren der Daten",
+      "noResultsToExport": "Keine Ergebnisse zum Exportieren vorhanden"
+    },
+    "export": {
+      "source": "Quelle",
+      "verifiedBy": "Geprüft von",
+      "verifiedAt": "Geprüft am",
+      "rejected": "Abgelehnt",
+      "rejectionReason": "Ablehnungsgrund",
+      "entities": "Verknüpfte Entities",
+      "aiModel": "AI-Model",
+      "tokensUsed": "Tokens verwendet",
+      "priority": "Priorität",
+      "reason": "Begründung"
     },
     "never": "Nie",
-    "noResults": "Keine Ergebnisse gefunden"
+    "noResults": "Keine Ergebnisse gefunden",
+    "facets": {
+      "title": "Extrahierte Facets",
+      "showInactive": "Inaktive anzeigen",
+      "noFacets": "Keine Facets aus diesem Ergebnis extrahiert.",
+      "unknownType": "Unbekannter Typ",
+      "unknownEntity": "Unbekannte Entity",
+      "noEntity": "Keine Entity",
+      "inactive": "Inaktiv",
+      "verified": "Geprüft",
+      "corrected": "Korrigiert",
+      "verifiedCount": "geprüft",
+      "verify": "Bestätigen",
+      "reject": "Deaktivieren",
+      "reactivate": "Reaktivieren",
+      "protectedTooltip": "Geschützt (verifiziert oder korrigiert)",
+      "errorLoading": "Fehler beim Laden der Facets",
+      "errorVerifying": "Fehler beim Bestätigen",
+      "errorRejecting": "Fehler beim Deaktivieren",
+      "errorReactivating": "Fehler beim Reaktivieren",
+      "errorUpdating": "Fehler beim Aktualisieren",
+      "updated": "Facet aktualisiert",
+      "rejected": "Facet deaktiviert",
+      "reactivated": "Facet reaktiviert"
+    }
   }
 }

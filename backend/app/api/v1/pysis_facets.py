@@ -16,7 +16,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, require_editor
 from app.database import get_session
+from app.models.audit_log import AuditAction
 from app.models.user import User
+from app.services.audit_service import create_audit_log
 from services.pysis_facet_service import PySisFacetService
 
 router = APIRouter(tags=["PySis Facets"])
@@ -105,6 +107,17 @@ async def analyze_pysis_for_facets(
             include_empty=request.include_empty,
             min_confidence=request.min_confidence,
         )
+
+        await create_audit_log(
+            session=session,
+            action=AuditAction.CREATE,
+            entity_type="PySisFacetAnalysis",
+            entity_id=request.entity_id,
+            entity_name=f"analyze for entity {request.entity_id}",
+            user=current_user,
+        )
+        await session.commit()
+
         return OperationResponse(
             success=True,
             task_id=str(task.id),
@@ -137,6 +150,17 @@ async def enrich_facets_from_pysis(
             facet_type_id=request.facet_type_id,
             overwrite=request.overwrite,
         )
+
+        await create_audit_log(
+            session=session,
+            action=AuditAction.UPDATE,
+            entity_type="PySisFacetEnrichment",
+            entity_id=request.entity_id,
+            entity_name=f"enrich for entity {request.entity_id}",
+            user=current_user,
+        )
+        await session.commit()
+
         return OperationResponse(
             success=True,
             task_id=str(task.id),

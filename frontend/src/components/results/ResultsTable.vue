@@ -52,14 +52,22 @@
 
       <!-- Human Verified Column -->
       <template #item.human_verified="{ item }">
-        <v-icon
-          v-if="normalizeItem(item).human_verified"
-          color="success"
-          size="small"
-        >
-          mdi-check-circle
-        </v-icon>
-        <v-icon v-else color="grey" size="small">mdi-circle-outline</v-icon>
+        <template v-if="normalizeItem(item).is_rejected">
+          <v-chip size="small" color="error" variant="outlined">
+            <v-icon start size="small">mdi-close-circle</v-icon>
+            {{ $t('results.status.rejected') }}
+          </v-chip>
+        </template>
+        <template v-else>
+          <v-icon
+            v-if="normalizeItem(item).human_verified"
+            color="success"
+            size="small"
+          >
+            mdi-check-circle
+          </v-icon>
+          <v-icon v-else color="grey" size="small">mdi-circle-outline</v-icon>
+        </template>
       </template>
 
       <!-- Created At Column -->
@@ -79,8 +87,9 @@
             @click="$emit('show-details', normalizeItem(item))"
           />
 
+          <!-- Verify Button - only show if not rejected -->
           <v-btn
-            v-if="canVerify"
+            v-if="canVerify && !normalizeItem(item).is_rejected"
             :icon="normalizeItem(item).human_verified ? 'mdi-check-circle' : 'mdi-check'"
             size="default"
             variant="tonal"
@@ -88,6 +97,30 @@
             :title="normalizeItem(item).human_verified ? $t('results.actions.verified') : $t('results.actions.verify')"
             :aria-label="normalizeItem(item).human_verified ? $t('results.actions.verified') : $t('results.actions.verify')"
             @click="$emit('verify', normalizeItem(item))"
+          />
+
+          <!-- Reject Button - only show if not verified and not already rejected -->
+          <v-btn
+            v-if="canVerify && !normalizeItem(item).human_verified && !normalizeItem(item).is_rejected"
+            icon="mdi-close"
+            size="default"
+            variant="tonal"
+            color="error"
+            :title="$t('results.actions.reject')"
+            :aria-label="$t('results.actions.reject')"
+            @click="$emit('reject', normalizeItem(item))"
+          />
+
+          <!-- Unreject Button - only show if rejected -->
+          <v-btn
+            v-if="canVerify && normalizeItem(item).is_rejected"
+            icon="mdi-undo"
+            size="default"
+            variant="tonal"
+            color="warning"
+            :title="$t('results.actions.unreject')"
+            :aria-label="$t('results.actions.unreject')"
+            @click="$emit('unreject', normalizeItem(item))"
           />
 
           <v-btn
@@ -173,6 +206,8 @@ const emit = defineEmits<{
   'options-update': [options: TableOptions]
   'show-details': [item: SearchResult]
   'verify': [item: SearchResult]
+  'reject': [item: SearchResult]
+  'unreject': [item: SearchResult]
   'export-json': [item: SearchResult]
   /** Emitted when user clicks retry after an error */
   'retry': []

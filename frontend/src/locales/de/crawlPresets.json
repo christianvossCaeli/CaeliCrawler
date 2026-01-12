@@ -72,9 +72,20 @@
       "scheduleHint": "Zeitpläne nutzen CRON-Ausdrücke (Serverzeit: UTC). Bei Fehlern während geplanter Crawls werden Sie per Benachrichtigung informiert.",
       "previewHint": "Die Vorschau zeigt die aktuell passenden Quellen. Bei '0 Quellen' sind keine Datenquellen mit den gewählten Filtern vorhanden."
     },
-    "category": "Kategorie",
+    "category": "Analysethema",
+    "categoryRequired": "Bitte wählen Sie ein Analysethema aus",
     "duplicate": "Duplizieren",
     "duplicateSuccess": "Preset dupliziert – Sie können es jetzt bearbeiten",
-    "duplicateSuffix": "(Kopie)"
+    "duplicateSuffix": "(Kopie)",
+    "entitySelection": {
+      "title": "Entity-Auswahl (Optional)",
+      "description": "Optional können Sie spezifische Entities auswählen. Nur DataSources dieser Entities werden dann gecrawlt.",
+      "none": "Keine Auswahl",
+      "fixed": "Feste IDs",
+      "dynamic": "Dynamische Filter",
+      "noneHint": "Alle DataSources der Category werden gecrawlt, unabhängig von Entities.",
+      "fixedHint": "Die ausgewählten Entity-IDs werden gespeichert. Neue Entities werden nicht automatisch einbezogen.",
+      "dynamicHint": "Verwendet die obigen Entity-Filter (Entity-Typ, Tags). Bei jeder Ausführung werden die aktuellen Entities ermittelt."
+    }
   }
 }

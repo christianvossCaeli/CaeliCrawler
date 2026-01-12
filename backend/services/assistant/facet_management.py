@@ -19,9 +19,9 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.models import EntityType, FacetType
 from app.models.llm_usage import LLMProvider, LLMTaskType
+from app.models.user_api_credentials import LLMPurpose
 from app.schemas.assistant import (
     AssistantContext,
     AssistantResponseData,
@@ -30,7 +30,7 @@ from app.schemas.assistant import (
     FacetTypePreview,
     SuggestedAction,
 )
-from services.assistant.common import get_openai_client
+from services.llm_client_service import LLMClientService
 from services.llm_usage_tracker import record_llm_usage
 from services.translations import Translator
 
@@ -75,7 +75,7 @@ async def handle_facet_management_request(
             return await _handle_assign_facet_type(db, target_entity_types)
 
         elif facet_action == "suggest_facet_types":
-            return await _suggest_facet_types_with_llm(context.current_entity_type, facet_types, message)
+            return await _suggest_facet_types_with_llm(db, context.current_entity_type, facet_types, message)
 
         else:
             return FacetManagementResponse(
@@ -247,11 +247,15 @@ async def _handle_assign_facet_type(
 
 
 async def _suggest_facet_types_with_llm(
-    current_entity_type: str, existing_facet_types: list[FacetType], user_message: str
+    db: AsyncSession,
+    current_entity_type: str,
+    existing_facet_types: list[FacetType],
+    user_message: str,
 ) -> tuple[FacetManagementResponse, list[SuggestedAction]]:
     """Use LLM to suggest new facet types based on context.
 
     Args:
+        db: Database session for LLM credentials
         current_entity_type: Current entity type slug
         existing_facet_types: Existing facet types
         user_message: User message for context
@@ -260,11 +264,15 @@ async def _suggest_facet_types_with_llm(
         Tuple of (response, suggested_actions)
 
     Raises:
-        ValueError: If Azure OpenAI not configured
+        ValueError: If LLM not configured
     """
-    client = get_openai_client()
-    if not client:
-        raise ValueError("KI-Service nicht erreichbar: Azure OpenAI ist nicht konfiguriert")
+    llm_service = LLMClientService(db)
+    client, config = await llm_service.get_system_client(LLMPurpose.ASSISTANT)
+    if not client or not config:
+        raise ValueError("KI-Service nicht erreichbar: LLM-Credentials nicht konfiguriert")
+
+    model_name = llm_service.get_model_name(config)
+    provider = llm_service.get_provider(config)
 
     existing_slugs = [ft.slug for ft in existing_facet_types]
 
@@ -289,8 +297,8 @@ Regeln:
 
     try:
         start_time = time.time()
-        response = client.chat.completions.create(
-            model=settings.azure_openai_deployment_name,
+        response = await client.chat.completions.create(
+            model=model_name,
             messages=[
                 {"role": "system", "content": "Du bist ein Datenmodellierungs-Experte. Antworte nur mit JSON."},
                 {"role": "user", "content": prompt},
@@ -302,8 +310,8 @@ Regeln:
 
         if response.usage:
             await record_llm_usage(
-                provider=LLMProvider.AZURE_OPENAI,
-                model=settings.azure_openai_deployment_name,
+                provider=provider,
+                model=model_name,
                 task_type=LLMTaskType.CHAT,
                 task_name="_suggest_facet_types_with_llm",
                 prompt_tokens=response.usage.prompt_tokens,

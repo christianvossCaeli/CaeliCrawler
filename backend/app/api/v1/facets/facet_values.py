@@ -139,6 +139,8 @@ async def list_facet_values(
             item.target_entity_slug = fv.target_entity.slug
             if fv.target_entity.entity_type:
                 item.target_entity_type_slug = fv.target_entity.entity_type.slug
+                item.target_entity_type_icon = fv.target_entity.entity_type.icon
+                item.target_entity_type_color = fv.target_entity.entity_type.color
         items.append(item)
 
     return FacetValueListResponse(

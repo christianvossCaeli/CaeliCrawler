@@ -456,18 +456,17 @@ async def create_source(
             )
 
     # Determine category IDs - support both legacy single and new multi-category
+    # Categories are now optional - sources without categories won't be crawled automatically
     category_ids = data.category_ids or []
     if data.category_id and data.category_id not in category_ids:
         category_ids.insert(0, data.category_id)
 
-    if not category_ids:
-        raise NotFoundError("Category", "No category specified")
-
     # Verify all categories exist (single query instead of N+1)
-    await verify_categories_exist(session, category_ids)
+    if category_ids:
+        await verify_categories_exist(session, category_ids)
 
-    # Primary category is the first one
-    primary_category_id = category_ids[0]
+    # Primary category is the first one (or None if no categories)
+    primary_category_id = category_ids[0] if category_ids else None
 
     # Check for duplicate URL (globally now, not per-category)
     existing = await session.execute(select(DataSource).where(DataSource.base_url == data.base_url))

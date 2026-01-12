@@ -49,8 +49,6 @@ from .interpreters import (
     # Plan interpreter
     call_claude_for_plan_mode_stream,
     detect_compound_query,
-    # Client
-    get_openai_client,
     interpret_plan_query,
     interpret_plan_query_stream,
     interpret_query,
@@ -88,8 +86,6 @@ __all__ = [
     "TypesCache",
     "_types_cache",
     "invalidate_types_cache",
-    # Client
-    "get_openai_client",
     # Sanitization
     "PROMPT_INJECTION_PATTERNS",
     "PROMPT_INJECTION_REGEX_PATTERNS",

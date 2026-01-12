@@ -2,6 +2,10 @@
   "sources": {
     "title": "Datenquellen",
     "subtitle": "Websites, APIs und RSS-Feeds als Datenquellen verwalten",
+    "info": {
+      "title": "Woher kommen Ihre Daten?",
+      "description": "Datenquellen sind die Websites, APIs oder RSS-Feeds, die CaeliCrawler regelmäßig nach neuen Dokumenten durchsucht. Jede Quelle muss mindestens einem Analysethema zugeordnet sein, damit die KI weiß, wonach sie suchen soll. Der Status (grün/gelb/rot) zeigt den Zustand der letzten Datenerfassung. Tipp: Nutzen Sie 'KI-Entdeckung', um automatisch relevante Quellen für ein Thema zu finden, oder importieren Sie mehrere Quellen gleichzeitig per CSV."
+    },
     "source": "Datenquelle",
     "sources": "Datenquellen",
     "tabs": {
@@ -47,6 +51,10 @@
       "quickAccess": "Schnellzugriff Kategorien",
       "selectCategory": "{name} auswählen ({count} Einträge)"
     },
+    "runningJobs": {
+      "active": "Datensammlung läuft | Datensammlungen laufen",
+      "viewAll": "Zur Übersicht"
+    },
     "status": {
       "active": "Aktiv",
       "pending": "Ausstehend",
@@ -61,6 +69,7 @@
       "apiEndpoint": "API-Endpunkt (optional)",
       "categories": "Kategorien",
       "categoriesHint": "Erste ausgewählte Kategorie ist die Primäre",
+      "noCategoryWarning": "Datenquellen ohne zugeordnetes Analysethema werden nicht automatisch gecrawlt. Sie können die Zuordnung später vornehmen.",
       "primaryCategory": "Primäre Kategorie-Details anzeigen",
       "maxDepth": "Maximale Tiefe",
       "maxPages": "Maximale Seiten",
@@ -154,6 +163,10 @@
     "dialog": {
       "edit": "Datenquelle bearbeiten",
       "create": "Neue Datenquelle",
+      "createInfo": {
+        "title": "Datenquelle einrichten",
+        "description": "Jede Datenquelle braucht eine URL und mindestens ein Analysethema. Im Tab 'Sammel-Einstellungen' können Sie URL-Filter setzen (Whitelist = nur diese URLs, Blacklist = diese URLs ignorieren) und die Crawl-Tiefe begrenzen. Tipp: Testen Sie mit geringer Tiefe (2-3), ob die Quelle funktioniert, bevor Sie tiefer crawlen."
+      },
       "bulkImport": "Massenimport",
       "delete": "Datenquelle löschen?",
       "deleteConfirm": "Möchten Sie \"{name}\" wirklich löschen?",
@@ -169,8 +182,8 @@
       "excludePatterns": "Ausgeschlossene URLs (Blacklist)",
       "aiPrompt": "KI-Extraktions-Anweisung",
       "languages": "Sprachen",
-      "active": "Aktiv",
-      "inactive": "Inaktiv"
+      "scheduled": "Geplant",
+      "manual": "Manuell"
     },
     "messages": {
       "created": "Datenquelle erfolgreich erstellt",
@@ -193,6 +206,10 @@
     "apiImport": {
       "title": "API Import",
       "subtitle": "Datenquellen von externen APIs importieren",
+      "info": {
+        "title": "Strukturierte Daten aus APIs",
+        "description": "Importieren Sie Datenquellen direkt von öffentlichen APIs. Wikidata (SPARQL) liefert strukturierte Daten aus der weltweit größten freien Wissensbasis. OParl-APIs bieten kommunale Daten (Ratsinformationen, Sitzungen). Für andere REST-APIs nutzen Sie die benutzerdefinierte Option. Tipp: Vorlagen speichern häufig genutzte API-Konfigurationen."
+      },
       "apiType": "API-Typ",
       "template": "Vorlage",
       "apiUrl": "API-URL",
@@ -208,6 +225,10 @@
       "importSuccess": "{count} Quellen erfolgreich importiert"
     },
     "bulk": {
+      "info": {
+        "title": "Viele Quellen auf einmal",
+        "description": "Importieren Sie bis zu 100 Datenquellen per CSV-Datei oder per Copy-Paste. Format: Name;URL;SourceType;Schlagwörter (Semikolon oder Komma als Trennzeichen). Standard-Schlagwörter werden automatisch allen Quellen zugewiesen. Tipp: Exportieren Sie eine bestehende Quelle als CSV, um das Format zu sehen."
+      },
       "defaultTags": "Standard-Schlagwörter",
       "defaultTagsHint": "Diese Schlagwörter werden auf alle importierten Quellen angewendet",
       "csvData": "CSV-Daten",
@@ -232,6 +253,10 @@
     "aiDiscovery": {
       "title": "KI-gesteuerte Suche",
       "subtitle": "Datenquellen automatisch aus dem Internet finden",
+      "info": {
+        "title": "So funktioniert die KI-Suche",
+        "description": "Beschreiben Sie, welche Daten Sie sammeln möchten - die KI durchsucht dann das Internet nach passenden Quellen. Drei Stufen: 'Schnell' findet nur bekannte APIs, 'Standard' sucht auch nach Websites, 'Tiefgehend' analysiert zusätzlich die Seitenstruktur. Gefundene API-Quellen (z.B. OParl) liefern strukturierte Daten und sind Web-Quellen vorzuziehen."
+      },
       "prompt": "Was möchten Sie finden?",
       "promptPlaceholder": "z.B. Alle deutschen Bundesliga-Fußballvereine",
       "examples": "Beispiele",

@@ -108,10 +108,10 @@ export const useCategoriesStore = defineStore('categories', () => {
   const hasCategories = computed(() => categories.value.length > 0)
 
   /**
-   * Get active categories only
+   * Get scheduled categories only (schedule_enabled = true)
    */
-  const activeCategories = computed(() =>
-    categories.value.filter((c) => c.is_active)
+  const scheduledCategories = computed(() =>
+    categories.value.filter((c) => c.schedule_enabled)
   )
 
   /**
@@ -139,12 +139,7 @@ export const useCategoriesStore = defineStore('categories', () => {
         page: params?.page ?? pagination.value.page,
         per_page: params?.per_page ?? pagination.value.perPage,
         search: filters.value.search || undefined,
-        is_active:
-          filters.value.status === 'active'
-            ? true
-            : filters.value.status === 'inactive'
-              ? false
-              : undefined,
+        scheduled_only: filters.value.scheduled === 'scheduled' ? true : undefined,
         ...params,
       }
 
@@ -398,7 +393,7 @@ export const useCategoriesStore = defineStore('categories', () => {
     // Getters
     getById,
     hasCategories,
-    activeCategories,
+    scheduledCategories,
     categoryOptions,
 
     // Actions

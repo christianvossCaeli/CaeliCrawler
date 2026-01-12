@@ -6,6 +6,10 @@
       icon="mdi-download"
     />
 
+    <PageInfoBox :storage-key="INFO_BOX_STORAGE_KEYS.EXPORT" :title="t('exportView.info.title')">
+      {{ t('exportView.info.description') }}
+    </PageInfoBox>
+
     <v-row>
       <v-col cols="12" md="7">
         <v-card class="mb-4">
@@ -354,6 +358,8 @@ import { de, enUS } from 'date-fns/locale'
 import { useSnackbar } from '@/composables/useSnackbar'
 import ExportProgressPanel from '@/components/export/ExportProgressPanel.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
+import PageInfoBox from '@/components/common/PageInfoBox.vue'
+import { INFO_BOX_STORAGE_KEYS } from '@/config/infoBox'
 import { useLogger } from '@/composables/useLogger'
 import { getErrorMessage } from '@/utils/errorMessage'
 import { useAuthStore } from '@/stores/auth'

@@ -12,18 +12,18 @@
       />
     </v-col>
     <v-col cols="12" md="6">
-      <v-card variant="outlined" class="pa-3 h-100 d-flex align-center justify-space-between">
+      <div class="d-flex align-center justify-space-between">
         <div>
-          <div class="text-body-2 font-weight-medium">{{ $t('categories.form.enabled') }}</div>
-          <div class="text-caption text-medium-emphasis">{{ $t('categories.form.enabledHint') }}</div>
+          <div class="text-body-2 font-weight-medium">{{ $t('categories.form.public') }}</div>
+          <div class="text-caption text-medium-emphasis">{{ $t('categories.form.publicHint') }}</div>
         </div>
         <v-switch
-          :model-value="formData.is_active"
-          color="success"
+          :model-value="formData.is_public"
+          color="primary"
           hide-details
-          @update:model-value="updateField('is_active', $event)"
+          @update:model-value="updateField('is_public', $event)"
         />
-      </v-card>
+      </div>
     </v-col>
   </v-row>
 

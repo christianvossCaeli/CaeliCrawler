@@ -1,6 +1,10 @@
 {
   "entities": {
     "title": "Datensätze",
+    "info": {
+      "title": "Ihre zentrale Datenbasis",
+      "description": "Datensätze sind die Kernobjekte Ihrer Analyse - z.B. Gemeinden, Organisationen, Personen oder Projekte. Jeder Datensatz sammelt automatisch Informationen aus verknüpften Datenquellen: Merkmale (wie Kontakte, Problemfelder), Dokumente und KI-extrahierte Ergebnisse. Wechseln Sie oben zwischen Datentypen (Tabs) und nutzen Sie Filter für gezielte Suchen. Tipp: Verknüpfen Sie Datenquellen direkt mit Datensätzen, um alle gefundenen Informationen automatisch zuzuordnen."
+    },
     "entity": "Datensatz",
     "entities": "Datensätze",
     "overview": "Übersicht",
@@ -53,6 +57,10 @@
     "loadError": "Fehler beim Laden der Daten",
     "deleteError": "Fehler beim Löschen",
     "extendedFilters": "Erweiterte Filter",
+    "extendedFiltersInfo": {
+      "title": "Gezielt filtern",
+      "description": "Kombinieren Sie Filter für präzise Ergebnisse: Standort-Filter grenzen geografisch ein, Wertebereich-Schieberegler filtern nach numerischen Eigenschaften (z.B. Einwohnerzahl, Gründungsjahr). Alle Filter werden mit UND verknüpft - je mehr Filter, desto enger das Ergebnis."
+    },
     "noFilterableAttributes": "Keine filterbaren Eigenschaften verfügbar",
     "location": "Standort",
     "country": "Land",
@@ -99,9 +107,14 @@
     "filters": {
       "search": "In Eigenschaften suchen...",
       "type": "Datentyp",
-      "facets": "Merkmale"
+      "facets": "Merkmale",
+      "ranges": "Wertebereiche"
     },
     "form": {
+      "info": {
+        "title": "Datensatz anlegen",
+        "description": "Erstellen Sie einen neuen Datensatz. Name und Datentyp sind Pflicht. Die externe ID ermöglicht die Verknüpfung mit externen Systemen (z.B. AGS für Gemeinden). Nach dem Anlegen können Sie Merkmale, Verknüpfungen und Datenquellen hinzufügen."
+      },
       "name": "Name",
       "externalId": "Externe ID",
       "type": "Datentyp",
@@ -109,6 +122,10 @@
     },
     "facet": {
       "title": "Merkmal hinzufügen",
+      "info": {
+        "title": "Informationen erfassen",
+        "description": "Merkmale speichern Informationen zu Datensätzen - wie Kontaktdaten, Problemfelder oder Termine. Wählen Sie einen Merkmalstyp und geben Sie den Wert ein. Optional: Quell-URL für die Herkunft und Zuverlässigkeit (0-100%) für KI-extrahierte Daten."
+      },
       "type": "Merkmalstyp",
       "value": "Wert / Beschreibung",
       "sourceUrl": "Quell-URL",
@@ -169,6 +186,42 @@
         "down": "Fallend",
         "stable": "Stabil"
       }
+    },
+    "bulkActions": {
+      "selected": "{count} ausgewählt",
+      "startCrawl": "Crawl starten",
+      "startCrawlFor": "Crawl für {count} ausgewählte Datensätze starten",
+      "clearSelection": "Auswahl aufheben",
+      "noSelection": "Bitte wählen Sie mindestens einen Datensatz aus",
+      "toolbarLabel": "Massenaktionen für ausgewählte Datensätze"
+    },
+    "crawlDialog": {
+      "title": "Crawl für Datensätze starten",
+      "entitiesSelected": "Datensätze ausgewählt",
+      "selectCategory": "Analysethema auswählen",
+      "categoryRequired": "Bitte wählen Sie ein Analysethema",
+      "sourcesFound": "DataSources gefunden",
+      "noSourcesFound": "Keine DataSources für die ausgewählten Datensätze gefunden",
+      "entitiesWithoutSources": "{count} Datensätze haben keine zugeordneten Quellen",
+      "saveAsPreset": "Als Crawl-Preset speichern",
+      "presetName": "Preset-Name",
+      "presetNameRequired": "Bitte geben Sie einen Namen ein",
+      "selectionMode": "Speichermodus",
+      "fixedIds": "Feste IDs",
+      "dynamicFilter": "Dynamischer Filter",
+      "fixedIdsHint": "Die konkreten Datensatz-IDs werden gespeichert. Neue Datensätze werden nicht automatisch einbezogen.",
+      "dynamicFilterHint": "Die Filterkriterien werden gespeichert. Bei jeder Ausführung werden die aktuellen Datensätze ermittelt.",
+      "startCrawl": "Crawl starten",
+      "error": "Fehler beim Starten des Crawls"
+    },
+    "selector": {
+      "selected": "{count} Datensätze ausgewählt",
+      "search": "Suchen...",
+      "entityType": "Datentyp",
+      "noEntities": "Keine Datensätze gefunden",
+      "clearAll": "Alle entfernen",
+      "total": "{count} Datensätze gesamt",
+      "loadError": "Fehler beim Laden der Datensätze"
     }
   },
   "entityTypes": {
@@ -364,6 +417,10 @@
       "saveNote": "Notiz speichern",
       "deleteNote": "Notiz löschen?",
       "addRelation": "Verknüpfung hinzufügen",
+      "relationInfo": {
+        "title": "Datensätze vernetzen",
+        "description": "Verknüpfungen verbinden Datensätze untereinander - z.B. 'Person ist Bürgermeister von Gemeinde' oder 'Organisation ist Partner von Organisation'. Wählen Sie den Typ und die Richtung der Beziehung. Optionale Eigenschaften (JSON) speichern Details wie Zeiträume."
+      },
       "editRelation": "Verknüpfung bearbeiten",
       "deleteRelation": "Verknüpfung löschen?",
       "deleteRelationConfirm": "Möchten Sie diese Verknüpfung wirklich löschen?",

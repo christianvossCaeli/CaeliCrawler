@@ -38,7 +38,6 @@ from services.assistant.common import (
     build_suggestions_list,
     format_count_message,
     get_entity_with_context,
-    get_openai_client,
     validate_entity_context,
 )
 
@@ -119,7 +118,6 @@ __all__ = [
     "safe_json_loads",
     "format_entity_summary",
     # Common
-    "get_openai_client",
     "validate_entity_context",
     "build_suggestions_list",
     "format_count_message",

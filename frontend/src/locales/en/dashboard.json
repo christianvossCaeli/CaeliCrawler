@@ -2,6 +2,10 @@
   "dashboard": {
     "title": "Dashboard",
     "subtitle": "Current statistics and activities at a glance",
+    "info": {
+      "title": "Your Control Center",
+      "description": "The dashboard gives you a quick overview of your data collection status. At a glance you see: How many entities and documents exist, which crawl jobs are running, and whether new information was extracted. Click 'Customize' to add, remove, or drag-and-drop widgets. The quick-start bar at the bottom launches frequently used crawl presets with one click."
+    },
     "loading": "Loading dashboard...",
     "welcome": "Welcome back",
     "customize": "Customize",

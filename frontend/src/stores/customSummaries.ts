@@ -21,7 +21,7 @@ const logger = useLogger('CustomSummariesStore')
 // --- Types ---
 
 export type SummaryStatus = 'DRAFT' | 'ACTIVE' | 'PAUSED' | 'ARCHIVED'
-export type SummaryTriggerType = 'MANUAL' | 'CRON' | 'CRAWL_CATEGORY' | 'CRAWL_PRESET'
+export type SummaryTriggerType = 'MANUAL' | 'CRON' | 'CRAWL_CATEGORY' | 'CRAWL_PRESET' | 'AUTO'
 export type SummaryWidgetType = 'table' | 'bar_chart' | 'line_chart' | 'pie_chart' | 'stat_card' | 'text' | 'comparison' | 'timeline' | 'map'
 export type ExecutionStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'SKIPPED'
 export type CheckUpdatesStatus = 'pending' | 'crawling' | 'updating' | 'completed' | 'failed'
@@ -118,6 +118,9 @@ export interface CustomSummary {
   schedule_cron?: string | null
   trigger_category_id?: string | null
   trigger_preset_id?: string | null
+  // AUTO trigger fields
+  auto_trigger_entity_types: string[]
+  last_auto_trigger_reason?: string | null
   schedule_enabled: boolean
   next_run_at?: string | null
   check_relevance: boolean

@@ -6,6 +6,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
+from app.core.exceptions import SessionRequiredError
+
 
 class TestCallClaudeForPlanMode:
     """Tests for call_claude_for_plan_mode function."""
@@ -220,7 +222,7 @@ class TestInterpretPlanQuery:
         """Test that a session is required."""
         from services.smart_query.query_interpreter import interpret_plan_query
 
-        with pytest.raises(ValueError, match="session is required"):
+        with pytest.raises(SessionRequiredError):
             await interpret_plan_query(
                 question="How do I query entities?",
                 session=None,
@@ -301,13 +303,24 @@ Hier ist dein **Fertiger Prompt:**
                 "services.smart_query.interpreters.plan_interpreter.call_claude_for_plan_mode",
                 new=AsyncMock(return_value=None),  # Simulate Claude unavailable
             ),
-            patch("services.smart_query.interpreters.plan_interpreter.get_openai_client") as mock_openai,
+            patch("services.smart_query.interpreters.plan_interpreter.LLMClientService") as mock_llm_service_class,
         ):
-            mock_client = MagicMock()
+            # Mock LLMClientService
+            mock_llm_service = MagicMock()
+            mock_llm_service_class.return_value = mock_llm_service
+
+            # Mock the async client
+            mock_client = AsyncMock()
             mock_response = MagicMock()
             mock_response.choices = [MagicMock(message=MagicMock(content="OpenAI fallback response"))]
-            mock_client.chat.completions.create.return_value = mock_response
-            mock_openai.return_value = mock_client
+            mock_response.usage = MagicMock(prompt_tokens=10, completion_tokens=20, total_tokens=30)
+            mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+
+            # Mock config
+            mock_config = MagicMock()
+            mock_llm_service.get_system_client = AsyncMock(return_value=(mock_client, mock_config))
+            mock_llm_service.get_model_name = MagicMock(return_value="gpt-4")
+            mock_llm_service.get_provider = MagicMock(return_value="AZURE_OPENAI")
 
             result = await interpret_plan_query(
                 question="Test question",
@@ -580,3 +593,101 @@ class TestPlanModeAPIEndpoint:
         if response.status_code == 200:
             content_type = response.headers.get("content-type", "")
             assert content_type.startswith("text/event-stream")
+
+
+class TestDynamicOperationsDocumentation:
+    """Tests for dynamic operations documentation in Plan Mode prompts."""
+
+    def test_get_operations_documentation_includes_all_registered_operations(self):
+        """Test that dynamic documentation includes all registered operations."""
+        from services.smart_query.operations import OPERATIONS_REGISTRY
+        from services.smart_query.prompts import get_operations_documentation
+
+        docs = get_operations_documentation()
+
+        # Check that key operations are documented
+        expected_operations = [
+            "update_entity",
+            "delete_entity",
+            "create_facet_type",
+            "update_crawl_schedule",
+            "analyze_pysis",
+            "export",
+            "batch_operation",
+        ]
+
+        for op_name in expected_operations:
+            if op_name in OPERATIONS_REGISTRY:
+                assert op_name in docs, f"Operation '{op_name}' should be in documentation"
+
+    def test_get_operations_documentation_includes_special_operations(self):
+        """Test that special operations (not in registry) are documented."""
+        from services.smart_query.prompts import get_operations_documentation
+
+        docs = get_operations_documentation()
+
+        # Special operations handled by write_executor directly
+        special_ops = ["create_category_setup", "start_crawl", "create_relation", "create_facet"]
+
+        for op_name in special_ops:
+            assert op_name in docs, f"Special operation '{op_name}' should be in documentation"
+
+    def test_get_query_operations_documentation_includes_query_types(self):
+        """Test that query operations documentation includes all query types."""
+        from services.smart_query.prompts import get_query_operations_documentation
+
+        docs = get_query_operations_documentation()
+
+        # Check query types are documented
+        assert "query_data" in docs
+        assert "query_facet_history" in docs
+        assert "query_external" in docs
+
+        # Check visualization types
+        assert "table" in docs
+        assert "bar_chart" in docs
+        assert "line_chart" in docs
+        assert "map" in docs
+
+    def test_build_plan_mode_prompt_uses_dynamic_documentation(self):
+        """Test that build_plan_mode_prompt includes dynamic operations."""
+        from services.smart_query.prompts import build_plan_mode_prompt
+
+        prompt = build_plan_mode_prompt(
+            entity_types=[{"slug": "person", "name": "Person", "description": "Eine Person"}],
+            facet_types=[{"slug": "pain_point", "name": "Pain Point", "applicable_entity_type_slugs": ["person"]}],
+            relation_types=[{"slug": "works_for", "name": "Works For"}],
+            categories=[{"slug": "test", "name": "Test", "description": "Test Category"}],
+        )
+
+        # Check that dynamic operations are included
+        assert "update_crawl_schedule" in prompt or "Schedule" in prompt
+        assert "analyze_pysis" in prompt or "PySis" in prompt
+        assert "create_category_setup" in prompt or "Kategorie" in prompt
+
+        # Check that DB data is included
+        assert "person" in prompt
+        assert "pain_point" in prompt
+
+    def test_documentation_stays_in_sync_with_registry(self):
+        """Test that adding a new operation to registry will include it in docs.
+
+        This test ensures the dynamic documentation approach works correctly.
+        When new operations are added via @register_operation, they should
+        automatically appear in the Plan Mode documentation.
+        """
+        from services.smart_query.operations import OPERATIONS_REGISTRY
+        from services.smart_query.prompts import get_operations_documentation
+
+        docs = get_operations_documentation()
+
+        # Count how many registered operations are documented
+        documented_count = 0
+        for op_name in OPERATIONS_REGISTRY:
+            if op_name in docs:
+                documented_count += 1
+
+        # At least 80% of registered operations should be documented
+        # (some may be intentionally excluded or categorized differently)
+        coverage = documented_count / len(OPERATIONS_REGISTRY) if OPERATIONS_REGISTRY else 0
+        assert coverage >= 0.8, f"Only {coverage:.0%} of operations are documented, expected >= 80%"

@@ -7,7 +7,7 @@ import structlog
 from sqlalchemy import Float, cast, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Category, DataSource, DataSourceCategory, Entity
+from app.models import Category, DataSource, DataSourceCategory, Document, Entity, ExtractedData, FacetValue
 from app.models.data_source import SourceStatus
 from services.smart_query.constants import TAG_ALIASES
 
@@ -20,6 +20,119 @@ def expand_tag(tag: str) -> list[str]:
     if tag_lower in TAG_ALIASES:
         return TAG_ALIASES[tag_lower]
     return [tag_lower]
+
+
+async def find_sources_for_entities(
+    session: AsyncSession,
+    entity_ids: list[UUID],
+    category_id: UUID | None = None,
+) -> tuple[list[DataSource], int]:
+    """Find DataSources that belong to the given entities.
+
+    The connection is via:
+    1. Direct link: DataSource.extra_data['entity_ids'] contains entity_id
+    2. Direct link (legacy): DataSource.extra_data['entity_id'] = entity_id
+    3. Indirect: FacetValue.entity_id -> Document -> DataSource
+
+    Args:
+        session: Database session
+        entity_ids: List of entity IDs to find sources for
+        category_id: Optional category filter (only sources in this category)
+
+    Returns:
+        Tuple of (list of matching DataSources, count of entities without sources)
+    """
+    if not entity_ids:
+        return [], 0
+
+    logger.info(
+        "Finding sources for entities",
+        entity_count=len(entity_ids),
+        category_id=str(category_id) if category_id else None,
+    )
+
+    all_source_ids: set[UUID] = set()
+    entities_with_sources: set[UUID] = set()
+
+    # Convert to strings for JSONB comparison
+    entity_id_strs = [str(eid) for eid in entity_ids]
+
+    # Path 1a: Direct link via extra_data['entity_id'] (legacy single value)
+    for entity_id, entity_id_str in zip(entity_ids, entity_id_strs):
+        legacy_query = select(DataSource.id).where(
+            DataSource.extra_data["entity_id"].astext == entity_id_str
+        )
+        if category_id:
+            legacy_query = legacy_query.join(
+                DataSourceCategory, DataSource.id == DataSourceCategory.data_source_id
+            ).where(DataSourceCategory.category_id == category_id)
+
+        result = await session.execute(legacy_query)
+        for row in result.fetchall():
+            all_source_ids.add(row[0])
+            entities_with_sources.add(entity_id)
+
+    # Path 1b: Direct link via extra_data['entity_ids'] (N:M array)
+    for entity_id, entity_id_str in zip(entity_ids, entity_id_strs):
+        array_query = select(DataSource.id).where(
+            DataSource.extra_data["entity_ids"].contains([entity_id_str])
+        )
+        if category_id:
+            array_query = array_query.join(
+                DataSourceCategory, DataSource.id == DataSourceCategory.data_source_id
+            ).where(DataSourceCategory.category_id == category_id)
+
+        result = await session.execute(array_query)
+        for row in result.fetchall():
+            all_source_ids.add(row[0])
+            entities_with_sources.add(entity_id)
+
+    # Path 2: Indirect via FacetValue -> Document -> DataSource
+    facet_query = (
+        select(FacetValue.entity_id, Document.source_id)
+        .join(Document, FacetValue.source_document_id == Document.id)
+        .where(
+            FacetValue.entity_id.in_(entity_ids),
+            FacetValue.source_document_id.isnot(None),
+            Document.source_id.isnot(None),
+        )
+        .distinct()
+    )
+    if category_id:
+        facet_query = facet_query.join(
+            DataSourceCategory, Document.source_id == DataSourceCategory.data_source_id
+        ).where(DataSourceCategory.category_id == category_id)
+
+    result = await session.execute(facet_query)
+    for row in result.fetchall():
+        entity_id_from_facet, source_id = row
+        all_source_ids.add(source_id)
+        entities_with_sources.add(entity_id_from_facet)
+
+    if not all_source_ids:
+        logger.info(
+            "No sources found for entities",
+            entity_count=len(entity_ids),
+        )
+        return [], len(entity_ids)
+
+    # Load DataSources (exclude ERROR status)
+    sources_query = select(DataSource).where(
+        DataSource.id.in_(all_source_ids),
+        DataSource.status != SourceStatus.ERROR,
+    )
+    result = await session.execute(sources_query)
+    sources = list(result.scalars().all())
+
+    entities_without_sources = len(entity_ids) - len(entities_with_sources)
+
+    logger.info(
+        "Found sources for entities",
+        sources_count=len(sources),
+        entities_without_sources=entities_without_sources,
+    )
+
+    return sources, entities_without_sources
 
 
 async def find_matching_data_sources(
@@ -200,6 +313,9 @@ async def find_sources_for_crawl(
     entity_filters = crawl_data.get("entity_filters", {})
     source_types = crawl_data.get("source_type", [])
 
+    # Entity-based selection (NEW - Strategy 10)
+    entity_ids = crawl_data.get("entity_ids", [])
+
     # Build base query - exclude ERROR sources by default unless explicitly filtered
     query = select(DataSource) if status_filter else select(DataSource).where(DataSource.status != SourceStatus.ERROR)
     conditions = []
@@ -209,6 +325,24 @@ async def find_sources_for_crawl(
         query = query.where(DataSource.id.in_([UUID(sid) for sid in source_ids]))
         result = await session.execute(query.limit(limit))
         return list(result.scalars().all())
+
+    # Strategy 10: Explicit entity IDs (uses find_sources_for_entities, returns immediately)
+    if entity_ids:
+        # Convert to UUIDs if strings
+        uuid_entity_ids = [UUID(eid) if isinstance(eid, str) else eid for eid in entity_ids]
+
+        # Resolve category_id if needed
+        resolved_cat_id = None
+        if category_slug:
+            cat_result = await session.execute(select(Category).where(Category.slug == category_slug))
+            category = cat_result.scalar_one_or_none()
+            if category:
+                resolved_cat_id = category.id
+        elif category_id:
+            resolved_cat_id = UUID(category_id) if isinstance(category_id, str) else category_id
+
+        sources, _ = await find_sources_for_entities(session, uuid_entity_ids, resolved_cat_id)
+        return sources[:limit]
 
     # Strategy 2: Category filter (by slug or UUID)
     resolved_category_id = None
@@ -386,6 +520,7 @@ async def start_crawl_jobs(
     session: AsyncSession,
     sources: list[DataSource],
     force: bool = False,
+    category_id: UUID | None = None,
 ) -> list[str]:
     """Start crawl jobs for a list of data sources.
 
@@ -393,6 +528,8 @@ async def start_crawl_jobs(
         session: Database session
         sources: List of DataSource objects to crawl
         force: If True, force crawl even if recently crawled
+        category_id: If provided, only crawl for this specific category.
+                     If None, crawl for all categories the source belongs to.
 
     Returns:
         List of created job IDs
@@ -402,15 +539,20 @@ async def start_crawl_jobs(
     job_ids: list[str] = []
 
     for source in sources:
-        # Get all categories for this source
-        cat_result = await session.execute(
-            select(DataSourceCategory.category_id).where(DataSourceCategory.data_source_id == source.id)
-        )
-        category_ids = [row[0] for row in cat_result.fetchall()]
+        # Determine which categories to crawl
+        if category_id:
+            # Only crawl for the specified category
+            category_ids = [category_id]
+        else:
+            # Get all categories for this source (legacy behavior)
+            cat_result = await session.execute(
+                select(DataSourceCategory.category_id).where(DataSourceCategory.data_source_id == source.id)
+            )
+            category_ids = [row[0] for row in cat_result.fetchall()]
 
-        # Also include legacy category_id if set
-        if source.category_id and source.category_id not in category_ids:
-            category_ids.append(source.category_id)
+            # Also include legacy category_id if set
+            if source.category_id and source.category_id not in category_ids:
+                category_ids.append(source.category_id)
 
         if not category_ids:
             logger.warning(

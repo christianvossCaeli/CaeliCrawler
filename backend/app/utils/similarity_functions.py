@@ -112,9 +112,9 @@ async def find_similar_entities(
     if not name or len(name) < 2:
         return []
 
-    # If no embedding provided, generate one
+    # If no embedding provided, generate one using DB credentials
     if embedding is None:
-        embedding = await generate_embedding(name)
+        embedding = await generate_embedding(name, session=session)
 
     if embedding is None:
         logger.warning("Could not generate embedding for similarity search", name=name)
@@ -595,7 +595,7 @@ async def update_entity_embedding(
     embedding: list[float] | None = None,
     name: str | None = None,
 ) -> bool:
-    """Update an entity's name embedding."""
+    """Update an entity's name embedding using DB-stored credentials."""
     from app.models import Entity
 
     try:
@@ -605,7 +605,8 @@ async def update_entity_embedding(
 
         if embedding is None:
             name_to_embed = name or entity.name
-            embedding = await generate_embedding(name_to_embed)
+            # Pass session to use DB credentials instead of environment variables
+            embedding = await generate_embedding(name_to_embed, session=session)
 
         if embedding is None:
             return False
@@ -1000,15 +1001,22 @@ def _normalize_type_name(name: str) -> str:
 _hierarchy_mapping_cache: TTLCache[dict | None] = TTLCache(default_ttl=1800, max_size=200)
 
 
-async def get_hierarchy_mapping_async(name: str) -> dict | None:
+async def get_hierarchy_mapping_async(
+    name: str,
+    session: "AsyncSession | None" = None,
+) -> dict | None:
     """
     Check if a name represents a territorial/geographic hierarchy level using AI.
 
     Returns a dict with parent_type_slug, hierarchy_level, and level_name
     if the term represents a territorial concept, otherwise None.
+
+    Args:
+        name: The term to classify
+        session: Database session for loading LLM credentials
     """
-    from app.config import settings
-    from services.ai_client import AzureOpenAIClientFactory
+    from app.models.user_api_credentials import LLMPurpose
+    from services.llm_client_service import LLMClientService
 
     if not name or len(name) < 2:
         return None
@@ -1020,13 +1028,25 @@ async def get_hierarchy_mapping_async(name: str) -> dict | None:
     if cached is not None:
         return cached if cached != "__NOT_TERRITORIAL__" else None
 
+    # Session is required for LLM access
+    if not session:
+        logger.debug("get_hierarchy_mapping_async: No session provided, skipping AI classification")
+        return None
+
     start_time = time.time()
 
     try:
-        client = AzureOpenAIClientFactory.create_client()
+        llm_service = LLMClientService(session)
+        client, config = await llm_service.get_system_client(LLMPurpose.DOCUMENT_ANALYSIS)
+
+        if not client or not config:
+            logger.warning("No LLM credentials configured for hierarchy mapping")
+            return None
+
+        model_name = llm_service.get_model_name(config)
 
         response = await client.chat.completions.create(
-            model=settings.azure_openai_deployment_name,
+            model=model_name,
             messages=[
                 {
                     "role": "system",
@@ -1055,7 +1075,7 @@ Respond ONLY with valid JSON, nothing else.""",
         if response.usage:
             await record_llm_usage(
                 provider=LLMProvider.AZURE_OPENAI,
-                model=settings.azure_openai_deployment_name,
+                model=model_name,
                 task_type=LLMTaskType.CLASSIFY,
                 task_name="get_hierarchy_mapping",
                 prompt_tokens=response.usage.prompt_tokens,
@@ -1094,7 +1114,7 @@ Respond ONLY with valid JSON, nothing else.""",
         # Track error
         await record_llm_usage(
             provider=LLMProvider.AZURE_OPENAI,
-            model=settings.azure_openai_deployment_name,
+            model="unknown",
             task_type=LLMTaskType.CLASSIFY,
             task_name="get_hierarchy_mapping",
             prompt_tokens=0,
@@ -1112,24 +1132,17 @@ def get_hierarchy_mapping(name: str) -> dict | None:
     """
     Check if a name maps to a hierarchy level of an existing EntityType.
 
-    Synchronous wrapper for get_hierarchy_mapping_async.
-    Note: If called from an async context, returns None.
-    In async code, use get_hierarchy_mapping_async() directly.
-    """
-    import asyncio
+    DEPRECATED: This sync wrapper cannot access database credentials.
+    Use get_hierarchy_mapping_async() with a session in async code.
 
-    try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            logger.debug(
-                "get_hierarchy_mapping_sync_in_async_context",
-                name=name,
-                hint="Use get_hierarchy_mapping_async() in async code",
-            )
-            return None
-        return loop.run_until_complete(get_hierarchy_mapping_async(name))
-    except RuntimeError:
-        return asyncio.run(get_hierarchy_mapping_async(name))
+    Returns None since LLM access requires a database session.
+    """
+    logger.debug(
+        "get_hierarchy_mapping_sync_deprecated",
+        name=name,
+        hint="Use get_hierarchy_mapping_async(name, session) in async code",
+    )
+    return None
 
 
 # =============================================================================

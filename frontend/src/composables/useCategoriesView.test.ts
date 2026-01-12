@@ -117,7 +117,6 @@ const mockCategory: CategoryResponse = {
   slug: 'test-category',
   purpose: 'Testing purposes',
   description: 'A test category',
-  is_active: true,
   is_public: false,
   languages: ['de', 'en'],
   search_terms: ['test'],

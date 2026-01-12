@@ -5,7 +5,7 @@ format based on data characteristics and user intent.
 
 Best Practices Applied:
 - Single Responsibility: Each method handles one concern
-- Dependency Injection: OpenAI client is injected via get_openai_client()
+- Dependency Injection: LLM client is obtained via LLMClientService
 - Fail-Safe Defaults: Falls back to table visualization on errors
 - Comprehensive Logging: All decisions are logged for debugging
 - Caching: LRU cache for AI responses to reduce API calls
@@ -14,13 +14,13 @@ Best Practices Applied:
 import hashlib
 import json
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
-from app.config import settings
 from app.core.cache import TTLCache
 from app.models.llm_usage import LLMProvider, LLMTaskType
+from app.models.user_api_credentials import LLMPurpose
 from app.schemas.visualization import (
     ChartAxis,
     ChartSeries,
@@ -30,10 +30,13 @@ from app.schemas.visualization import (
     VisualizationConfig,
     VisualizationType,
 )
+from services.llm_client_service import LLMClientService
 from services.llm_usage_tracker import record_llm_usage
 
-from .query_interpreter import get_openai_client
 from .utils import clean_json_response
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = structlog.get_logger()
 
@@ -191,8 +194,8 @@ Antworte NUR mit validem JSON."""
 class VisualizationSelector:
     """AI-powered visualization selector for Smart Query results."""
 
-    def __init__(self):
-        pass
+    def __init__(self, session: "AsyncSession | None" = None):
+        self.session = session
 
     async def select_visualization(
         self,
@@ -407,7 +410,17 @@ class VisualizationSelector:
                 logger.debug("Cache hit for visualization selection", cache_key=cache_key[:8])
                 return cached
 
-        client = get_openai_client()
+        if not self.session:
+            raise ValueError("Database session required for AI visualization selection")
+
+        # Get LLM client
+        llm_service = LLMClientService(self.session)
+        client, config = await llm_service.get_system_client(LLMPurpose.DOCUMENT_ANALYSIS)
+        if not client or not config:
+            raise ValueError("No LLM credentials configured")
+
+        model_name = llm_service.get_model_name(config)
+        provider = llm_service.get_provider(config)
 
         # Build data sample
         sample_data = data[:3] if len(data) >= 3 else data
@@ -426,8 +439,8 @@ class VisualizationSelector:
         )
 
         start_time = time.time()
-        response = client.chat.completions.create(
-            model=settings.azure_openai_deployment_name,
+        response = await client.chat.completions.create(
+            model=model_name,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
             max_tokens=1000,
@@ -435,8 +448,8 @@ class VisualizationSelector:
 
         if response.usage:
             await record_llm_usage(
-                provider=LLMProvider.AZURE_OPENAI,
-                model=settings.azure_openai_deployment_name,
+                provider=provider,
+                model=model_name,
                 task_type=LLMTaskType.CHAT,
                 task_name="_ai_select",
                 prompt_tokens=response.usage.prompt_tokens,

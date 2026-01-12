@@ -43,6 +43,11 @@
       </template>
     </PageHeader>
 
+    <!-- Info Box -->
+    <PageInfoBox :storage-key="INFO_BOX_STORAGE_KEYS.CRAWLER" :title="$t('crawler.info.title')">
+      {{ $t('crawler.info.description') }}
+    </PageInfoBox>
+
     <!-- Presets Drawer -->
     <v-navigation-drawer
       v-model="presetsDrawer"
@@ -252,11 +257,24 @@
               color="error"
               variant="tonal"
               size="small"
-              :loading="bulkActionLoading"
+              :loading="cleanupFailedLoading"
+              :disabled="cleanupCancelledLoading"
               prepend-icon="mdi-broom"
               @click="cleanupFailedJobs"
             >
               {{ $t('crawler.cleanupFailed', { count: stats.failed_jobs }) }}
+            </v-btn>
+            <v-btn
+              v-if="stats.cancelled_jobs > 0"
+              color="warning"
+              variant="tonal"
+              size="small"
+              :loading="cleanupCancelledLoading"
+              :disabled="cleanupFailedLoading"
+              prepend-icon="mdi-broom"
+              @click="cleanupCancelledJobs"
+            >
+              {{ $t('crawler.cleanupCancelled', { count: stats.cancelled_jobs }) }}
             </v-btn>
           </v-col>
           <v-col cols="auto">
@@ -265,6 +283,7 @@
               <v-btn value="RUNNING">{{ $t('crawler.running') }}</v-btn>
               <v-btn value="COMPLETED">{{ $t('crawler.completed') }}</v-btn>
               <v-btn value="FAILED">{{ $t('crawler.failed') }}</v-btn>
+              <v-btn value="CANCELLED">{{ $t('crawler.cancelled') }}</v-btn>
             </v-btn-toggle>
           </v-col>
         </v-row>
@@ -553,7 +572,8 @@ import { useCrawlerAdmin } from '@/composables/useCrawlerAdmin'
 import { usePageContextProvider, PAGE_FEATURES, PAGE_ACTIONS } from '@/composables/usePageContext'
 import type { PageContextData, CrawlJobSummary } from '@/composables/assistant/types'
 import CrawlPresetsTab from '@/components/crawler/CrawlPresetsTab.vue'
-import { PageHeader, EmptyState } from '@/components/common'
+import { PageHeader, EmptyState, PageInfoBox } from '@/components/common'
+import { INFO_BOX_STORAGE_KEYS } from '@/config/infoBox'
 import { DIALOG_SIZES } from '@/config/ui'
 
 // Initialize composable with all state and methods
@@ -576,6 +596,8 @@ const {
   status,
   stats,
   bulkActionLoading,
+  cleanupFailedLoading,
+  cleanupCancelledLoading,
 
   // Computed
   headers,
@@ -613,6 +635,7 @@ const {
   bulkRetryJobs,
   bulkDeleteJobs,
   cleanupFailedJobs,
+  cleanupCancelledJobs,
 
   // Confirmation
   executeConfirmedAction,

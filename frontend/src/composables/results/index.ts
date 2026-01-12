@@ -61,6 +61,7 @@ export { useResultsState } from './useResultsState'
 export { useResultsFilters } from './useResultsFilters'
 export { useResultsActions } from './useResultsActions'
 export { useResultsHelpers } from './useResultsHelpers'
+export { useResultFacets, type FacetGroup, type ResultFacetsState } from './useResultFacets'
 
 // =============================================================================
 // Main Composable

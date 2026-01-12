@@ -13,13 +13,37 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { notificationApi } from '@/services/api'
 import { useLogger } from '@/composables/useLogger'
-import { getErrorMessage } from '@/utils/errorMessage'
 import { useAuthStore } from './auth'
 
 const logger = useLogger('NotificationsStore')
 
 // SSE polling fallback interval (ms)
 const POLLING_INTERVAL = 30000
+
+// Error code constants for i18n translation in components
+export const NotificationErrorCodes = {
+  LOAD_NOTIFICATIONS: 'loadNotifications',
+  MARK_AS_READ: 'markAsRead',
+  MARK_ALL_AS_READ: 'markAllAsRead',
+  LOAD_RULES: 'loadRules',
+  CREATE_RULE: 'createRule',
+  UPDATE_RULE: 'updateRule',
+  DELETE_RULE: 'deleteRule',
+  LOAD_EMAIL_ADDRESSES: 'loadEmailAddresses',
+  ADD_EMAIL_ADDRESS: 'addEmailAddress',
+  DELETE_EMAIL_ADDRESS: 'deleteEmailAddress',
+  UPDATE_PREFERENCES: 'updatePreferences',
+  TEST_WEBHOOK: 'testWebhook',
+  DELETE_NOTIFICATION: 'deleteNotification',
+  RESEND_VERIFICATION: 'resendVerification',
+} as const
+
+export type NotificationErrorCode = typeof NotificationErrorCodes[keyof typeof NotificationErrorCodes]
+
+export interface StoreError {
+  code: NotificationErrorCode
+  originalError?: unknown
+}
 
 // Types
 export interface Notification {
@@ -114,7 +138,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
   })
   const unreadCount = ref(0)
   const loading = ref(false)
-  const error = ref<string | null>(null)
+  const error = ref<StoreError | null>(null)
 
   // Pagination
   const totalNotifications = ref(0)
@@ -156,7 +180,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
       currentPage.value = response.data.page
       perPage.value = response.data.per_page
     } catch (e: unknown) {
-      error.value = getErrorMessage(e) || 'Fehler beim Laden der Benachrichtigungen'
+      error.value = { code: NotificationErrorCodes.LOAD_NOTIFICATIONS, originalError: e }
       throw e
     } finally {
       loading.value = false
@@ -188,7 +212,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
         if (unreadCount.value > 0) unreadCount.value--
       }
     } catch (e: unknown) {
-      error.value = getErrorMessage(e) || 'Fehler beim Markieren als gelesen'
+      error.value = { code: NotificationErrorCodes.MARK_AS_READ, originalError: e }
       throw e
     }
   }
@@ -207,7 +231,31 @@ export const useNotificationsStore = defineStore('notifications', () => {
       })
       unreadCount.value = 0
     } catch (e: unknown) {
-      error.value = getErrorMessage(e) || 'Fehler beim Markieren aller als gelesen'
+      error.value = { code: NotificationErrorCodes.MARK_ALL_AS_READ, originalError: e }
+      throw e
+    }
+  }
+
+  /**
+   * Mark multiple notifications as read (batch operation)
+   */
+  async function bulkMarkAsRead(ids: string[]): Promise<void> {
+    try {
+      await notificationApi.bulkMarkAsRead(ids)
+      const now = new Date().toISOString()
+      let markedCount = 0
+      notifications.value.forEach((n) => {
+        if (ids.includes(n.id) && !n.read_at) {
+          n.read_at = now
+          n.status = 'READ'
+          markedCount++
+        }
+      })
+      if (markedCount > 0) {
+        unreadCount.value = Math.max(0, unreadCount.value - markedCount)
+      }
+    } catch (e: unknown) {
+      error.value = { code: NotificationErrorCodes.MARK_AS_READ, originalError: e }
       throw e
     }
   }
@@ -226,7 +274,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
       const response = await notificationApi.getRules()
       rules.value = response.data
     } catch (e: unknown) {
-      error.value = getErrorMessage(e) || 'Fehler beim Laden der Regeln'
+      error.value = { code: NotificationErrorCodes.LOAD_RULES, originalError: e }
       throw e
     } finally {
       loading.value = false
@@ -243,7 +291,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
       rules.value.unshift(response.data)
       return response.data
     } catch (e: unknown) {
-      error.value = getErrorMessage(e) || 'Fehler beim Erstellen der Regel'
+      error.value = { code: NotificationErrorCodes.CREATE_RULE, originalError: e }
       throw e
     } finally {
       loading.value = false
@@ -263,7 +311,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
       }
       return response.data
     } catch (e: unknown) {
-      error.value = getErrorMessage(e) || 'Fehler beim Aktualisieren der Regel'
+      error.value = { code: NotificationErrorCodes.UPDATE_RULE, originalError: e }
       throw e
     } finally {
       loading.value = false
@@ -278,7 +326,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
       await notificationApi.deleteRule(id)
       rules.value = rules.value.filter((r) => r.id !== id)
     } catch (e: unknown) {
-      error.value = getErrorMessage(e) || 'Fehler beim Löschen der Regel'
+      error.value = { code: NotificationErrorCodes.DELETE_RULE, originalError: e }
       throw e
     }
   }
@@ -302,7 +350,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
       const response = await notificationApi.getEmailAddresses()
       emailAddresses.value = response.data
     } catch (e: unknown) {
-      error.value = getErrorMessage(e) || 'Fehler beim Laden der Email-Adressen'
+      error.value = { code: NotificationErrorCodes.LOAD_EMAIL_ADDRESSES, originalError: e }
       throw e
     }
   }
@@ -316,7 +364,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
       emailAddresses.value.unshift(response.data)
       return response.data
     } catch (e: unknown) {
-      error.value = getErrorMessage(e) || 'Fehler beim Hinzufügen der Email-Adresse'
+      error.value = { code: NotificationErrorCodes.ADD_EMAIL_ADDRESS, originalError: e }
       throw e
     }
   }
@@ -329,7 +377,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
       await notificationApi.deleteEmailAddress(id)
       emailAddresses.value = emailAddresses.value.filter((ea) => ea.id !== id)
     } catch (e: unknown) {
-      error.value = getErrorMessage(e) || 'Fehler beim Löschen der Email-Adresse'
+      error.value = { code: NotificationErrorCodes.DELETE_EMAIL_ADDRESS, originalError: e }
       throw e
     }
   }
@@ -375,7 +423,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
       preferences.value = response.data
       return response.data
     } catch (e: unknown) {
-      error.value = getErrorMessage(e) || 'Fehler beim Aktualisieren der Einstellungen'
+      error.value = { code: NotificationErrorCodes.UPDATE_PREFERENCES, originalError: e }
       throw e
     }
   }
@@ -404,7 +452,59 @@ export const useNotificationsStore = defineStore('notifications', () => {
       const response = await notificationApi.testWebhook({ url, auth: transformedAuth })
       return response.data
     } catch (e: unknown) {
-      error.value = getErrorMessage(e) || 'Fehler beim Testen des Webhooks'
+      error.value = { code: NotificationErrorCodes.TEST_WEBHOOK, originalError: e }
+      throw e
+    }
+  }
+
+  /**
+   * Delete a single notification
+   */
+  async function deleteNotification(id: string): Promise<void> {
+    try {
+      await notificationApi.deleteNotification(id)
+      // Check if unread BEFORE filtering (bug fix: previously checked after filter)
+      const wasUnread = notifications.value.find((n) => n.id === id && !n.read_at)
+      notifications.value = notifications.value.filter((n) => n.id !== id)
+      totalNotifications.value--
+      if (wasUnread && unreadCount.value > 0) {
+        unreadCount.value--
+      }
+    } catch (e: unknown) {
+      error.value = { code: NotificationErrorCodes.DELETE_NOTIFICATION, originalError: e }
+      throw e
+    }
+  }
+
+  /**
+   * Bulk delete notifications
+   */
+  async function bulkDeleteNotifications(ids: string[]): Promise<void> {
+    try {
+      await notificationApi.bulkDeleteNotifications(ids)
+      // Count unread before filtering
+      const unreadToDelete = notifications.value.filter(
+        (n) => ids.includes(n.id) && !n.read_at
+      ).length
+      notifications.value = notifications.value.filter((n) => !ids.includes(n.id))
+      totalNotifications.value -= ids.length
+      if (unreadToDelete > 0) {
+        unreadCount.value = Math.max(0, unreadCount.value - unreadToDelete)
+      }
+    } catch (e: unknown) {
+      error.value = { code: NotificationErrorCodes.DELETE_NOTIFICATION, originalError: e }
+      throw e
+    }
+  }
+
+  /**
+   * Resend email verification
+   */
+  async function resendVerification(id: string): Promise<void> {
+    try {
+      await notificationApi.resendVerification(id)
+    } catch (e: unknown) {
+      error.value = { code: NotificationErrorCodes.RESEND_VERIFICATION, originalError: e }
       throw e
     }
   }
@@ -612,6 +712,9 @@ export const useNotificationsStore = defineStore('notifications', () => {
     loadUnreadCount,
     markAsRead,
     markAllAsRead,
+    bulkMarkAsRead,
+    deleteNotification,
+    bulkDeleteNotifications,
 
     // Actions - Rules
     loadRules,
@@ -624,6 +727,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
     loadEmailAddresses,
     addEmailAddress,
     deleteEmailAddress,
+    resendVerification,
 
     // Actions - Metadata & Preferences
     loadMeta,

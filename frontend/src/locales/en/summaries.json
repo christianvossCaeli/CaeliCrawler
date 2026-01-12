@@ -2,6 +2,10 @@
   "summaries": {
     "title": "Custom Summaries",
     "subtitle": "Create personalized dashboard summaries with AI assistance",
+    "info": {
+      "title": "Automatic Reports with AI",
+      "description": "Summaries are personalized dashboards that are automatically populated with current data by AI. Describe in natural language what you want to see (e.g. 'Top 10 municipalities with issues'). Three triggers: Manual, scheduled, or automatically after crawl jobs."
+    },
     "createNew": "New Summary",
     "createFromPrompt": "Create with AI",
     "create": "Create",
@@ -54,6 +58,7 @@
     "triggerCron": "Scheduled",
     "triggerCrawlCategory": "After Crawl (Category)",
     "triggerCrawlPreset": "After Crawl (Preset)",
+    "triggerAuto": "Automatic",
     "schedule": "Schedule",
     "scheduleEnabled": "Schedule enabled",
     "nextRun": "Next run",
@@ -84,6 +89,10 @@
     "saveError": "Error saving changes",
 
     "addWidget": "Add Widget",
+    "widgetInfo": {
+      "title": "Design Your Dashboard",
+      "description": "Widgets visualize your data: Tables for lists, charts for trends, maps for locations, stat cards for key metrics. Each widget has its own data query (entity type, facets, filters). In edit mode, you can move and resize widgets."
+    },
     "editWidget": "Edit Widget",
     "removeWidget": "Remove Widget",
     "widgetType": "Widget Type",
@@ -134,6 +143,10 @@
 
     "createDialog": {
       "title": "Create New Summary",
+      "info": {
+        "title": "From Idea to Dashboard",
+        "description": "Simply describe what you want to see - the AI creates matching widgets (tables, charts, maps). The more precise your description, the better the result. After creation, you can move, edit, or add new widgets."
+      },
       "step1": "Describe your summary",
       "step2": "AI processing...",
       "step3": "Preview & Confirm",
@@ -177,6 +190,10 @@
     "hasChanges": "Contains changes",
 
     "shareSummary": "Share Summary",
+    "shareInfo": {
+      "title": "Share Externally",
+      "description": "Share summaries via link with external parties - no login required. Optional password protection and expiration date increase security. Enable 'Allow export' so recipients can save the dashboard as PDF. Links can be deactivated at any time."
+    },
     "existingShares": "Existing Links",
     "createNewShare": "Create New Link",
     "sharePassword": "Password (optional)",
@@ -245,6 +262,7 @@
       "scheduled": "Scheduled",
       "afterCrawl": "After Crawl",
       "afterPreset": "After Preset",
+      "auto": "Automatic",
       "manual": "Manual"
     },
 

@@ -88,7 +88,7 @@ describe('useResultsView', () => {
 
       // Filters
       expect(result.searchQuery).toBeDefined()
-      expect(result.minConfidence).toBeDefined()
+      expect(result.confidenceRange).toBeDefined()
       expect(result.verifiedFilter).toBeDefined()
 
       // Methods
@@ -104,7 +104,7 @@ describe('useResultsView', () => {
       expect(result.initialLoad.value).toBe(true)
       expect(result.results.value).toEqual([])
       expect(result.totalResults.value).toBe(0)
-      expect(result.minConfidence.value).toBe(0)
+      expect(result.confidenceRange.value).toEqual([0, 100])
       expect(result.verifiedFilter.value).toBeNull()
     })
   })
@@ -115,7 +115,7 @@ describe('useResultsView', () => {
 
       // Set some filter values
       result.searchQuery.value = 'test'
-      result.minConfidence.value = 50
+      result.confidenceRange.value = [50, 80]
       result.verifiedFilter.value = true
 
       // Clear filters
@@ -123,7 +123,7 @@ describe('useResultsView', () => {
 
       // Verify reset
       expect(result.searchQuery.value).toBe('')
-      expect(result.minConfidence.value).toBe(0)
+      expect(result.confidenceRange.value).toEqual([0, 100])
       expect(result.verifiedFilter.value).toBeNull()
       expect(result.page.value).toBe(1)
     })
@@ -155,7 +155,7 @@ describe('useResultsView', () => {
       expect(result.hasActiveFilters.value).toBeTruthy()
 
       result.searchQuery.value = ''
-      result.minConfidence.value = 50
+      result.confidenceRange.value = [50, 100]
       expect(result.hasActiveFilters.value).toBeTruthy()
     })
 

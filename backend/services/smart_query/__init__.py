@@ -58,7 +58,6 @@ from .geographic_utils import (
 from .query_executor import execute_smart_query
 from .query_interpreter import (
     detect_compound_query,
-    get_openai_client,
     interpret_plan_query,
     interpret_plan_query_stream,
     interpret_query,
@@ -503,7 +502,6 @@ __all__ = [
     "interpret_write_command",
     "interpret_plan_query",
     "interpret_plan_query_stream",
-    "get_openai_client",
     "detect_compound_query",
     "invalidate_types_cache",
     # Query execution

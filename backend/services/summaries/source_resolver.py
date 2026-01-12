@@ -179,10 +179,7 @@ async def get_categories_for_entity_type(
     result = await session.execute(
         select(Category)
         .join(CategoryEntityType, Category.id == CategoryEntityType.category_id)
-        .where(
-            CategoryEntityType.entity_type_id == entity_type.id,
-            Category.is_active,
-        )
+        .where(CategoryEntityType.entity_type_id == entity_type.id)
     )
     return list(result.scalars().all())
 
@@ -348,3 +345,119 @@ async def get_source_names(sources: list[DataSource]) -> list[str]:
         List of source names
     """
     return [source.name or source.url for source in sources]
+
+
+
+async def get_category_entity_type_slugs(
+    session: AsyncSession,
+    category_id: UUID,
+) -> list[str]:
+    """
+    Get all entity type slugs for a category.
+
+    Args:
+        session: Database session
+        category_id: Category ID
+
+    Returns:
+        List of entity type slugs
+    """
+    result = await session.execute(
+        select(EntityType.slug)
+        .join(CategoryEntityType, EntityType.id == CategoryEntityType.entity_type_id)
+        .where(CategoryEntityType.category_id == category_id)
+    )
+    return list(result.scalars().all())
+
+
+def update_summary_auto_trigger_entity_types(summary: CustomSummary) -> list[str]:
+    """
+    Update auto_trigger_entity_types field based on widget queries.
+
+    This should be called after creating or updating a summary/widget
+    when trigger_type is AUTO.
+
+    IMPORTANT: This function modifies the summary object in-place but does NOT
+    commit to the database. The caller MUST call session.commit() after this
+    function to persist the changes.
+
+    Args:
+        summary: The CustomSummary to update (modified in-place)
+
+    Returns:
+        The updated list of entity type slugs (also set on summary.auto_trigger_entity_types)
+
+    Example:
+        update_summary_auto_trigger_entity_types(summary)
+        await session.commit()  # Required to persist!
+    """
+    entity_types = extract_entity_types_from_summary(summary)
+    sorted_types = sorted(list(entity_types))
+    summary.auto_trigger_entity_types = sorted_types
+    return sorted_types
+
+
+async def find_summaries_for_category_crawl(
+    session: AsyncSession,
+    category_id: UUID,
+) -> list[tuple[CustomSummary, list[str]]]:
+    """
+    Find all AUTO-triggered summaries that should update when a category is crawled.
+
+    This function matches summaries based on the intersection of:
+    - Entity types the category handles (via CategoryEntityType)
+    - Entity types the summary references (cached in auto_trigger_entity_types)
+
+    Args:
+        session: Database session
+        category_id: The category that was crawled
+
+    Returns:
+        List of tuples: (summary, matched_entity_types)
+    """
+    from app.models.custom_summary import SummaryStatus, SummaryTriggerType
+
+    # 1. Get entity type slugs for this category
+    category_entity_slugs = await get_category_entity_type_slugs(session, category_id)
+
+    if not category_entity_slugs:
+        logger.debug(
+            "category_has_no_entity_types",
+            category_id=str(category_id),
+        )
+        return []
+
+    # 2. Find AUTO summaries that are active and enabled
+    result = await session.execute(
+        select(CustomSummary).where(
+            CustomSummary.trigger_type == SummaryTriggerType.AUTO,
+            CustomSummary.status == SummaryStatus.ACTIVE,
+            CustomSummary.schedule_enabled == True,  # noqa: E712
+        )
+    )
+
+    # 3. Check intersection for each summary
+    matches: list[tuple[CustomSummary, list[str]]] = []
+    category_slugs_set = set(category_entity_slugs)
+
+    for summary in result.scalars():
+        summary_slugs = set(summary.auto_trigger_entity_types or [])
+        matched = summary_slugs & category_slugs_set
+
+        if matched:
+            matches.append((summary, sorted(list(matched))))
+            logger.debug(
+                "summary_matches_category_crawl",
+                summary_id=str(summary.id),
+                summary_name=summary.name,
+                matched_entity_types=list(matched),
+            )
+
+    logger.info(
+        "found_auto_summaries_for_category",
+        category_id=str(category_id),
+        category_entity_types=category_entity_slugs,
+        matching_summaries=len(matches),
+    )
+
+    return matches

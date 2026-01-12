@@ -6,6 +6,10 @@
         <v-icon class="mr-2">mdi-brain</v-icon>
         {{ $t('results.detail.title') }}
         <v-spacer />
+        <v-chip v-if="result.is_rejected" color="error" variant="outlined" class="mr-2">
+          <v-icon start size="small">mdi-close-circle</v-icon>
+          {{ $t('results.status.rejected') }}
+        </v-chip>
         <v-chip :color="getConfidenceColor(result.confidence_score)" class="mr-2">
           {{ formatConfidence(result.confidence_score) }}
         </v-chip>
@@ -15,13 +19,30 @@
         </v-chip>
       </v-card-title>
 
-      <v-divider />
+      <!-- Tabs -->
+      <v-tabs v-model="activeTab" color="primary" class="border-b">
+        <v-tab value="content">
+          <v-icon start size="small">mdi-file-document-outline</v-icon>
+          {{ $t('results.detail.contentTab') }}
+        </v-tab>
+        <v-tab value="facets">
+          <v-icon start size="small">mdi-tag-multiple</v-icon>
+          {{ $t('results.detail.facetsTab') }}
+        </v-tab>
+        <v-tab value="metadata">
+          <v-icon start size="small">mdi-robot</v-icon>
+          {{ $t('results.detail.metadataTab') }}
+        </v-tab>
+      </v-tabs>
 
-      <!-- Content -->
-      <v-card-text class="pa-4 dialog-content">
-        <!-- Document Info Section -->
-        <v-card variant="outlined" class="mb-4">
-          <v-card-title class="text-subtitle-1 d-flex align-center">
+      <!-- Tab Content -->
+      <v-tabs-window v-model="activeTab">
+        <!-- Content Tab -->
+        <v-tabs-window-item value="content">
+          <v-card-text class="pa-4 dialog-content">
+            <!-- Document Info Section -->
+            <v-card variant="outlined" class="mb-4">
+              <v-card-title class="text-subtitle-1 d-flex align-center">
             <v-icon size="small" class="mr-2">mdi-file-document</v-icon>
             {{ $t('results.detail.sourceDocument') }}
             <v-spacer />
@@ -231,55 +252,73 @@
           </v-card>
         </template>
 
-        <!-- Raw JSON Section -->
-        <v-expansion-panels class="mb-4">
-          <v-expansion-panel>
-            <v-expansion-panel-title>
-              <v-icon size="small" class="mr-2">mdi-code-json</v-icon>
-              {{ $t('results.detail.rawData') }}
-            </v-expansion-panel-title>
-            <v-expansion-panel-text>
-              <pre class="json-viewer pa-3 rounded">{{ JSON.stringify(content, null, 2) }}</pre>
-            </v-expansion-panel-text>
-          </v-expansion-panel>
-        </v-expansion-panels>
-
-        <!-- AI Metadata Section -->
-        <v-card variant="outlined">
-          <v-card-title class="text-subtitle-1">
-            <v-icon size="small" class="mr-2">mdi-robot</v-icon>
-            {{ $t('results.detail.aiMetadata') }}
-          </v-card-title>
-          <v-card-text>
-            <v-row>
-              <v-col cols="6">
-                <div>
-                  <strong>{{ $t('results.columns.type') }}:</strong>
-                  {{ result.extraction_type }}
-                </div>
-              </v-col>
-              <v-col cols="6">
-                <div>
-                  <strong>{{ $t('results.detail.model') }}:</strong>
-                  {{ result.ai_model_used || '-' }}
-                </div>
-              </v-col>
-              <v-col cols="6">
-                <div>
-                  <strong>{{ $t('results.columns.created') }}:</strong>
-                  {{ formatDate(result.created_at) }}
-                </div>
-              </v-col>
-              <v-col cols="6">
-                <div>
-                  <strong>{{ $t('results.detail.tokens') }}:</strong>
-                  {{ result.tokens_used || '-' }}
-                </div>
-              </v-col>
-            </v-row>
           </v-card-text>
-        </v-card>
-      </v-card-text>
+        </v-tabs-window-item>
+
+        <!-- Facets Tab -->
+        <v-tabs-window-item value="facets">
+          <v-card-text class="pa-4 dialog-content">
+            <ResultFacetsTab
+              :extraction-id="result.id"
+              :can-edit="canVerify"
+            />
+          </v-card-text>
+        </v-tabs-window-item>
+
+        <!-- Metadata Tab -->
+        <v-tabs-window-item value="metadata">
+          <v-card-text class="pa-4 dialog-content">
+            <!-- AI Metadata Section -->
+            <v-card variant="outlined" class="mb-4">
+              <v-card-title class="text-subtitle-1">
+                <v-icon size="small" class="mr-2">mdi-robot</v-icon>
+                {{ $t('results.detail.aiMetadata') }}
+              </v-card-title>
+              <v-card-text>
+                <v-row>
+                  <v-col cols="6">
+                    <div>
+                      <strong>{{ $t('results.columns.type') }}:</strong>
+                      {{ result.extraction_type }}
+                    </div>
+                  </v-col>
+                  <v-col cols="6">
+                    <div>
+                      <strong>{{ $t('results.detail.model') }}:</strong>
+                      {{ result.ai_model_used || '-' }}
+                    </div>
+                  </v-col>
+                  <v-col cols="6">
+                    <div>
+                      <strong>{{ $t('results.columns.created') }}:</strong>
+                      {{ formatDate(result.created_at) }}
+                    </div>
+                  </v-col>
+                  <v-col cols="6">
+                    <div>
+                      <strong>{{ $t('results.detail.tokens') }}:</strong>
+                      {{ result.tokens_used || '-' }}
+                    </div>
+                  </v-col>
+                </v-row>
+              </v-card-text>
+            </v-card>
+
+            <!-- Raw JSON Section -->
+            <v-expansion-panels>
+              <v-expansion-panel>
+                <v-expansion-panel-title>
+                  <v-icon size="small" class="mr-2">mdi-code-json</v-icon>
+                  {{ $t('results.detail.rawData') }}
+                </v-expansion-panel-title>
+                <v-expansion-panel-text>
+                  <pre class="json-viewer pa-3 rounded">{{ JSON.stringify(content, null, 2) }}</pre>
+                </v-expansion-panel-text>
+              </v-expansion-panel>
+            </v-expansion-panels>
+          </v-card-text>
+        </v-tabs-window-item>
+      </v-tabs-window>
 
       <v-divider />
 
@@ -316,12 +355,13 @@
  * ResultDetailDialog - Detailed view of an extraction result
  *
  * Shows document info, entity references, extracted content,
- * dynamic fields, and AI metadata.
+ * facet management, and AI metadata in a tabbed interface.
  */
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { DIALOG_SIZES } from '@/config/ui'
 import { GenericFacetCard } from '@/components/facets'
 import DynamicContentCard from './DynamicContentCard.vue'
+import ResultFacetsTab from './ResultFacetsTab.vue'
 import {
   useResultsHelpers,
   type SearchResult,
@@ -361,6 +401,9 @@ const modelValue = computed({
   get: () => props.modelValue,
   set: (value) => emit('update:modelValue', value),
 })
+
+// Active tab state
+const activeTab = ref('content')
 
 // Extracted content
 const content = computed<ExtractedContent>(() => {

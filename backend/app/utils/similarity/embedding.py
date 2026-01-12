@@ -24,7 +24,8 @@ logger = structlog.get_logger(__name__)
 # Single source of truth for all similarity thresholds
 SIMILARITY_THRESHOLDS = {
     # Entity similarity (for deduplication within a type)
-    "entity": float(os.getenv("ENTITY_SIMILARITY_THRESHOLD", "0.85")),
+    # Lowered from 0.85 to 0.80 to better catch variants like "Metropole Ruhr" vs "Region Ruhrgebiet"
+    "entity": float(os.getenv("ENTITY_SIMILARITY_THRESHOLD", "0.80")),
     # Type similarity (EntityType, FacetType, Category, RelationType)
     "type": float(os.getenv("TYPE_SIMILARITY_THRESHOLD", "0.80")),
     # Location similarity (stricter for geographic entities)
@@ -131,13 +132,21 @@ def clear_embedding_cache() -> None:
 # =============================================================================
 
 
-async def generate_embedding(text: str, use_cache: bool = True) -> list[float] | None:
+async def generate_embedding(
+    text: str,
+    use_cache: bool = True,
+    session: "AsyncSession | None" = None,
+) -> list[float] | None:
     """
     Generate embedding for text with caching.
+
+    Uses database-stored credentials when a session is provided.
+    Falls back to environment variables only if no DB credentials available.
 
     Args:
         text: Text to embed
         use_cache: Whether to use the LRU cache
+        session: Optional database session for fetching credentials from DB
 
     Returns:
         Embedding vector or None if generation failed
@@ -151,12 +160,17 @@ async def generate_embedding(text: str, use_cache: bool = True) -> list[float] |
         if cached is not None:
             return cached
 
-    # Generate new embedding
-    from services.ai_service import AIService
-
     try:
-        ai_service = AIService()
-        embedding = await ai_service.generate_embedding(text)
+        embedding = None
+
+        # Try to use DB credentials first (preferred method)
+        if session:
+            embedding = await _generate_embedding_with_db_credentials(text, session)
+
+        # Only fall back to environment variables if DB credentials not available
+        if embedding is None:
+            logger.debug("No DB credentials available, this is expected if not configured")
+            return None
 
         if embedding and use_cache:
             _set_cached_embedding(text, embedding)
@@ -165,6 +179,38 @@ async def generate_embedding(text: str, use_cache: bool = True) -> list[float] |
         return embedding
     except Exception as e:
         logger.error("Failed to generate embedding", text=text[:50], error=str(e))
+        return None
+
+
+async def _generate_embedding_with_db_credentials(
+    text: str,
+    session: "AsyncSession",
+) -> list[float] | None:
+    """Generate embedding using database-stored credentials."""
+    from app.models.user_api_credentials import LLMPurpose
+    from services.llm_client_service import LLMClientService
+
+    try:
+        service = LLMClientService(session)
+        client, config = await service.get_system_client(LLMPurpose.EMBEDDINGS)
+
+        if not client or not config:
+            logger.warning("No LLM credentials configured in database for embeddings")
+            return None
+
+        model = service.get_model_name(config, for_embeddings=True)
+        response = await client.embeddings.create(
+            input=text,
+            model=model,
+            dimensions=EMBEDDING_DIMENSIONS,
+        )
+
+        if response.data and len(response.data) > 0:
+            return response.data[0].embedding
+
+        return None
+    except Exception as e:
+        logger.error("Failed to generate embedding with DB credentials", error=str(e))
         return None
 
 

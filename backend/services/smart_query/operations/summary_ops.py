@@ -15,6 +15,7 @@ from .base import OperationResult, WriteOperation, register_operation
 logger = structlog.get_logger()
 
 
+@register_operation("create_custom_summary")
 class CreateCustomSummaryOperation(WriteOperation):
     """
     Create a custom summary from a natural language description.

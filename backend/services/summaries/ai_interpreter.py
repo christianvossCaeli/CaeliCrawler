@@ -12,10 +12,11 @@ import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.models.llm_usage import LLMProvider, LLMTaskType
+from app.models.llm_usage import LLMTaskType
+from app.models.user_api_credentials import LLMPurpose
+from services.llm_client_service import LLMClientService
 from services.llm_usage_tracker import record_llm_usage
 from services.smart_query.query_interpreter import (
-    get_openai_client,
     load_facet_and_entity_types,
     sanitize_user_input,
 )
@@ -251,11 +252,17 @@ async def interpret_summary_prompt(
     )
 
     try:
-        client = get_openai_client()
+        llm_service = LLMClientService(session)
+        client, config = await llm_service.get_system_client(LLMPurpose.DOCUMENT_ANALYSIS)
+        if not client or not config:
+            raise ValueError("LLM nicht konfiguriert")
+
+        model_name = llm_service.get_model_name(config)
+        provider = llm_service.get_provider(config)
 
         start_time = time.time()
-        response = client.chat.completions.create(
-            model=settings.azure_openai_deployment_name,
+        response = await client.chat.completions.create(
+            model=model_name,
             messages=[
                 {
                     "role": "system",
@@ -273,8 +280,8 @@ async def interpret_summary_prompt(
 
         if response.usage:
             await record_llm_usage(
-                provider=LLMProvider.AZURE_OPENAI,
-                model=settings.azure_openai_deployment_name,
+                provider=provider,
+                model=model_name,
                 task_type=LLMTaskType.SUMMARIZE,
                 task_name="interpret_summary_prompt",
                 prompt_tokens=response.usage.prompt_tokens,

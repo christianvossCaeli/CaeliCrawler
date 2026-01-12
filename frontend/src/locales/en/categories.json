@@ -3,6 +3,10 @@
     "title": "Analysis Topics",
     "loading": "Loading analysis topics...",
     "subtitle": "Manage topics for automatic document analysis",
+    "info": {
+      "title": "Topic-Based Data Collection",
+      "description": "Analysis topics bundle data sources around a theme (e.g. 'Wind Energy Permits') and define what the AI should look for. You specify: Which URLs are searched (URL filters), which keywords are relevant, and what information the AI should extract (extraction prompt). Tip: Start with a descriptive name and purpose - the AI can automatically suggest matching keywords and extraction rules."
+    },
     "category": "Analysis Topic",
     "categories": "Analysis Topics",
     "tabs": {
@@ -18,12 +22,17 @@
     "filters": {
       "search": "Search (Name/Purpose)",
       "status": "Status",
+      "schedule": "Schedule",
       "documents": "Documents",
       "language": "Language",
       "withDocuments": "With documents",
       "withoutDocuments": "Without documents"
     },
     "form": {
+      "info": {
+        "title": "Configure Analysis Topic",
+        "description": "An analysis topic defines what to search for and how the AI extracts data. The purpose describes the goal (e.g. 'Find wind power obstacles'), search terms narrow down document search, and URL filters determine which pages are crawled. The AI prompt specifies which information should be extracted."
+      },
       "name": "Name",
       "nameRequired": "Name is required",
       "description": "Description",
@@ -50,8 +59,8 @@
       "aiPrompt": "AI Extraction Prompt",
       "aiPromptHint": "Define the JSON format and extraction rules",
       "keywords": "Keywords",
-      "enabled": "Active",
-      "enabledHint": "Inactive analysis topics are not crawled",
+      "public": "Public",
+      "publicHint": "Public analysis topics are visible to all users",
       "purposeHint": "Describe what the AI should analyze in this analysis topic",
       "searchInfo": "Search terms and document types help the crawler find relevant documents",
       "scheduleTitle": "Scheduling",
@@ -65,7 +74,7 @@
       "name": "Name",
       "purpose": "Purpose",
       "languages": "Languages",
-      "status": "Status",
+      "schedule": "Schedule",
       "sources": "Sources",
       "documents": "Documents",
       "actions": "Actions"
@@ -120,11 +129,14 @@
       "resetFilters": "Reset filters",
       "start": "Start crawler",
       "started": "Crawl started for {count} sources",
-      "errorStarting": "Error starting crawl"
+      "errorStarting": "Error starting crawl",
+      "noCategorySelected": "No analysis topic selected"
     },
     "statusOptions": {
       "active": "Active",
-      "inactive": "Inactive"
+      "inactive": "Inactive",
+      "scheduled": "Scheduled",
+      "manual": "Manual"
     },
     "documentOptions": {
       "with": "With documents",
@@ -199,9 +211,33 @@
       "applyAndSave": "Apply and Save",
       "error": "Error generating AI setup"
     },
+    "aiPrefill": {
+      "title": "AI Kickstart",
+      "description": "Describe the analysis topic in 1-2 sentences. The AI suggests name, purpose, and search terms and pre-fills the form.",
+      "promptLabel": "Describe the topic",
+      "promptHint": "e.g. Monitor wind power projects in Bavaria and track permits, objections, and deadlines.",
+      "generate": "Generate suggestions",
+      "apply": "Apply suggestions",
+      "overwrite": "Overwrite existing fields",
+      "examplesTitle": "Examples",
+      "examples": [
+        "Monitor wind power projects in Bavaria and track permits, objections, and deadlines.",
+        "Collect weekly municipal resolutions about solar installations in the Heinsberg district.",
+        "Find funding programs for e-mobility in NRW including contacts."
+      ],
+      "previewTitle": "AI preview",
+      "region": "Region",
+      "timeFocus": "Time focus",
+      "promptRequired": "Please describe the analysis topic first.",
+      "notRecognized": "The AI could not detect an analysis topic. Please be more specific (e.g. \"Create a setup for ...\").",
+      "applied": "AI suggestions were applied to the form",
+      "error": "Error generating AI suggestions",
+      "loadingHint": "AI is analyzing the prompt..."
+    },
     "dataSourcesTab": {
       "title": "Assign Data Sources",
       "description": "Assign data sources to this analysis topic via tags",
+      "createModeInfo": "Selected data sources will be assigned automatically after saving.",
       "filterByTags": "Filter by tags",
       "matchMode": "Match mode",
       "matchAll": "ALL tags (AND)",
@@ -219,7 +255,20 @@
       "assignSuccess": "{count} data sources assigned successfully",
       "assignError": "Error assigning data sources",
       "loading": "Loading data sources...",
-      "currentlyAssigned": "Currently assigned"
+      "currentlyAssigned": "Currently assigned",
+      "directSelection": "Direct Selection",
+      "searchSources": "Search data source...",
+      "assignedSources": "Assigned Data Sources",
+      "searchAssigned": "Search by name or URL...",
+      "filterByTagsAssigned": "Filter by tags",
+      "unassign": "Unassign",
+      "unassignConfirmTitle": "Unassign source?",
+      "unassignConfirmMessage": "Are you sure you want to unassign \"{name}\" from this analysis topic?",
+      "unassignSuccess": "Successfully unassigned",
+      "unassignError": "Error unassigning data source",
+      "bulkUnassignSuccess": "{count} assignment(s) successfully removed",
+      "bulkUnassignError": "Error bulk unassigning data sources",
+      "noAssignedSources": "No data sources assigned"
     }
   }
 }

@@ -213,6 +213,9 @@ class FilterableAttribute(BaseModel):
     description: str | None = Field(None, description="Attribute description")
     type: str = Field(..., description="Attribute data type (string, integer, number)")
     format: str | None = Field(None, description="Format specification (e.g., date, email)")
+    is_numeric: bool = Field(False, description="Whether this attribute should use range filter")
+    min_value: float | None = Field(None, description="Minimum value for numeric attributes")
+    max_value: float | None = Field(None, description="Maximum value for numeric attributes")
 
 
 class AttributeFilterOptionsResponse(BaseModel):

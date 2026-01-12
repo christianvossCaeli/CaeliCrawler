@@ -14,6 +14,11 @@
       </template>
     </PageHeader>
 
+    <!-- Info Box -->
+    <PageInfoBox :storage-key="INFO_BOX_STORAGE_KEYS.USERS" :title="t('admin.users.info.title')">
+      {{ t('admin.users.info.description') }}
+    </PageInfoBox>
+
     <!-- Filters -->
     <v-card class="mb-4">
       <v-card-text>
@@ -294,6 +299,8 @@ import { useAuthStore, type User } from '@/stores/auth'
 import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
 import PasswordStrengthIndicator from '@/components/PasswordStrengthIndicator.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
+import PageInfoBox from '@/components/common/PageInfoBox.vue'
+import { INFO_BOX_STORAGE_KEYS } from '@/config/infoBox'
 import { useLogger } from '@/composables/useLogger'
 import { getErrorMessage } from '@/utils/errorMessage'
 import { formatDate as formatViewDate } from '@/utils/viewHelpers'

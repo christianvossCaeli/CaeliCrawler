@@ -39,7 +39,11 @@ _entity_tasks = entity_operations.register_tasks(celery_app)
 (
     analyze_entity_data_for_facets,
     analyze_attachment_task,
+    generate_embeddings_task,
 ) = _entity_tasks
+
+# Re-export helper functions for API access
+from .entity_operations import get_embedding_task_status
 
 # Export all tasks for backward compatibility
 __all__ = [
@@ -55,4 +59,7 @@ __all__ = [
     # Entity operation tasks
     "analyze_entity_data_for_facets",
     "analyze_attachment_task",
+    "generate_embeddings_task",
+    # Helper functions
+    "get_embedding_task_status",
 ]

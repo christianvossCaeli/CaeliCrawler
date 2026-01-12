@@ -80,6 +80,11 @@
           </template>
         </PageHeader>
 
+        <!-- Info Box -->
+        <PageInfoBox :storage-key="INFO_BOX_STORAGE_KEYS.SOURCES" :title="$t('sources.info.title')">
+          {{ $t('sources.info.description') }}
+        </PageInfoBox>
+
         <!-- Active Filters Display -->
         <SourcesActiveFilters
           :category-id="store.filters.category_id"
@@ -93,6 +98,44 @@
           @clear:tag="(tag: string) => onTagsSelect(store.filters.tags.filter(t => t !== tag))"
           @clear:all="clearAllFilters"
         />
+
+        <!-- Running Jobs Banner -->
+        <v-alert
+          v-if="runningJobsCount > 0"
+          type="info"
+          variant="tonal"
+          density="compact"
+          class="mb-4 cursor-pointer"
+          closable
+          @click="goToCrawler"
+        >
+          <template #prepend>
+            <v-progress-circular
+              indeterminate
+              size="20"
+              width="2"
+              color="info"
+              class="mr-2"
+            />
+          </template>
+          <div class="d-flex align-center justify-space-between flex-wrap">
+            <span>
+              <strong>{{ runningJobsCount }}</strong> {{ $t('sources.runningJobs.active', runningJobsCount) }}
+              <span v-if="runningJobs.length > 0" class="text-medium-emphasis ml-2">
+                ({{ runningJobs.slice(0, 3).map(j => j.source_name).join(', ') }}{{ runningJobs.length > 3 ? '...' : '' }})
+              </span>
+            </span>
+            <v-btn
+              variant="text"
+              color="info"
+              size="small"
+              append-icon="mdi-arrow-right"
+              @click.stop="goToCrawler"
+            >
+              {{ $t('sources.runningJobs.viewAll') }}
+            </v-btn>
+          </div>
+        </v-alert>
 
         <!-- Search Filter -->
         <v-card class="mb-4">
@@ -322,8 +365,8 @@
  * Uses Pinia store for centralized state management.
  * Handles CRUD operations, filtering, bulk import, and AI discovery.
  */
-import { ref, computed, onMounted, defineAsyncComponent } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, computed, onMounted, onUnmounted, defineAsyncComponent } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { DIALOG_SIZES } from '@/config/ui'
 import { storeToRefs } from 'pinia'
@@ -340,12 +383,15 @@ import {
   SourcesTableActions,
 } from '@/components/sources'
 import { useSourceHelpers } from '@/composables/useSourceHelpers'
-import { PageHeader, ErrorBoundary, TableErrorState, EmptyState } from '@/components/common'
+import { PageHeader, ErrorBoundary, TableErrorState, EmptyState, PageInfoBox } from '@/components/common'
+import { INFO_BOX_STORAGE_KEYS } from '@/config/infoBox'
 import { extractErrorMessage } from '@/utils/errorMessage'
 import { SEARCH, TABLE_HEADERS, ACTION_CLEANUP_DELAY } from '@/config/sources'
 import type { BulkImportState, DataSourceResponse, SourceType, SourceStatus } from '@/types/sources'
 import { useLogger } from '@/composables/useLogger'
 import { usePageContextProvider, PAGE_FEATURES, PAGE_ACTIONS } from '@/composables/usePageContext'
+import { onCrawlerEvent } from '@/composables/useCrawlerEvents'
+import * as adminApi from '@/services/api/admin'
 import type { PageContextData } from '@/composables/assistant/types'
 
 const logger = useLogger('SourcesView')
@@ -382,7 +428,23 @@ const store = useSourcesStore()
 const { sources } = storeToRefs(store)
 const { t } = useI18n()
 const route = useRoute()
+const router = useRouter()
 const auth = useAuthStore()
+
+// =============================================================================
+// Running Jobs State (for banner display)
+// =============================================================================
+
+interface RunningJobInfo {
+  id: string
+  source_name: string
+  progress: number
+}
+
+const runningJobsCount = ref(0)
+const runningJobs = ref<RunningJobInfo[]>([])
+let runningJobsPollInterval: ReturnType<typeof setInterval> | null = null
+const POLL_INTERVAL = 5000 // 5 seconds
 
 const canEdit = computed(() => auth.isEditor)
 const canAdmin = computed(() => auth.isAdmin)
@@ -765,8 +827,77 @@ const showSnackbar = (text: string, color: 'success' | 'error' | 'warning' | 'in
 }
 
 // =============================================================================
+// Running Jobs Functions
+// =============================================================================
+
+/**
+ * Fetch running jobs from API
+ */
+async function fetchRunningJobs(): Promise<void> {
+  try {
+    const [statusRes, runningRes] = await Promise.all([
+      adminApi.getCrawlerStatus(),
+      adminApi.getRunningJobs(),
+    ])
+
+    runningJobsCount.value = statusRes.data?.running_jobs ?? 0
+
+    const jobs = runningRes.data?.jobs || []
+    runningJobs.value = jobs.map((job: { id: string; source_name?: string; progress?: number }) => ({
+      id: job.id,
+      source_name: job.source_name || 'Unbekannt',
+      progress: job.progress ?? 0,
+    }))
+
+    // Adjust polling based on activity
+    updatePollingInterval()
+  } catch (error) {
+    logger.error('Failed to fetch running jobs:', error)
+  }
+}
+
+/**
+ * Update polling interval based on running jobs
+ */
+function updatePollingInterval(): void {
+  if (runningJobsCount.value > 0 && !runningJobsPollInterval) {
+    // Start polling when jobs are running
+    runningJobsPollInterval = setInterval(fetchRunningJobs, POLL_INTERVAL)
+  } else if (runningJobsCount.value === 0 && runningJobsPollInterval) {
+    // Stop polling when no jobs running
+    clearInterval(runningJobsPollInterval)
+    runningJobsPollInterval = null
+  }
+}
+
+/**
+ * Navigate to crawler view
+ */
+function goToCrawler(): void {
+  router.push('/crawler')
+}
+
+/**
+ * Cleanup polling interval
+ */
+function cleanupPolling(): void {
+  if (runningJobsPollInterval) {
+    clearInterval(runningJobsPollInterval)
+    runningJobsPollInterval = null
+  }
+}
+
+// =============================================================================
 // Lifecycle Hooks
 // =============================================================================
+
+// Subscribe to crawler events
+const unsubscribeCrawlerEvents = onCrawlerEvent((event) => {
+  if (event.type === 'crawl-started') {
+    // Immediately fetch running jobs when a crawl is started
+    fetchRunningJobs()
+  }
+})
 
 onMounted(async () => {
   // Check for query parameters to pre-filter
@@ -791,6 +922,15 @@ onMounted(async () => {
       store.selectedSource = source
     }
   }
+
+  // Fetch running jobs on mount
+  await fetchRunningJobs()
+})
+
+onUnmounted(() => {
+  // Cleanup polling and event subscriptions
+  cleanupPolling()
+  unsubscribeCrawlerEvents()
 })
 
 // Note: VueUse's useDebounceFn handles cleanup automatically on unmount

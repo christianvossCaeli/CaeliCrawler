@@ -12,6 +12,8 @@ from app.core.deps import get_current_user
 from app.core.exceptions import ConflictError, NotFoundError
 from app.database import get_session
 from app.models import Entity, EntityType, User
+from app.models.audit_log import AuditAction
+from app.services.audit_service import create_audit_log
 from app.models.user_favorite import UserFavorite
 from app.schemas.common import MessageResponse
 from app.schemas.favorite import (
@@ -162,6 +164,17 @@ async def add_favorite(
         entity_id=data.entity_id,
     )
     session.add(favorite)
+
+    # Create audit log entry
+    await create_audit_log(
+        session=session,
+        action=AuditAction.FAVORITE_ADD,
+        entity_type="Entity",
+        entity_id=entity.id,
+        entity_name=entity.name,
+        user=current_user,
+    )
+
     await session.commit()
     await session.refresh(favorite)
 
@@ -231,6 +244,20 @@ async def remove_favorite(
     if not favorite:
         raise NotFoundError("Favorite", str(favorite_id))
 
+    # Get entity name for audit log
+    entity = await session.get(Entity, favorite.entity_id)
+    entity_name = entity.name if entity else None
+
+    # Create audit log entry
+    await create_audit_log(
+        session=session,
+        action=AuditAction.FAVORITE_REMOVE,
+        entity_type="Entity",
+        entity_id=favorite.entity_id,
+        entity_name=entity_name,
+        user=current_user,
+    )
+
     await session.delete(favorite)
     await session.commit()
 
@@ -248,15 +275,32 @@ async def remove_favorite_by_entity(
 
     Convenience endpoint for removing a favorite without knowing the favorite ID.
     """
+    # First check if favorite exists to get entity info for audit
     result = await session.execute(
-        delete(UserFavorite).where(
+        select(UserFavorite).where(
             UserFavorite.user_id == current_user.id,
             UserFavorite.entity_id == entity_id,
         )
     )
+    favorite = result.scalar()
 
-    if result.rowcount == 0:
+    if not favorite:
         raise NotFoundError("Favorite", str(entity_id))
 
+    # Get entity name for audit log
+    entity = await session.get(Entity, entity_id)
+    entity_name = entity.name if entity else None
+
+    # Create audit log entry
+    await create_audit_log(
+        session=session,
+        action=AuditAction.FAVORITE_REMOVE,
+        entity_type="Entity",
+        entity_id=entity_id,
+        entity_name=entity_name,
+        user=current_user,
+    )
+
+    await session.delete(favorite)
     await session.commit()
     return MessageResponse(message="Favorite removed successfully")

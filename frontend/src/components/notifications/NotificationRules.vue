@@ -293,7 +293,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useNotifications, type NotificationRule } from '@/composables/useNotifications'
+import { storeToRefs } from 'pinia'
+import { useNotificationsStore, type NotificationRule } from '@/stores/notifications'
 import { useDialogFocus } from '@/composables'
 import { useDateFormatter } from '@/composables/useDateFormatter'
 import { useLogger } from '@/composables/useLogger'
@@ -310,21 +311,15 @@ const logger = useLogger('NotificationRules')
 const { t } = useI18n()
 const { formatDate: formatLocaleDate } = useDateFormatter()
 
+// Store
+const store = useNotificationsStore()
 const {
   rules,
   emailAddresses,
   eventTypes,
   channels,
   loading,
-  loadRules,
-  loadEmailAddresses,
-  loadMeta,
-  createRule,
-  updateRule,
-  deleteRule,
-  toggleRuleActive,
-  testWebhook,
-} = useNotifications()
+} = storeToRefs(store)
 
 // Use shared notification formatting utilities
 const { getEventTypeLabel, getChannelLabel } = useNotificationFormatting(eventTypes, channels)
@@ -525,9 +520,9 @@ const saveRule = async () => {
 
   try {
     if (editMode.value && editingRuleId.value) {
-      await updateRule(editingRuleId.value, data)
+      await store.updateRule(editingRuleId.value, data)
     } else {
-      await createRule(data)
+      await store.createRule(data)
     }
     closeDialog()
   } catch (e) {
@@ -544,7 +539,7 @@ const handleDelete = async () => {
   if (!ruleToDelete.value) return
 
   try {
-    await deleteRule(ruleToDelete.value.id)
+    await store.deleteRule(ruleToDelete.value.id)
     deleteDialog.value = false
     ruleToDelete.value = null
   } catch (e) {
@@ -554,7 +549,7 @@ const handleDelete = async () => {
 
 const handleToggleActive = async (rule: NotificationRule) => {
   try {
-    await toggleRuleActive(rule)
+    await store.toggleRuleActive(rule)
   } catch (e) {
     logger.error('Failed to toggle rule:', e)
   }
@@ -573,7 +568,7 @@ const handleTestWebhook = async () => {
       ? { ...authConfigWithoutType, type: webhookAuthType.value }
       : undefined
 
-    const result = await testWebhook(formData.value.channel_config.url, auth)
+    const result = await store.testWebhook(formData.value.channel_config.url, auth)
     webhookTestResult.value = result
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)
@@ -604,8 +599,8 @@ watch(webhookAuthType, (newType) => {
 
 // Init
 onMounted(async () => {
-  await loadMeta()
-  await loadEmailAddresses()
-  await loadRules()
+  await store.loadMeta()
+  await store.loadEmailAddresses()
+  await store.loadRules()
 })
 </script>

@@ -100,7 +100,7 @@
               @click:close="$emit('remove-extended-filter', key)"
             >
               <v-icon start size="small">mdi-filter</v-icon>
-              {{ getFilterTitle(key) }}: {{ value }}
+              {{ getFilterTitle(key) }}: {{ formatFilterValue(value) }}
             </v-chip>
           </div>
         </v-col>
@@ -111,7 +111,9 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import type { EntityFilters } from '@/composables/useEntitiesView'
+import type { EntityFilters, RangeFilterValue } from '@/composables/useEntitiesView'
+
+type FilterValue = string | RangeFilterValue
 
 interface Category {
   id: string
@@ -138,7 +140,7 @@ interface Props {
   facetFilterOptions: Array<{ label: string; value: string | boolean | null }>
   hasExtendedFilters: boolean
   activeExtendedFilterCount: number
-  allExtendedFilters: Record<string, string>
+  allExtendedFilters: Record<string, FilterValue>
   hasAnyFilters: boolean
   currentEntityType: EntityTypeLocal | null
   flags: { entityHierarchyEnabled?: boolean }
@@ -186,5 +188,26 @@ function handleFacetFilterChange(value: boolean | null) {
 
 function handleParentSearch(query: string) {
   emit('search-parents', query)
+}
+
+function formatFilterValue(value: FilterValue): string {
+  if (typeof value === 'string') {
+    return value
+  }
+  // Range filter
+  const parts: string[] = []
+  if (value.min !== undefined) parts.push(`≥${formatNumber(value.min)}`)
+  if (value.max !== undefined) parts.push(`≤${formatNumber(value.max)}`)
+  return parts.join(' ')
+}
+
+function formatNumber(value: number): string {
+  if (value >= 1000000) {
+    return (value / 1000000).toFixed(1) + 'M'
+  }
+  if (value >= 1000) {
+    return (value / 1000).toFixed(1) + 'k'
+  }
+  return value.toFixed(value % 1 === 0 ? 0 : 1)
 }
 </script>

@@ -16,9 +16,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.core.cache import make_cache_key, search_strategy_cache
 from app.core.security_logging import security_logger
-from app.models.llm_usage import LLMProvider, LLMTaskType
+from app.models.llm_usage import LLMTaskType
+from app.models.user_api_credentials import LLMPurpose
+from services.llm_client_service import LLMClientService
 from services.llm_usage_tracker import record_llm_usage
-from services.smart_query.query_interpreter import get_openai_client
 from services.smart_query.utils import clean_json_response
 
 
@@ -169,12 +170,14 @@ class AISourceDiscoveryService:
 
     def __init__(
         self,
+        session: AsyncSession | None = None,
         serpapi_key: str | None = None,
         serper_key: str | None = None,
     ):
         """Initialize the AI Source Discovery Service.
 
         Args:
+            session: Database session for LLM credentials
             serpapi_key: SerpAPI API key for primary search. If None, SerpAPI is disabled.
             serper_key: Serper API key for fallback search. If None, Serper is disabled.
 
@@ -185,17 +188,18 @@ class AISourceDiscoveryService:
             if search_config:
                 api_type, api_key = search_config
                 if api_type == "serpapi":
-                    service = AISourceDiscoveryService(serpapi_key=api_key)
+                    service = AISourceDiscoveryService(session, serpapi_key=api_key)
                 else:
-                    service = AISourceDiscoveryService(serper_key=api_key)
+                    service = AISourceDiscoveryService(session, serper_key=api_key)
         """
+        self.session = session
         # Search providers with fallback chain: SerpAPI → Serper
         self.primary_search_provider = SerpAPISearchProvider(api_key=serpapi_key)
         self.fallback_search_provider = SerperSearchProvider(api_key=serper_key)
         self.extractors = [
             WikipediaExtractor(),
             HTMLTableExtractor(),
-            AIExtractor(),
+            AIExtractor(session=session),
         ]
 
     async def _search_with_fallback(
@@ -232,11 +236,20 @@ class AISourceDiscoveryService:
             )
             return results
 
+        should_fallback = getattr(self.primary_search_provider, "had_error", False)
+        if not should_fallback:
+            logger.info(
+                "Primary search provider returned no results without error, skipping fallback",
+                provider="SerpAPI",
+            )
+            return results
+
         # Fallback to Serper.dev
         logger.warning(
-            "Primary search provider returned no results, trying fallback",
+            "Primary search provider failed, trying fallback",
             primary="SerpAPI",
             fallback="Serper.dev",
+            error=getattr(self.primary_search_provider, "last_error", None),
         )
 
         results = await self.fallback_search_provider.search(
@@ -365,11 +378,29 @@ class AISourceDiscoveryService:
             logger.debug("Using cached search strategy", prompt=prompt)
             return SearchStrategy(**cached)
 
+        # Check if session is available for LLM
+        if not self.session:
+            logger.warning("No session for LLM, using fallback strategy")
+            strategy = SearchStrategy(
+                search_queries=[prompt, f"{prompt} Liste", f"{prompt} Wikipedia"],
+                expected_data_type="organizations",
+                preferred_sources=["wikipedia", "official"],
+                entity_schema={"name": "string", "website": "url"},
+                base_tags=self._extract_base_tags(prompt),
+            )
+            search_strategy_cache.set(cache_key, strategy.model_dump())
+            return strategy
+
         try:
-            client = get_openai_client()
-        except ValueError:
+            llm_service = LLMClientService(self.session)
+            client, config = await llm_service.get_system_client(LLMPurpose.DOCUMENT_ANALYSIS)
+            if not client or not config:
+                raise ValueError("LLM nicht konfiguriert")
+            model_name = llm_service.get_model_name(config)
+            provider = llm_service.get_provider(config)
+        except (ValueError, Exception):
             # Fallback strategy without LLM
-            logger.warning("OpenAI not configured, using fallback strategy")
+            logger.warning("LLM not configured, using fallback strategy")
             strategy = SearchStrategy(
                 search_queries=[prompt, f"{prompt} Liste", f"{prompt} Wikipedia"],
                 expected_data_type="organizations",
@@ -384,8 +415,8 @@ class AISourceDiscoveryService:
         strategy_prompt = AI_SEARCH_STRATEGY_PROMPT.format(prompt=prompt)
 
         start_time = time.time()
-        response = client.chat.completions.create(
-            model=settings.azure_openai_deployment_name,
+        response = await client.chat.completions.create(
+            model=model_name,
             messages=[{"role": "user", "content": strategy_prompt}],
             temperature=0.5,
             max_tokens=1000,
@@ -393,8 +424,8 @@ class AISourceDiscoveryService:
 
         if response.usage:
             await record_llm_usage(
-                provider=LLMProvider.AZURE_OPENAI,
-                model=settings.azure_openai_deployment_name,
+                provider=provider,
+                model=model_name,
                 task_type=LLMTaskType.DISCOVERY,
                 task_name="_generate_search_strategy",
                 prompt_tokens=response.usage.prompt_tokens,
@@ -557,13 +588,13 @@ class AISourceDiscoveryService:
         if not sources:
             return []
 
-        # Try LLM-based tag generation
-        try:
-            client = get_openai_client()
-            source_tags = await self._generate_tags_with_llm(client, sources, prompt, strategy.base_tags)
-        except (ValueError, Exception) as e:
-            logger.warning("LLM tag generation failed, using fallback", error=str(e))
-            source_tags = {}
+        source_tags = {}
+        # Try LLM-based tag generation if session is available
+        if self.session:
+            try:
+                source_tags = await self._generate_tags_with_llm(sources, prompt, strategy.base_tags)
+            except Exception as e:
+                logger.warning("LLM tag generation failed, using fallback", error=str(e))
 
         # Convert to SourceWithTags
         result = []
@@ -586,12 +617,22 @@ class AISourceDiscoveryService:
 
     async def _generate_tags_with_llm(
         self,
-        client,
         sources: list[ExtractedSource],
         prompt: str,
         base_tags: list[str],
     ) -> dict[str, list[str]]:
         """Generate tags using LLM."""
+        if not self.session:
+            return {}
+
+        llm_service = LLMClientService(self.session)
+        client, config = await llm_service.get_system_client(LLMPurpose.DOCUMENT_ANALYSIS)
+        if not client or not config:
+            return {}
+
+        model_name = llm_service.get_model_name(config)
+        provider = llm_service.get_provider(config)
+
         # Prepare sources summary
         sources_text = "\n".join(
             f"- {s.name}: {s.base_url}"
@@ -605,8 +646,8 @@ class AISourceDiscoveryService:
         )
 
         start_time = time.time()
-        response = client.chat.completions.create(
-            model=settings.azure_openai_deployment_name,
+        response = await client.chat.completions.create(
+            model=model_name,
             messages=[{"role": "user", "content": tag_prompt}],
             temperature=0.3,
             max_tokens=2000,
@@ -614,8 +655,8 @@ class AISourceDiscoveryService:
 
         if response.usage:
             await record_llm_usage(
-                provider=LLMProvider.AZURE_OPENAI,
-                model=settings.azure_openai_deployment_name,
+                provider=provider,
+                model=model_name,
                 task_type=LLMTaskType.DISCOVERY,
                 task_name="_generate_tags_with_llm",
                 prompt_tokens=response.usage.prompt_tokens,
@@ -837,34 +878,38 @@ class AISourceDiscoveryService:
                 content = clean_json_response(claude_response)
                 logger.info("Claude API suggestions received", length=len(content))
 
-        # Fall back to OpenAI if Claude not available or failed
-        if content is None:
+        # Fall back to LLM via LLMClientService if Claude not available or failed
+        if content is None and self.session:
             try:
-                client = get_openai_client()
-                logger.info("Using OpenAI for API suggestions (Claude not available)")
+                llm_service = LLMClientService(self.session)
+                client, config = await llm_service.get_system_client(LLMPurpose.DOCUMENT_ANALYSIS)
+                if client and config:
+                    model_name = llm_service.get_model_name(config)
+                    provider = llm_service.get_provider(config)
+                    logger.info("Using LLM for API suggestions (Claude not available)")
 
-                start_time = time.time()
-                response = client.chat.completions.create(
-                    model=settings.azure_openai_deployment_name,
-                    messages=[{"role": "user", "content": api_prompt}],
-                    temperature=0.3,
-                    max_tokens=2000,
-                )
-
-                if response.usage:
-                    await record_llm_usage(
-                        provider=LLMProvider.AZURE_OPENAI,
-                        model=settings.azure_openai_deployment_name,
-                        task_type=LLMTaskType.DISCOVERY,
-                        task_name="_generate_api_suggestions",
-                        prompt_tokens=response.usage.prompt_tokens,
-                        completion_tokens=response.usage.completion_tokens,
-                        total_tokens=response.usage.total_tokens,
-                        duration_ms=int((time.time() - start_time) * 1000),
-                        is_error=False,
+                    start_time = time.time()
+                    response = await client.chat.completions.create(
+                        model=model_name,
+                        messages=[{"role": "user", "content": api_prompt}],
+                        temperature=0.3,
+                        max_tokens=2000,
                     )
 
-                content = response.choices[0].message.content.strip()
+                    if response.usage:
+                        await record_llm_usage(
+                            provider=provider,
+                            model=model_name,
+                            task_type=LLMTaskType.DISCOVERY,
+                            task_name="_generate_api_suggestions",
+                            prompt_tokens=response.usage.prompt_tokens,
+                            completion_tokens=response.usage.completion_tokens,
+                            total_tokens=response.usage.total_tokens,
+                            duration_ms=int((time.time() - start_time) * 1000),
+                            is_error=False,
+                        )
+
+                    content = response.choices[0].message.content.strip()
                 content = clean_json_response(content)
             except ValueError:
                 logger.warning("No LLM configured, cannot generate API suggestions")

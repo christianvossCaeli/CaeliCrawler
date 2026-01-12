@@ -1,5 +1,9 @@
 {
   "llm": {
+    "info": {
+      "title": "KI-Kosten im Blick",
+      "description": "CaeliCrawler nutzt KI-Modelle für Dokumentanalyse, Smart Query und den Assistenten. Jede Anfrage verbraucht Tokens, die Kosten verursachen. Ihr Budget zeigt den aktuellen Verbrauch. Bei Erreichen des Limits werden KI-Funktionen gesperrt - beantragen Sie rechtzeitig eine Erhöhung oder kontaktieren Sie Ihren Administrator."
+    },
     "budgetStatus": "LLM-Budget Status",
     "loading": "Lade Budget-Status...",
     "used": "Verbraucht",

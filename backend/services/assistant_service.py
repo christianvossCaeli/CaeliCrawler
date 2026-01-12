@@ -20,9 +20,9 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.models import FacetType
 from app.models.llm_usage import LLMProvider, LLMTaskType
+from app.models.user_api_credentials import LLMPurpose
 from app.schemas.assistant import (
     AssistantChatResponse,
     AssistantContext,
@@ -45,7 +45,7 @@ from services.assistant.action_executor import (
     handle_batch_action_intent,
     preview_inline_edit,
 )
-from services.assistant.common import get_openai_client
+from services.llm_client_service import LLMClientService
 from services.assistant.context_actions import handle_context_action
 from services.assistant.prompts import INTENT_CLASSIFICATION_PROMPT, get_page_documentation
 from services.assistant.query_handler import handle_context_query, handle_query
@@ -173,7 +173,7 @@ class AssistantService:
         if attachments:
             image_attachments = [a for a in attachments if a.get("content_type", "").startswith("image/")]
             if image_attachments:
-                result = await handle_image_analysis(message, context, image_attachments, language)
+                result = await handle_image_analysis(self.db, message, context, image_attachments, language)
                 return AssistantChatResponse(
                     success=result.get("success", False),
                     response=result.get("response"),
@@ -214,12 +214,17 @@ class AssistantService:
             Tuple of (IntentType, extracted_data)
 
         Raises:
-            ValueError: If Azure OpenAI not configured or classification fails
+            ValueError: If LLM not configured or classification fails
         """
-        client = get_openai_client()
-        if not client:
-            logger.error("Azure OpenAI client not configured")
-            raise ValueError("KI-Service nicht verfügbar. Bitte Azure OpenAI konfigurieren.")
+        # Get LLM client
+        llm_service = LLMClientService(self.db)
+        client, config = await llm_service.get_system_client(LLMPurpose.ASSISTANT)
+        if not client or not config:
+            logger.error("LLM client not configured")
+            raise ValueError("KI-Service nicht verfügbar. Bitte LLM-Credentials konfigurieren.")
+
+        model_name = llm_service.get_model_name(config)
+        provider = llm_service.get_provider(config)
 
         # Build context-aware parameters from page_data if available
         raw_page_data = getattr(context, "page_data", None)
@@ -248,8 +253,8 @@ class AssistantService:
 
         try:
             start_time = time.time()
-            response = client.chat.completions.create(
-                model=settings.azure_openai_deployment_name,
+            response = await client.chat.completions.create(
+                model=model_name,
                 messages=[
                     {"role": "system", "content": "Du bist ein Intent-Classifier. Antworte nur mit JSON."},
                     {"role": "user", "content": prompt},
@@ -261,8 +266,8 @@ class AssistantService:
 
             if response.usage:
                 await record_llm_usage(
-                    provider=LLMProvider.AZURE_OPENAI,
-                    model=settings.azure_openai_deployment_name,
+                    provider=provider,
+                    model=model_name,
                     task_type=LLMTaskType.CHAT,
                     task_name="_classify_intent",
                     prompt_tokens=response.usage.prompt_tokens,
@@ -345,7 +350,7 @@ class AssistantService:
             return await handle_context_action(self.db, message, context, intent_data)
 
         elif intent == IntentType.DISCUSSION:
-            return await handle_discussion(message, context, intent_data)
+            return await handle_discussion(self.db, message, context, intent_data)
 
         else:
             return ErrorResponseData(message=self.tr.t("unknown_intent"), error_code="unknown_intent"), []

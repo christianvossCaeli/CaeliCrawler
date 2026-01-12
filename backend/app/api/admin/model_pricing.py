@@ -18,7 +18,9 @@ from app.core.deps import require_admin
 from app.core.exceptions import NotFoundError
 from app.database import get_session
 from app.models import User
+from app.models.audit_log import AuditAction
 from app.models.model_pricing import OFFICIAL_PRICING_URLS, ModelPricing, PricingProvider
+from app.services.audit_service import create_audit_log
 
 logger = structlog.get_logger()
 router = APIRouter()
@@ -180,7 +182,7 @@ async def list_pricing(
 async def create_pricing(
     request: CreatePricingRequest,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ) -> PricingEntry:
     """Create a new pricing entry."""
     from services.model_pricing_service import ModelPricingService
@@ -197,6 +199,17 @@ async def create_pricing(
         source_url=request.source_url,
         notes=request.notes,
     )
+
+    # Create audit log entry
+    await create_audit_log(
+        session=session,
+        action=AuditAction.CREATE,
+        entity_type="ModelPricing",
+        entity_id=pricing.id,
+        entity_name=f"{request.provider}/{request.model_name}",
+        user=current_user,
+    )
+
     await session.commit()
 
     return PricingEntry(
@@ -223,7 +236,7 @@ async def update_pricing(
     pricing_id: str,
     request: UpdatePricingRequest,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ) -> PricingEntry:
     """Update an existing pricing entry."""
     from uuid import UUID
@@ -243,13 +256,23 @@ async def update_pricing(
     pricing.input_price_per_1m = request.input_price_per_1m
     pricing.output_price_per_1m = request.output_price_per_1m
     pricing.cached_input_price_per_1m = request.cached_input_price_per_1m
-    pricing.last_verified_at = datetime.now(pricing.last_verified_at.tzinfo)
+    pricing.last_verified_at = datetime.now(UTC)
     pricing.source = "manual"
 
     if request.display_name:
         pricing.display_name = request.display_name
     if request.notes is not None:
         pricing.notes = request.notes
+
+    # Create audit log entry
+    await create_audit_log(
+        session=session,
+        action=AuditAction.UPDATE,
+        entity_type="ModelPricing",
+        entity_id=uuid_id,
+        entity_name=f"{pricing.provider.value}/{pricing.model_name}",
+        user=current_user,
+    )
 
     await session.commit()
 
@@ -276,7 +299,7 @@ async def update_pricing(
 async def delete_pricing(
     pricing_id: str,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ) -> dict:
     """Delete a pricing entry (soft delete - marks as deprecated)."""
     from uuid import UUID
@@ -291,6 +314,16 @@ async def delete_pricing(
 
     if not pricing:
         raise NotFoundError("Preiseintrag nicht gefunden")
+
+    # Create audit log entry
+    await create_audit_log(
+        session=session,
+        action=AuditAction.DELETE,
+        entity_type="ModelPricing",
+        entity_id=uuid_id,
+        entity_name=f"{pricing.provider.value}/{pricing.model_name}",
+        user=current_user,
+    )
 
     pricing.is_deprecated = True
     pricing.is_active = False
@@ -317,56 +350,12 @@ async def sync_azure_prices(
     )
 
 
-@router.post("/sync-openai", response_model=SyncResultResponse)
-async def sync_openai_prices(
-    session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_admin),
-) -> SyncResultResponse:
-    """Sync OpenAI prices from predefined defaults.
-
-    Since OpenAI doesn't provide a public pricing API, this updates
-    prices from manually curated data based on their pricing page.
-    """
-    from services.model_pricing_service import ModelPricingService
-
-    results = await ModelPricingService.sync_openai_prices(session)
-
-    return SyncResultResponse(
-        success=len(results["errors"]) == 0,
-        updated=results["updated"],
-        added=results["added"],
-        errors=results["errors"],
-    )
-
-
-@router.post("/sync-anthropic", response_model=SyncResultResponse)
-async def sync_anthropic_prices(
-    session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_admin),
-) -> SyncResultResponse:
-    """Sync Anthropic prices from predefined defaults.
-
-    Since Anthropic doesn't provide a public pricing API, this updates
-    prices from manually curated data based on their pricing page.
-    """
-    from services.model_pricing_service import ModelPricingService
-
-    results = await ModelPricingService.sync_anthropic_prices(session)
-
-    return SyncResultResponse(
-        success=len(results["errors"]) == 0,
-        updated=results["updated"],
-        added=results["added"],
-        errors=results["errors"],
-    )
-
-
 @router.post("/sync-all", response_model=SyncAllResultResponse)
 async def sync_all_prices(
     session: AsyncSession = Depends(get_session),
     _: User = Depends(require_admin),
 ) -> SyncAllResultResponse:
-    """Sync prices from all providers (Azure API + OpenAI/Anthropic defaults)."""
+    """Sync prices from all providers (Azure API + LiteLLM for OpenAI/Anthropic)."""
     from services.model_pricing_service import ModelPricingService
 
     results = await ModelPricingService.sync_all_prices(session)
@@ -444,27 +433,3 @@ async def seed_default_pricing(
     )
 
 
-@router.post("/{pricing_id}/verify")
-async def verify_pricing(
-    pricing_id: str,
-    session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_admin),
-) -> dict:
-    """Mark a pricing entry as verified (updates last_verified_at)."""
-    from uuid import UUID
-
-    try:
-        uuid_id = UUID(pricing_id)
-    except ValueError:
-        raise NotFoundError("Ungültige Preis-ID") from None
-
-    result = await session.execute(select(ModelPricing).where(ModelPricing.id == uuid_id))
-    pricing = result.scalar_one_or_none()
-
-    if not pricing:
-        raise NotFoundError("Preiseintrag nicht gefunden")
-
-    pricing.last_verified_at = datetime.now(UTC)
-    await session.commit()
-
-    return {"message": "Preis wurde als verifiziert markiert"}

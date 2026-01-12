@@ -542,13 +542,14 @@ class EntityMatchingService:
         core_name = extract_core_entity_name(name, country=country)
         core_normalized = normalize_core_entity_name(name, country=country)
 
-        # Skip if core name is too short (likely not meaningful) or same as original
+        # Skip if core name is too short (likely not meaningful)
         if len(core_normalized) < 4:
             return None
 
-        # If core name equals the full normalized name, no point in searching
-        if name_normalized and core_normalized == name_normalized:
-            return None
+        # Note: We intentionally do NOT skip when core_normalized == name_normalized.
+        # Even if the search term has no parenthetical content (e.g., "Regionalverband Ruhr"),
+        # we still want to find entities with parentheses (e.g., "Regionalverband Ruhr (RVR)")
+        # that share the same core name.
 
         # Efficient query: Use LIKE with the core_normalized as substring
         # This leverages indexes and reduces the result set
@@ -730,35 +731,70 @@ class EntityMatchingService:
             # Re-raise other integrity errors
             raise
 
-    async def _generate_entity_embedding(self, entity: Entity) -> None:
+    async def _generate_entity_embedding(self, entity: Entity, max_retries: int = 3) -> None:
         """
-        Generate and store embedding for an entity.
+        Generate and store embedding for an entity with retry logic.
 
         This is called after entity creation to enable similarity matching.
         Failures are logged but don't prevent entity creation.
-        """
-        try:
-            from app.utils.similarity import update_entity_embedding
 
-            success = await update_entity_embedding(
-                self.session,
-                entity.id,
-                name=entity.name,
-            )
-            if success:
-                logger.debug(
-                    "Generated embedding for new entity",
-                    entity_id=str(entity.id),
+        Uses exponential backoff to handle transient API failures:
+        - Attempt 1: immediate
+        - Attempt 2: after 1 second
+        - Attempt 3: after 2 seconds
+
+        Args:
+            entity: The entity to generate embedding for
+            max_retries: Maximum number of retry attempts (default: 3)
+        """
+        import asyncio
+
+        from app.utils.similarity import update_entity_embedding
+
+        for attempt in range(1, max_retries + 1):
+            try:
+                success = await update_entity_embedding(
+                    self.session,
+                    entity.id,
                     name=entity.name,
                 )
-        except Exception as e:
-            # Log but don't fail - embedding can be generated later
-            logger.warning(
-                "Failed to generate embedding for entity",
-                entity_id=str(entity.id),
-                name=entity.name,
-                error=str(e),
-            )
+                if success:
+                    logger.debug(
+                        "Generated embedding for new entity",
+                        entity_id=str(entity.id),
+                        name=entity.name,
+                        attempt=attempt,
+                    )
+                    return
+                else:
+                    logger.warning(
+                        "Embedding generation returned False",
+                        entity_id=str(entity.id),
+                        name=entity.name,
+                        attempt=attempt,
+                    )
+            except Exception as e:
+                if attempt < max_retries:
+                    wait_time = attempt  # Exponential backoff: 1s, 2s
+                    logger.warning(
+                        "Embedding generation failed, retrying",
+                        entity_id=str(entity.id),
+                        name=entity.name,
+                        error=str(e),
+                        attempt=attempt,
+                        max_retries=max_retries,
+                        retry_in_seconds=wait_time,
+                    )
+                    await asyncio.sleep(wait_time)
+                else:
+                    # Final attempt failed - log error but don't fail entity creation
+                    logger.error(
+                        "Failed to generate embedding after all retries",
+                        entity_id=str(entity.id),
+                        name=entity.name,
+                        error=str(e),
+                        attempts=max_retries,
+                    )
 
     # =========================================================================
     # FACET-TO-ENTITY REFERENCE METHODS

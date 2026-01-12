@@ -52,7 +52,6 @@ const mockFormData: CategoryFormData = {
   schedule_enabled: false,
   extraction_handler: 'default',
   ai_extraction_prompt: '',
-  is_active: true,
   is_public: false,
   target_entity_type_id: null,
 }

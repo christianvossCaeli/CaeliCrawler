@@ -1706,7 +1706,6 @@ async def link_data_source_to_category(
         result = await session.execute(
             select(Category).where(
                 Category.slug == slug,
-                Category.is_active,
             )
         )
         category = result.scalar_one_or_none()

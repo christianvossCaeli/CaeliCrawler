@@ -45,6 +45,10 @@
   "exportView": {
     "title": "Export data",
     "subtitle": "Export extracted data instantly or run large exports as background jobs.",
+    "info": {
+      "title": "Take Your Data With You",
+      "description": "Export extracted data in various formats (CSV, JSON, Excel). Use quick export for small datasets, background export for large ones (>5000). Filters narrow down the data: by category, region, confidence, or verified data only. API endpoints enable automated exports and webhooks notify external systems."
+    },
     "download": "Download Data",
     "quickExportTitle": "Quick export",
     "instant": "Instant",

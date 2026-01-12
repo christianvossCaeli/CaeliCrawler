@@ -79,7 +79,7 @@
           size="small"
           variant="tonal"
         >
-          {{ t(`summaries.status${capitalize(summary.status)}`) }}
+          {{ t(`summaries.status${summary.status.charAt(0)}${summary.status.slice(1).toLowerCase()}`) }}
         </v-chip>
 
         <v-chip
@@ -149,7 +149,6 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { CustomSummary } from '@/stores/customSummaries'
 import { useDateFormatter } from '@/composables/useDateFormatter'
-import { capitalize } from '@/composables/useStringUtils'
 import { useStatusColors } from '@/composables'
 
 const props = defineProps<{
@@ -179,6 +178,8 @@ const triggerLabel = computed(() => {
       return t('summaries.trigger.afterCrawl')
     case 'CRAWL_PRESET':
       return t('summaries.trigger.afterPreset')
+    case 'AUTO':
+      return t('summaries.trigger.auto')
     default:
       return t('summaries.trigger.manual')
   }

@@ -13,27 +13,6 @@
       icon="mdi-file-document-multiple"
     >
       <template #actions>
-        <!-- Bulk Actions -->
-        <v-btn
-          v-if="canEdit && selectedDocuments.length > 0"
-          color="primary"
-          variant="outlined"
-          prepend-icon="mdi-play"
-          :loading="bulkProcessing"
-          @click="bulkProcess"
-        >
-          {{ selectedDocuments.length }} {{ $t('documents.bulkActions.processSelected') }}
-        </v-btn>
-        <v-btn
-          v-if="canEdit && selectedDocuments.length > 0"
-          color="info"
-          variant="outlined"
-          prepend-icon="mdi-brain"
-          :loading="bulkAnalyzing"
-          @click="bulkAnalyze"
-        >
-          {{ selectedDocuments.length }} {{ $t('documents.bulkActions.analyzeSelected') }}
-        </v-btn>
         <v-btn
           v-if="canAdmin && stats.processing > 0"
           color="error"
@@ -63,6 +42,11 @@
         </v-btn>
       </template>
     </PageHeader>
+
+    <!-- Info Box -->
+    <PageInfoBox :storage-key="INFO_BOX_STORAGE_KEYS.DOCUMENTS" :title="$t('documents.info.title')">
+      {{ $t('documents.info.description') }}
+    </PageInfoBox>
 
     <!-- Statistics Bar -->
     <v-row class="mb-4" role="group" :aria-label="$t('documents.stats.title', 'Document Statistics')">
@@ -266,6 +250,17 @@
         </v-row>
       </v-card-text>
     </v-card>
+
+    <!-- Bulk Actions Toolbar -->
+    <DocumentsBulkActions
+      v-if="canEdit"
+      :selected-documents="selectedDocuments"
+      :bulk-processing="bulkProcessing"
+      :bulk-analyzing="bulkAnalyzing"
+      @bulk-process="bulkProcess"
+      @bulk-analyze="bulkAnalyze"
+      @clear="clearSelection"
+    />
 
     <!-- Documents Table -->
     <v-card>
@@ -555,7 +550,10 @@ import { onMounted, computed } from 'vue'
 import { useDocumentsView } from '@/composables/useDocumentsView'
 import { DIALOG_SIZES } from '@/config/ui'
 import PageHeader from '@/components/common/PageHeader.vue'
+import PageInfoBox from '@/components/common/PageInfoBox.vue'
+import { INFO_BOX_STORAGE_KEYS } from '@/config/infoBox'
 import DocumentsSkeleton from '@/components/documents/DocumentsSkeleton.vue'
+import DocumentsBulkActions from '@/components/documents/DocumentsBulkActions.vue'
 import { useAuthStore } from '@/stores/auth'
 import { usePageContextProvider, PAGE_ACTIONS } from '@/composables/usePageContext'
 import type { PageContextData } from '@/composables/assistant/types'
@@ -671,6 +669,11 @@ usePageContextProvider(
 // Explicitly mark unused but template-required variables
 void documents
 void categories
+
+// Clear selection helper
+function clearSelection() {
+  selectedDocuments.value = []
+}
 
 // Initialize on mount
 onMounted(() => initialize())

@@ -136,10 +136,10 @@ const providerSelectOptions = [
 
 const localForm = ref<PricingFormData>({ ...props.initialData })
 
-// Sync form data when dialog opens or initialData changes
+// Sync form data when dialog opens
 watch(
-  () => [props.modelValue, props.initialData],
-  ([open]) => {
+  () => props.modelValue,
+  (open) => {
     if (open) {
       localForm.value = { ...props.initialData }
     }

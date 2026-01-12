@@ -257,6 +257,7 @@ class QueryExternalCommand(BaseCommand):
                         serper_key = await get_serper_key(self.session, self.current_user_id)
 
                     discovery_service = AISourceDiscoveryService(
+                        session=self.session,
                         serpapi_key=serpapi_key,
                         serper_key=serper_key,
                     )

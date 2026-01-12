@@ -19,6 +19,11 @@
       </template>
     </PageHeader>
 
+    <!-- Info Box -->
+    <PageInfoBox :storage-key="INFO_BOX_STORAGE_KEYS.FACET_TYPES" :title="t('admin.facetTypes.info.title')">
+      {{ t('admin.facetTypes.info.description') }}
+    </PageInfoBox>
+
     <!-- Filters -->
     <v-card class="mb-4">
       <v-card-text>
@@ -652,6 +657,8 @@ import { useI18n } from "vue-i18n";
 import { useFacetTypesAdmin } from "@/composables/useFacetTypesAdmin";
 import { getContrastColor } from "@/composables/useColorHelpers";
 import PageHeader from "@/components/common/PageHeader.vue";
+import PageInfoBox from "@/components/common/PageInfoBox.vue";
+import { INFO_BOX_STORAGE_KEYS } from "@/config/infoBox";
 import { DIALOG_SIZES } from "@/config/ui";
 
 const { t } = useI18n();

@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.models.entity import Entity
 from app.models.entity_attachment import AttachmentAnalysisStatus, EntityAttachment
+from app.utils.file_validation import FileValidationError, validate_file_type
 
 logger = structlog.get_logger()
 
@@ -57,13 +58,21 @@ class AttachmentService:
         Raises:
             ValueError: If file type not allowed or size exceeded
         """
-        # Validate content type
-        if content_type not in self.allowed_types:
-            raise ValueError(f"Nicht erlaubter Dateityp: {content_type}")
-
-        # Validate file size
+        # Validate file size first (before reading header bytes)
         if len(content) > self.max_size:
             raise ValueError(f"Datei zu gross. Maximum: {settings.attachment_max_size_mb}MB")
+
+        # Validate actual file type via magic bytes (Defense in Depth)
+        try:
+            validated_type = validate_file_type(
+                content,
+                claimed_type=content_type,
+                allowed_types=self.allowed_types,
+            )
+            # Use validated type for storage
+            content_type = validated_type
+        except FileValidationError as e:
+            raise ValueError(str(e)) from None
 
         # Check entity exists
         entity = await self.db.get(Entity, entity_id)

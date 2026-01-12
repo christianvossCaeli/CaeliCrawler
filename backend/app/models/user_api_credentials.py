@@ -111,8 +111,8 @@ PURPOSE_DESCRIPTIONS: dict[LLMPurpose, dict[str, str]] = {
         "icon": "mdi-file-document-outline",
     },
     LLMPurpose.EMBEDDINGS: {
-        "name_de": "Embeddings (Semantische Suche)",
-        "name_en": "Embeddings (Semantic Search)",
+        "name_de": "Embeddings",
+        "name_en": "Embeddings",
         "description_de": "Vektorisierung von Texten für ähnlichkeitsbasierte Suche und Matching.",
         "description_en": "Vectorization of texts for similarity-based search and matching.",
         "icon": "mdi-vector-polyline",

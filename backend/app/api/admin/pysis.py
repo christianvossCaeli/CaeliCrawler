@@ -13,6 +13,8 @@ from app.core.deps import require_admin, require_editor
 from app.core.exceptions import FeatureDisabledError, NotFoundError, ValidationError
 from app.database import get_session
 from app.models import Entity, User
+from app.models.audit_log import AuditAction
+from app.services.audit_service import create_audit_log
 from app.models.pysis import (
     PySisFieldHistory,
     PySisFieldTemplate,
@@ -93,7 +95,7 @@ async def create_template(
     data: PySisFieldTemplateCreate,
     session: AsyncSession = Depends(get_session),
     _: bool = Depends(require_templates_feature),
-    __: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ):
     """Create a new field template."""
     template = PySisFieldTemplate(
@@ -105,6 +107,17 @@ async def create_template(
     session.add(template)
     await session.commit()
     await session.refresh(template)
+
+    await create_audit_log(
+        session=session,
+        action=AuditAction.CREATE,
+        entity_type="PySisFieldTemplate",
+        entity_id=template.id,
+        entity_name=template.name,
+        user=current_user,
+    )
+    await session.commit()
+
     return PySisFieldTemplateResponse.model_validate(template)
 
 
@@ -128,7 +141,7 @@ async def update_template(
     data: PySisFieldTemplateUpdate,
     session: AsyncSession = Depends(get_session),
     _: bool = Depends(require_templates_feature),
-    __: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ):
     """Update a template."""
     template = await session.get(PySisFieldTemplate, template_id)
@@ -144,6 +157,15 @@ async def update_template(
     if data.is_active is not None:
         template.is_active = data.is_active
 
+    await create_audit_log(
+        session=session,
+        action=AuditAction.UPDATE,
+        entity_type="PySisFieldTemplate",
+        entity_id=template_id,
+        entity_name=template.name,
+        user=current_user,
+    )
+
     await session.commit()
     await session.refresh(template)
     return PySisFieldTemplateResponse.model_validate(template)
@@ -154,12 +176,23 @@ async def delete_template(
     template_id: UUID,
     session: AsyncSession = Depends(get_session),
     _: bool = Depends(require_templates_feature),
-    __: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ):
     """Delete a template."""
     template = await session.get(PySisFieldTemplate, template_id)
     if not template:
         raise NotFoundError("Template", str(template_id))
+
+    template_name = template.name
+
+    await create_audit_log(
+        session=session,
+        action=AuditAction.DELETE,
+        entity_type="PySisFieldTemplate",
+        entity_id=template_id,
+        entity_name=template_name,
+        user=current_user,
+    )
 
     await session.delete(template)
     await session.commit()
@@ -201,7 +234,7 @@ async def create_process(
     location_name: str,
     data: PySisProcessCreate,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_editor),
+    current_user: User = Depends(require_editor),
 ):
     """Create a new PySis process link for a location."""
     # Check if template feature is enabled when template_id is provided
@@ -249,6 +282,16 @@ async def create_process(
             await session.commit()
             await session.refresh(process)
 
+    await create_audit_log(
+        session=session,
+        action=AuditAction.CREATE,
+        entity_type="PySisProcess",
+        entity_id=process.id,
+        entity_name=f"{process.name} ({location_name})",
+        user=current_user,
+    )
+    await session.commit()
+
     response = PySisProcessResponse.model_validate(process)
     response.field_count = len(process.fields) if process.fields else 0
     return response
@@ -276,7 +319,7 @@ async def update_process(
     process_id: UUID,
     data: PySisProcessUpdate,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_editor),
+    current_user: User = Depends(require_editor),
 ):
     """Update a process."""
     process = await session.get(PySisProcess, process_id)
@@ -287,6 +330,15 @@ async def update_process(
         process.name = data.name
     if data.description is not None:
         process.description = data.description
+
+    await create_audit_log(
+        session=session,
+        action=AuditAction.UPDATE,
+        entity_type="PySisProcess",
+        entity_id=process_id,
+        entity_name=process.name,
+        user=current_user,
+    )
 
     await session.commit()
     await session.refresh(process)
@@ -300,12 +352,23 @@ async def update_process(
 async def delete_process(
     process_id: UUID,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ):
     """Delete a process and all its fields."""
     process = await session.get(PySisProcess, process_id)
     if not process:
         raise NotFoundError("Process", str(process_id))
+
+    process_name = process.name
+
+    await create_audit_log(
+        session=session,
+        action=AuditAction.DELETE,
+        entity_type="PySisProcess",
+        entity_id=process_id,
+        entity_name=process_name,
+        user=current_user,
+    )
 
     await session.delete(process)
     await session.commit()
@@ -318,7 +381,7 @@ async def apply_template_to_process(
     data: ApplyTemplateRequest,
     session: AsyncSession = Depends(get_session),
     _: bool = Depends(require_templates_feature),
-    __: User = Depends(require_editor),
+    current_user: User = Depends(require_editor),
 ):
     """
     Apply a template to a process.
@@ -359,6 +422,16 @@ async def apply_template_to_process(
             fields_not_found.append(pysis_field_name)
 
     process.template_id = data.template_id
+
+    await create_audit_log(
+        session=session,
+        action=AuditAction.UPDATE,
+        entity_type="PySisProcess",
+        entity_id=process_id,
+        entity_name=f"{process.name} (template: {template.name})",
+        user=current_user,
+    )
+
     await session.commit()
     await session.refresh(process)
 
@@ -393,7 +466,7 @@ async def create_field(
     process_id: UUID,
     data: PySisFieldCreate,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_editor),
+    current_user: User = Depends(require_editor),
 ):
     """Create a new field for a process."""
     process = await session.get(PySisProcess, process_id)
@@ -412,6 +485,17 @@ async def create_field(
     session.add(field)
     await session.commit()
     await session.refresh(field)
+
+    await create_audit_log(
+        session=session,
+        action=AuditAction.CREATE,
+        entity_type="PySisProcessField",
+        entity_id=field.id,
+        entity_name=f"{data.internal_name} ({process.name})",
+        user=current_user,
+    )
+    await session.commit()
+
     return PySisFieldResponse.model_validate(field)
 
 
@@ -420,7 +504,7 @@ async def update_field(
     field_id: UUID,
     data: PySisFieldUpdate,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_editor),
+    current_user: User = Depends(require_editor),
 ):
     """Update a field."""
     field = await session.get(PySisProcessField, field_id)
@@ -436,6 +520,15 @@ async def update_field(
     if data.ai_extraction_prompt is not None:
         field.ai_extraction_prompt = data.ai_extraction_prompt
 
+    await create_audit_log(
+        session=session,
+        action=AuditAction.UPDATE,
+        entity_type="PySisProcessField",
+        entity_id=field_id,
+        entity_name=field.internal_name,
+        user=current_user,
+    )
+
     await session.commit()
     await session.refresh(field)
     return PySisFieldResponse.model_validate(field)
@@ -446,7 +539,7 @@ async def update_field_value(
     field_id: UUID,
     data: PySisFieldValueUpdate,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_editor),
+    current_user: User = Depends(require_editor),
 ):
     """Update a field's value."""
     field = await session.get(PySisProcessField, field_id)
@@ -463,6 +556,15 @@ async def update_field_value(
     field.current_value = data.value
     field.needs_push = True
 
+    await create_audit_log(
+        session=session,
+        action=AuditAction.UPDATE,
+        entity_type="PySisProcessField",
+        entity_id=field_id,
+        entity_name=f"{field.internal_name} (value)",
+        user=current_user,
+    )
+
     await session.commit()
     await session.refresh(field)
     return PySisFieldResponse.model_validate(field)
@@ -472,12 +574,23 @@ async def update_field_value(
 async def delete_field(
     field_id: UUID,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ):
     """Delete a field."""
     field = await session.get(PySisProcessField, field_id)
     if not field:
         raise NotFoundError("Field", str(field_id))
+
+    field_name = field.internal_name
+
+    await create_audit_log(
+        session=session,
+        action=AuditAction.DELETE,
+        entity_type="PySisProcessField",
+        entity_id=field_id,
+        entity_name=field_name,
+        user=current_user,
+    )
 
     await session.delete(field)
     await session.commit()
@@ -491,7 +604,7 @@ async def delete_field(
 async def pull_from_pysis(
     process_id: UUID,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_editor),
+    current_user: User = Depends(require_editor),
 ):
     """
     Pull current values from PySis API.
@@ -561,6 +674,15 @@ async def pull_from_pysis(
         process.sync_status = SyncStatus.SYNCED
         process.sync_error = None
 
+        await create_audit_log(
+            session=session,
+            action=AuditAction.UPDATE,
+            entity_type="PySisProcess",
+            entity_id=process_id,
+            entity_name=f"{process.name} (pull: {fields_updated} updated, {fields_created} created)",
+            user=current_user,
+        )
+
         await session.commit()
 
         return PySisPullResult(
@@ -610,7 +732,7 @@ async def push_to_pysis(
     process_id: UUID,
     field_ids: list[UUID] | None = Body(None, embed=True),
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_editor),
+    current_user: User = Depends(require_editor),
 ):
     """Push field values to PySis API."""
     process = await session.get(PySisProcess, process_id)
@@ -654,6 +776,15 @@ async def push_to_pysis(
         process.sync_status = SyncStatus.SYNCED
         process.sync_error = None
 
+        await create_audit_log(
+            session=session,
+            action=AuditAction.UPDATE,
+            entity_type="PySisProcess",
+            entity_id=process_id,
+            entity_name=f"{process.name} (push: {fields_synced} fields)",
+            user=current_user,
+        )
+
         await session.commit()
 
         return PySisSyncResult(
@@ -680,7 +811,7 @@ async def push_to_pysis(
 async def push_field_to_pysis(
     field_id: UUID,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_editor),
+    current_user: User = Depends(require_editor),
 ):
     """Push a single field value to PySis API."""
     field = await session.get(PySisProcessField, field_id)
@@ -709,6 +840,15 @@ async def push_field_to_pysis(
             process.last_synced_at = datetime.now(UTC)
             process.sync_status = SyncStatus.SYNCED
             process.sync_error = None
+
+            await create_audit_log(
+                session=session,
+                action=AuditAction.UPDATE,
+                entity_type="PySisProcessField",
+                entity_id=field_id,
+                entity_name=f"{field.internal_name} (push)",
+                user=current_user,
+            )
 
             await session.commit()
 
@@ -740,7 +880,7 @@ async def generate_fields(
     process_id: UUID,
     data: PySisGenerateRequest | None = None,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_editor),
+    current_user: User = Depends(require_editor),
 ):
     """Generate field values using AI."""
     process = await session.get(PySisProcess, process_id)
@@ -758,6 +898,16 @@ async def generate_fields(
         if field.ai_extraction_enabled and (field_ids is None or str(field.id) in field_ids):
             count += 1
 
+    await create_audit_log(
+        session=session,
+        action=AuditAction.CREATE,
+        entity_type="PySisAIGeneration",
+        entity_id=process_id,
+        entity_name=f"{process.name} ({count} fields)",
+        user=current_user,
+    )
+    await session.commit()
+
     return PySisGenerateResult(
         success=True,
         fields_generated=count,
@@ -769,7 +919,7 @@ async def generate_fields(
 async def generate_single_field(
     field_id: UUID,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_editor),
+    current_user: User = Depends(require_editor),
 ):
     """Generate a single field value using AI."""
     field = await session.get(PySisProcessField, field_id)
@@ -778,6 +928,16 @@ async def generate_single_field(
 
     # Queue the extraction task for just this field
     extract_pysis_fields.delay(str(field.process_id), [str(field_id)])
+
+    await create_audit_log(
+        session=session,
+        action=AuditAction.CREATE,
+        entity_type="PySisAIGeneration",
+        entity_id=field_id,
+        entity_name=field.internal_name,
+        user=current_user,
+    )
+    await session.commit()
 
     return PySisGenerateResult(
         success=True,
@@ -794,7 +954,7 @@ async def accept_ai_suggestion(
     field_id: UUID,
     data: AcceptAISuggestionRequest | None = None,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_editor),
+    current_user: User = Depends(require_editor),
 ):
     """
     Accept the AI-generated suggestion for a field.
@@ -843,6 +1003,15 @@ async def accept_ai_suggestion(
     )
     session.add(history)
 
+    await create_audit_log(
+        session=session,
+        action=AuditAction.UPDATE,
+        entity_type="PySisProcessField",
+        entity_id=field_id,
+        entity_name=f"{field.internal_name} (AI accepted)",
+        user=current_user,
+    )
+
     await session.commit()
 
     # Optionally push to PySis
@@ -883,7 +1052,7 @@ async def accept_ai_suggestion(
 async def reject_ai_suggestion(
     field_id: UUID,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_editor),
+    current_user: User = Depends(require_editor),
 ):
     """
     Reject the AI-generated suggestion for a field.
@@ -918,6 +1087,15 @@ async def reject_ai_suggestion(
     rejected_value = field.ai_extracted_value
     field.ai_extracted_value = None
     field.confidence_score = None
+
+    await create_audit_log(
+        session=session,
+        action=AuditAction.UPDATE,
+        entity_type="PySisProcessField",
+        entity_id=field_id,
+        entity_name=f"{field.internal_name} (AI rejected)",
+        user=current_user,
+    )
 
     await session.commit()
 
@@ -963,7 +1141,7 @@ async def restore_from_history(
     field_id: UUID,
     history_id: UUID,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_editor),
+    current_user: User = Depends(require_editor),
 ):
     """Restore a field value from history."""
     field = await session.get(PySisProcessField, field_id)
@@ -999,6 +1177,15 @@ async def restore_from_history(
         action="restored",
     )
     session.add(restore_history)
+
+    await create_audit_log(
+        session=session,
+        action=AuditAction.UPDATE,
+        entity_type="PySisProcessField",
+        entity_id=field_id,
+        entity_name=f"{field.internal_name} (restored)",
+        user=current_user,
+    )
 
     await session.commit()
 
@@ -1057,7 +1244,7 @@ async def analyze_pysis_for_facets_admin(
     process_id: UUID,
     data: PySisAnalyzeForFacetsRequest | None = None,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_editor),
+    current_user: User = Depends(require_editor),
 ):
     """
     Analyze PySis fields and extract Facets for the linked Entity.
@@ -1093,6 +1280,16 @@ async def analyze_pysis_for_facets_admin(
         )
     except ValueError as e:
         raise ValidationError(str(e)) from None
+
+    await create_audit_log(
+        session=session,
+        action=AuditAction.CREATE,
+        entity_type="PySisFacetAnalysis",
+        entity_id=process_id,
+        entity_name=f"{process.name} ({len(fields_with_values)} fields)",
+        user=current_user,
+    )
+    await session.commit()
 
     return PySisAnalyzeForFacetsResult(
         success=True,

@@ -22,12 +22,12 @@
         </span>
       </template>
 
-      <template #item.is_active="{ item }">
+      <template #item.schedule_enabled="{ item }">
         <v-chip
-          :color="item.is_active ? 'success' : 'grey'"
+          :color="item.schedule_enabled ? 'success' : 'grey'"
           size="small"
         >
-          {{ item.is_active ? $t('categories.statusOptions.active') : $t('categories.statusOptions.inactive') }}
+          {{ item.schedule_enabled ? $t('categories.statusOptions.scheduled') : $t('categories.statusOptions.manual') }}
         </v-chip>
       </template>
 
@@ -183,7 +183,7 @@ const headers = computed(() => [
   { title: t('categories.columns.name'), key: 'name', sortable: true },
   { title: t('categories.columns.purpose'), key: 'purpose', maxWidth: '300px', sortable: true },
   { title: t('categories.columns.languages'), key: 'languages', sortable: false },
-  { title: t('categories.columns.status'), key: 'is_active', sortable: true },
+  { title: t('categories.columns.schedule'), key: 'schedule_enabled', sortable: true },
   { title: t('categories.columns.sources'), key: 'source_count', sortable: false },
   { title: t('categories.columns.documents'), key: 'document_count', sortable: false },
   { title: t('categories.columns.actions'), key: 'actions', sortable: false, align: 'end' as const },
@@ -194,10 +194,10 @@ const getLanguageFlag = (code: string): string => {
   return lang?.flag || code.toUpperCase()
 }
 
-// Row styling based on category status
+// Row styling based on schedule status
 const getRowProps = ({ item }: { item: Category }) => {
   return {
-    class: item.is_active ? '' : 'category-inactive',
+    class: item.schedule_enabled ? '' : 'category-manual',
   }
 }
 </script>

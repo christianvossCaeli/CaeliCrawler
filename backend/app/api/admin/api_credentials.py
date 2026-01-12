@@ -32,11 +32,16 @@ from app.core.exceptions import NotFoundError, ValidationError
 from app.core.rate_limit import check_rate_limit
 from app.database import get_session
 from app.models import User
+from app.models.audit_log import AuditAction
+from app.services.audit_service import create_audit_log
 from app.models.user_api_credentials import (
     API_CREDENTIAL_DESCRIPTIONS,
     ApiCredentialType,
+    LLMPurpose,
     UserApiCredentials,
+    UserLLMConfig,
 )
+from services.credentials_resolver import ensure_search_credential_from_purpose
 
 logger = structlog.get_logger()
 router = APIRouter()
@@ -158,6 +163,7 @@ async def save_credential(
     user_id: Any,
     cred_type: ApiCredentialType,
     data: dict[str, Any],
+    user: User | None = None,
 ) -> None:
     """Save or update a credential."""
     result = await session.execute(
@@ -183,6 +189,15 @@ async def save_credential(
                 is_active=True,
             )
         )
+
+    # Create audit log entry
+    await create_audit_log(
+        session=session,
+        action=AuditAction.UPDATE if existing else AuditAction.CREATE,
+        entity_type="ApiCredential",
+        entity_name=cred_type.value,
+        user=user,
+    )
 
     await session.commit()
 
@@ -211,6 +226,23 @@ async def get_credentials_status(
     """
     result = await session.execute(select(UserApiCredentials).where(UserApiCredentials.user_id == current_user.id))
     credentials = {c.credential_type: c for c in result.scalars().all()}
+    migrated = False
+
+    serpapi_cred = credentials.get(ApiCredentialType.SERPAPI)
+    if not serpapi_cred or not serpapi_cred.is_active:
+        migrated = bool(
+            await ensure_search_credential_from_purpose(session, current_user.id, ApiCredentialType.SERPAPI)
+        ) or migrated
+
+    serper_cred = credentials.get(ApiCredentialType.SERPER)
+    if not serper_cred or not serper_cred.is_active:
+        migrated = bool(
+            await ensure_search_credential_from_purpose(session, current_user.id, ApiCredentialType.SERPER)
+        ) or migrated
+
+    if migrated:
+        result = await session.execute(select(UserApiCredentials).where(UserApiCredentials.user_id == current_user.id))
+        credentials = {c.credential_type: c for c in result.scalars().all()}
 
     # Get user's language preference
     language = current_user.language or "de"
@@ -245,6 +277,7 @@ async def save_serpapi_credentials(
         current_user.id,
         ApiCredentialType.SERPAPI,
         {"api_key": data.api_key},
+        user=current_user,
     )
     return MessageResponse(message="SerpAPI-Zugangsdaten erfolgreich gespeichert")
 
@@ -266,6 +299,7 @@ async def save_serper_credentials(
         current_user.id,
         ApiCredentialType.SERPER,
         {"api_key": data.api_key},
+        user=current_user,
     )
     return MessageResponse(message="Serper-Zugangsdaten erfolgreich gespeichert")
 
@@ -293,6 +327,7 @@ async def save_azure_openai_credentials(
             "deployment_name": data.deployment_name,
             "embeddings_deployment": data.embeddings_deployment,
         },
+        user=current_user,
     )
     return MessageResponse(message="Azure OpenAI-Zugangsdaten erfolgreich gespeichert")
 
@@ -322,6 +357,7 @@ async def save_openai_credentials(
         current_user.id,
         ApiCredentialType.OPENAI,
         cred_data,
+        user=current_user,
     )
     return MessageResponse(message="OpenAI-Zugangsdaten erfolgreich gespeichert")
 
@@ -347,6 +383,7 @@ async def save_anthropic_credentials(
             "api_key": data.api_key,
             "model": data.model,
         },
+        user=current_user,
     )
     return MessageResponse(message="Anthropic-Zugangsdaten erfolgreich gespeichert")
 
@@ -372,6 +409,26 @@ async def delete_credential(
     cred = result.scalar_one_or_none()
     if not cred:
         raise NotFoundError("API-Credential", credential_type)
+
+    if cred_type in {ApiCredentialType.SERPAPI, ApiCredentialType.SERPER}:
+        result = await session.execute(
+            select(UserLLMConfig).where(
+                UserLLMConfig.user_id == current_user.id,
+                UserLLMConfig.purpose == LLMPurpose.WEB_SEARCH,
+            )
+        )
+        config = result.scalar_one_or_none()
+        if config:
+            await session.delete(config)
+
+    # Create audit log entry
+    await create_audit_log(
+        session=session,
+        action=AuditAction.DELETE,
+        entity_type="ApiCredential",
+        entity_name=credential_type,
+        user=current_user,
+    )
 
     await session.delete(cred)
     await session.commit()

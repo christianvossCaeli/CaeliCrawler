@@ -1,18 +1,28 @@
 """API endpoints for entity attachments."""
 
+import time
 from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.config import settings
 from app.core.audit import AuditContext
 from app.core.deps import get_current_user, get_current_user_optional
 from app.database import get_session
 from app.models.audit_log import AuditAction
+from app.models.entity_attachment import EntityAttachment
 from app.models.user import User, UserRole
+from app.schemas.attachment import AttachmentSearchResponse, AttachmentSearchResult
+from app.utils.file_validation import (
+    FileValidationError,
+    StreamingUploadHandler,
+    validate_file_type,
+)
 from services.attachment_service import AttachmentService
 
 router = APIRouter()
@@ -25,6 +35,122 @@ ALLOWED_TYPES = {
     "image/webp",
     "application/pdf",
 }
+
+
+@router.get("/search", response_model=AttachmentSearchResponse)
+async def search_attachments(
+    q: str = Query(..., min_length=2, description="Search query"),
+    entity_id: UUID | None = Query(None, description="Filter by entity"),
+    content_type: str | None = Query(None, description="Filter by content type (e.g., image/png)"),
+    analysis_status: str | None = Query(None, description="Filter by status (PENDING, ANALYZING, COMPLETED, FAILED)"),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> AttachmentSearchResponse:
+    """
+    Full-text search across attachment content.
+
+    Searches in:
+    - Filename
+    - Description
+    - AI-extracted description
+    - AI-extracted text content (OCR for images, text extraction for PDFs)
+
+    Uses PostgreSQL full-text search with German language support.
+    Results are ranked by relevance and include highlighted snippets.
+    """
+    start_time = time.time()
+
+    # Build search query
+    search_query = func.plainto_tsquery("german", q)
+
+    # Base query with ranking
+    query = (
+        select(
+            EntityAttachment,
+            func.ts_rank(EntityAttachment.search_vector, search_query).label("rank"),
+            func.ts_headline(
+                "german",
+                func.coalesce(EntityAttachment.description, "")
+                + " "
+                + func.coalesce(EntityAttachment.analysis_result["description"].astext, ""),
+                search_query,
+                "StartSel=<mark>, StopSel=</mark>, MaxWords=50, MinWords=20",
+            ).label("headline"),
+        )
+        .where(EntityAttachment.search_vector.isnot(None))
+        .where(EntityAttachment.search_vector.op("@@")(search_query))
+    )
+
+    # Apply filters
+    if entity_id:
+        query = query.where(EntityAttachment.entity_id == entity_id)
+    if content_type:
+        query = query.where(EntityAttachment.content_type == content_type)
+    if analysis_status:
+        query = query.where(EntityAttachment.analysis_status == analysis_status)
+
+    # Order by rank
+    query = query.order_by(func.ts_rank(EntityAttachment.search_vector, search_query).desc())
+
+    # Pagination
+    query = query.offset((page - 1) * per_page).limit(per_page)
+
+    # Load entity relationship for entity_name
+    query = query.options(selectinload(EntityAttachment.entity))
+
+    result = await session.execute(query)
+    rows = result.all()
+
+    # Count total (without pagination)
+    count_query = (
+        select(func.count())
+        .select_from(EntityAttachment)
+        .where(EntityAttachment.search_vector.isnot(None))
+        .where(EntityAttachment.search_vector.op("@@")(search_query))
+    )
+    if entity_id:
+        count_query = count_query.where(EntityAttachment.entity_id == entity_id)
+    if content_type:
+        count_query = count_query.where(EntityAttachment.content_type == content_type)
+    if analysis_status:
+        count_query = count_query.where(EntityAttachment.analysis_status == analysis_status)
+
+    total = (await session.execute(count_query)).scalar() or 0
+
+    # Build response
+    items = []
+    for row in rows:
+        att = row[0]
+        items.append(
+            AttachmentSearchResult(
+                id=att.id,
+                entity_id=att.entity_id,
+                entity_name=att.entity.name if att.entity else "Unknown",
+                filename=att.filename,
+                content_type=att.content_type,
+                file_size=att.file_size,
+                description=att.description,
+                analysis_status=att.analysis_status.value,
+                headline=row[2],
+                rank=round(row[1] or 0.0, 4),
+                created_at=att.created_at,
+                analyzed_at=att.analyzed_at,
+                is_image=att.is_image,
+                is_pdf=att.is_pdf,
+            )
+        )
+
+    return AttachmentSearchResponse(
+        items=items,
+        total=total,
+        page=page,
+        per_page=per_page,
+        pages=(total + per_page - 1) // per_page if total > 0 else 1,
+        query=q,
+        search_time_ms=round((time.time() - start_time) * 1000, 2),
+    )
 
 
 @router.post("/entities/{entity_id}/attachments")
@@ -46,37 +172,55 @@ async def upload_attachment(
 
     Maximum file size: 20MB
     """
-    # Validate content type
-    if file.content_type not in ALLOWED_TYPES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Nicht unterstuetzter Dateityp: {file.content_type}",
-        )
-
-    # Read content
-    content = await file.read()
-
-    # Validate size
+    # Calculate thresholds from config
     max_size = settings.attachment_max_size_mb * 1024 * 1024
-    if len(content) > max_size:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Datei zu gross. Maximum: {settings.attachment_max_size_mb}MB",
-        )
+    stream_threshold = settings.attachment_stream_threshold_mb * 1024 * 1024
 
-    service = AttachmentService(session)
+    # Process upload with streaming (memory-efficient for large files)
+    handler = StreamingUploadHandler(
+        threshold_bytes=stream_threshold,
+        temp_dir=settings.attachment_temp_dir,
+    )
 
     try:
-        attachment = await service.upload_attachment(
-            entity_id=entity_id,
-            filename=file.filename or "unnamed",
-            content=content,
-            content_type=file.content_type,
-            user_id=current_user.id,
-            description=description,
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from None
+        await handler.process_upload(file)
+
+        # Validate size
+        if handler.size > max_size:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Datei zu gross. Maximum: {settings.attachment_max_size_mb}MB",
+            )
+
+        # Validate actual file type via magic bytes (only reads header, efficient)
+        try:
+            validated_type = validate_file_type(
+                handler.get_header(16),
+                claimed_type=file.content_type or "application/octet-stream",
+                allowed_types=ALLOWED_TYPES,
+            )
+        except FileValidationError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from None
+
+        # Get content for service
+        content = handler.get_content()
+
+        service = AttachmentService(session)
+
+        try:
+            attachment = await service.upload_attachment(
+                entity_id=entity_id,
+                filename=file.filename or "unnamed",
+                content=content,
+                content_type=validated_type,
+                user_id=current_user.id,
+                description=description,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from None
+
+    finally:
+        handler.cleanup()
 
     # Audit log for attachment upload
     async with AuditContext(session, current_user, request) as audit:

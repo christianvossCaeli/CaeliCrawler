@@ -31,6 +31,8 @@ from app.core.exceptions import NotFoundError, ValidationError
 from app.core.rate_limit import check_rate_limit
 from app.database import get_session
 from app.models import User
+from app.models.audit_log import AuditAction
+from app.services.audit_service import create_audit_log
 from app.models.user_api_credentials import (
     EMBEDDINGS_REQUIRED_FIELDS,
     PROVIDER_DESCRIPTIONS,
@@ -42,6 +44,7 @@ from app.models.user_api_credentials import (
     LLMPurpose,
     UserLLMConfig,
 )
+from services.credentials_resolver import get_search_api_config
 
 logger = structlog.get_logger()
 router = APIRouter()
@@ -337,6 +340,15 @@ async def save_purpose_config(
             )
         )
 
+    # Create audit log entry
+    await create_audit_log(
+        session=session,
+        action=AuditAction.CONFIG_UPDATE,
+        entity_type="LLMConfig",
+        entity_name=f"{llm_purpose.value}/{provider.value}",
+        user=current_user,
+    )
+
     await session.commit()
 
     purpose_name = PURPOSE_DESCRIPTIONS.get(llm_purpose, {}).get(
@@ -378,13 +390,22 @@ async def delete_purpose_config(
     if not config:
         raise NotFoundError("LLM-Konfiguration", purpose)
 
-    await session.delete(config)
-    await session.commit()
-
     purpose_name = PURPOSE_DESCRIPTIONS.get(llm_purpose, {}).get(
         f"name_{current_user.language or 'de'}",
         PURPOSE_DESCRIPTIONS.get(llm_purpose, {}).get("name_de", purpose),
     )
+
+    # Create audit log entry
+    await create_audit_log(
+        session=session,
+        action=AuditAction.DELETE,
+        entity_type="LLMConfig",
+        entity_name=purpose,
+        user=current_user,
+    )
+
+    await session.delete(config)
+    await session.commit()
 
     logger.info(
         "llm_config_deleted",
@@ -628,6 +649,30 @@ async def get_active_config(
     except ValueError:
         raise ValidationError(f"Unbekannter Zweck: {purpose}") from None
 
+    language = current_user.language or "de"
+    purpose_info = PURPOSE_DESCRIPTIONS.get(llm_purpose, {})
+    purpose_name = purpose_info.get(f"name_{language}", purpose_info.get("name_de", purpose))
+
+    if llm_purpose == LLMPurpose.WEB_SEARCH:
+        search_config = await get_search_api_config(session, current_user.id)
+        if not search_config:
+            return ActiveConfigResponse(
+                purpose=purpose,
+                purpose_name=purpose_name,
+                is_configured=False,
+            )
+
+        api_type, _ = search_config
+        provider = LLMProvider.SERPAPI if api_type == "serpapi" else LLMProvider.SERPER
+        provider_info = PROVIDER_DESCRIPTIONS.get(provider, {})
+        return ActiveConfigResponse(
+            purpose=purpose,
+            purpose_name=purpose_name,
+            is_configured=True,
+            provider=provider.value,
+            provider_name=provider_info.get("name", provider.value),
+        )
+
     result = await session.execute(
         select(UserLLMConfig).where(
             UserLLMConfig.user_id == current_user.id,
@@ -636,10 +681,6 @@ async def get_active_config(
         )
     )
     config = result.scalar_one_or_none()
-
-    language = current_user.language or "de"
-    purpose_info = PURPOSE_DESCRIPTIONS.get(llm_purpose, {})
-    purpose_name = purpose_info.get(f"name_{language}", purpose_info.get("name_de", purpose))
 
     if not config:
         return ActiveConfigResponse(
@@ -679,4 +720,215 @@ async def get_active_config(
         model=model,
         pricing_input_per_1m=pricing["input"] if pricing else None,
         pricing_output_per_1m=pricing["output"] if pricing else None,
+    )
+
+
+# =============================================================================
+# Embedding Generation Endpoints
+# =============================================================================
+
+
+class EmbeddingStatsResponse(BaseModel):
+    """Statistics about embeddings in the database."""
+
+    entities_total: int
+    entities_with_embedding: int
+    entities_missing: int
+    entity_types_total: int
+    entity_types_with_embedding: int
+    facet_types_total: int
+    facet_types_with_embedding: int
+    categories_total: int
+    categories_with_embedding: int
+    relation_types_total: int
+    relation_types_with_embedding: int
+    facet_values_total: int
+    facet_values_with_embedding: int
+    is_configured: bool
+    task_running: bool
+    task_id: str | None = None
+
+
+class GenerateEmbeddingsRequest(BaseModel):
+    """Request to generate embeddings."""
+
+    target: str = Field(
+        default="all",
+        description="Target for generation: 'all', 'entities', 'types', 'facet_values'",
+    )
+    force: bool = Field(
+        default=False,
+        description="Regenerate all embeddings (even existing ones)",
+    )
+
+
+class GenerateEmbeddingsResponse(BaseModel):
+    """Response after starting embedding generation."""
+
+    task_id: str
+    message: str
+
+
+@router.get("/embeddings/stats", response_model=EmbeddingStatsResponse)
+async def get_embedding_stats(
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_editor),
+) -> EmbeddingStatsResponse:
+    """Get statistics about embeddings in the database.
+
+    Returns counts of entities/types with and without embeddings,
+    and whether the EMBEDDINGS purpose is configured.
+    """
+    from sqlalchemy import func
+
+    from app.models import Category, Entity, EntityType, FacetType, FacetValue, RelationType
+    from workers.ai_tasks import get_embedding_task_status
+
+    # Check if EMBEDDINGS is configured
+    result = await session.execute(
+        select(UserLLMConfig).where(
+            UserLLMConfig.user_id == current_user.id,
+            UserLLMConfig.purpose == LLMPurpose.EMBEDDINGS,
+            UserLLMConfig.is_active.is_(True),
+        )
+    )
+    is_configured = result.scalar_one_or_none() is not None
+
+    # Entity stats
+    entities_total = await session.scalar(select(func.count(Entity.id)))
+    entities_with = await session.scalar(
+        select(func.count(Entity.id)).where(Entity.name_embedding.isnot(None))
+    )
+
+    # EntityType stats
+    entity_types_total = await session.scalar(select(func.count(EntityType.id)))
+    entity_types_with = await session.scalar(
+        select(func.count(EntityType.id)).where(EntityType.name_embedding.isnot(None))
+    )
+
+    # FacetType stats
+    facet_types_total = await session.scalar(select(func.count(FacetType.id)))
+    facet_types_with = await session.scalar(
+        select(func.count(FacetType.id)).where(FacetType.name_embedding.isnot(None))
+    )
+
+    # Category stats
+    categories_total = await session.scalar(select(func.count(Category.id)))
+    categories_with = await session.scalar(
+        select(func.count(Category.id)).where(Category.name_embedding.isnot(None))
+    )
+
+    # RelationType stats
+    relation_types_total = await session.scalar(select(func.count(RelationType.id)))
+    relation_types_with = await session.scalar(
+        select(func.count(RelationType.id)).where(RelationType.name_embedding.isnot(None))
+    )
+
+    # FacetValue stats
+    facet_values_total = await session.scalar(select(func.count(FacetValue.id)))
+    facet_values_with = await session.scalar(
+        select(func.count(FacetValue.id)).where(FacetValue.text_embedding.isnot(None))
+    )
+
+    # Check if task is running
+    task_status = get_embedding_task_status()
+
+    return EmbeddingStatsResponse(
+        entities_total=entities_total or 0,
+        entities_with_embedding=entities_with or 0,
+        entities_missing=(entities_total or 0) - (entities_with or 0),
+        entity_types_total=entity_types_total or 0,
+        entity_types_with_embedding=entity_types_with or 0,
+        facet_types_total=facet_types_total or 0,
+        facet_types_with_embedding=facet_types_with or 0,
+        categories_total=categories_total or 0,
+        categories_with_embedding=categories_with or 0,
+        relation_types_total=relation_types_total or 0,
+        relation_types_with_embedding=relation_types_with or 0,
+        facet_values_total=facet_values_total or 0,
+        facet_values_with_embedding=facet_values_with or 0,
+        is_configured=is_configured,
+        task_running=task_status.get("running", False),
+        task_id=task_status.get("task_id"),
+    )
+
+
+@router.post("/embeddings/generate", response_model=GenerateEmbeddingsResponse)
+async def generate_embeddings(
+    data: GenerateEmbeddingsRequest,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_editor),
+) -> GenerateEmbeddingsResponse:
+    """Start embedding generation as a background task.
+
+    This endpoint queues a Celery task to generate embeddings for the specified target.
+    The task runs in the background and can be monitored via the stats endpoint.
+
+    Args:
+        data: Generation parameters (target, force)
+
+    Returns:
+        Task ID and confirmation message
+    """
+    from workers.ai_tasks import generate_embeddings_task, get_embedding_task_status
+
+    # Check if EMBEDDINGS is configured
+    result = await session.execute(
+        select(UserLLMConfig).where(
+            UserLLMConfig.user_id == current_user.id,
+            UserLLMConfig.purpose == LLMPurpose.EMBEDDINGS,
+            UserLLMConfig.is_active.is_(True),
+        )
+    )
+    if not result.scalar_one_or_none():
+        raise ValidationError("Embeddings-Provider ist nicht konfiguriert")
+
+    # Check if task is already running
+    task_status = get_embedding_task_status()
+    if task_status.get("running"):
+        raise ValidationError(
+            f"Embedding-Generierung läuft bereits (Task-ID: {task_status.get('task_id')})"
+        )
+
+    # Validate target
+    valid_targets = {"all", "entities", "types", "facet_values"}
+    if data.target not in valid_targets:
+        raise ValidationError(f"Ungültiges Ziel: {data.target}. Gültig: {', '.join(valid_targets)}")
+
+    # Create audit log
+    await create_audit_log(
+        session=session,
+        action=AuditAction.CONFIG_UPDATE,
+        entity_type="Embeddings",
+        entity_name=f"generate/{data.target}",
+        user=current_user,
+        details={"target": data.target, "force": data.force},
+    )
+    await session.commit()
+
+    # Queue the task
+    task = generate_embeddings_task.delay(
+        target=data.target,
+        force=data.force,
+        user_id=str(current_user.id),
+    )
+
+    logger.info(
+        "embedding_generation_started",
+        task_id=task.id,
+        target=data.target,
+        force=data.force,
+        user_id=str(current_user.id),
+    )
+
+    target_labels = {
+        "all": "alle Embeddings",
+        "entities": "Entity-Embeddings",
+        "types": "Typ-Embeddings",
+        "facet_values": "Facetten-Wert-Embeddings",
+    }
+
+    return GenerateEmbeddingsResponse(
+        task_id=task.id,
+        message=f"Generierung von {target_labels.get(data.target, data.target)} gestartet",
     )

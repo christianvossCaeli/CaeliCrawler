@@ -19,6 +19,8 @@ from app.core.deps import require_editor
 from app.core.exceptions import NotFoundError, ValidationError
 from app.core.rate_limit import check_rate_limit
 from app.database import get_session
+from app.models.audit_log import AuditAction
+from app.services.audit_service import create_audit_log
 from app.models import (
     CustomSummary,
     SummaryExecution,
@@ -289,6 +291,24 @@ async def create_from_prompt(
         raise ValidationError(f"Fehler beim Erstellen der Widgets: {str(e)}") from None
     await session.refresh(summary)
 
+    # Update auto_trigger_entity_types if trigger_type is AUTO
+    if summary.trigger_type == SummaryTriggerType.AUTO:
+        from services.summaries.source_resolver import update_summary_auto_trigger_entity_types
+
+        update_summary_auto_trigger_entity_types(summary)
+        await session.commit()
+
+    # Create audit log entry
+    await create_audit_log(
+        session=session,
+        action=AuditAction.CREATE,
+        entity_type="CustomSummary",
+        entity_id=summary.id,
+        entity_name=summary.name,
+        user=current_user,
+    )
+    await session.commit()
+
     logger.info(
         "summary_created_from_prompt",
         summary_id=str(summary.id),
@@ -348,6 +368,24 @@ async def create_summary(
     session.add(summary)
     await session.commit()
     await session.refresh(summary)
+
+    # Update auto_trigger_entity_types if trigger_type is AUTO
+    if summary.trigger_type == SummaryTriggerType.AUTO:
+        from services.summaries.source_resolver import update_summary_auto_trigger_entity_types
+
+        update_summary_auto_trigger_entity_types(summary)
+        await session.commit()
+
+    # Create audit log entry
+    await create_audit_log(
+        session=session,
+        action=AuditAction.CREATE,
+        entity_type="CustomSummary",
+        entity_id=summary.id,
+        entity_name=summary.name,
+        user=current_user,
+    )
+    await session.commit()
 
     return _summary_to_response(summary)
 
@@ -532,6 +570,23 @@ async def update_summary(
     elif not summary.schedule_enabled:
         summary.next_run_at = None
 
+    # Update auto_trigger_entity_types if trigger_type changed to AUTO
+    if summary.trigger_type == SummaryTriggerType.AUTO:
+        from services.summaries.source_resolver import update_summary_auto_trigger_entity_types
+
+        await session.refresh(summary, ["widgets"])  # Ensure widgets are loaded
+        update_summary_auto_trigger_entity_types(summary)
+
+    # Create audit log entry
+    await create_audit_log(
+        session=session,
+        action=AuditAction.UPDATE,
+        entity_type="CustomSummary",
+        entity_id=summary.id,
+        entity_name=summary.name,
+        user=current_user,
+    )
+
     await session.commit()
     await session.refresh(summary)
 
@@ -551,6 +606,18 @@ async def delete_summary(
     summary = await session.get(CustomSummary, summary_id)
     if not summary or summary.user_id != current_user.id:
         raise NotFoundError("Zusammenfassung", str(summary_id))
+
+    summary_name = summary.name
+
+    # Create audit log entry
+    await create_audit_log(
+        session=session,
+        action=AuditAction.DELETE,
+        entity_type="CustomSummary",
+        entity_id=summary_id,
+        entity_name=summary_name,
+        user=current_user,
+    )
 
     await session.delete(summary)
     await session.commit()
@@ -799,6 +866,14 @@ async def add_widget(
     await session.commit()
     await session.refresh(widget)
 
+    # Update auto_trigger_entity_types if trigger_type is AUTO
+    if summary.trigger_type == SummaryTriggerType.AUTO:
+        from services.summaries.source_resolver import update_summary_auto_trigger_entity_types
+
+        await session.refresh(summary, ["widgets"])  # Ensure widgets are loaded
+        update_summary_auto_trigger_entity_types(summary)
+        await session.commit()
+
     return _widget_to_response(widget)
 
 
@@ -830,6 +905,14 @@ async def update_widget(
 
     await session.commit()
     await session.refresh(widget)
+
+    # Update auto_trigger_entity_types if query_config changed and trigger_type is AUTO
+    if "query_config" in update_data and summary.trigger_type == SummaryTriggerType.AUTO:
+        from services.summaries.source_resolver import update_summary_auto_trigger_entity_types
+
+        await session.refresh(summary, ["widgets"])  # Ensure widgets are loaded
+        update_summary_auto_trigger_entity_types(summary)
+        await session.commit()
 
     return _widget_to_response(widget)
 
@@ -981,6 +1064,17 @@ async def toggle_favorite(
         raise NotFoundError("Zusammenfassung", str(summary_id))
 
     summary.is_favorite = not summary.is_favorite
+
+    # Create audit log entry
+    await create_audit_log(
+        session=session,
+        action=AuditAction.FAVORITE_ADD if summary.is_favorite else AuditAction.FAVORITE_REMOVE,
+        entity_type="CustomSummary",
+        entity_id=summary.id,
+        entity_name=summary.name,
+        user=current_user,
+    )
+
     await session.commit()
 
     return SummaryFavoriteToggleResponse(

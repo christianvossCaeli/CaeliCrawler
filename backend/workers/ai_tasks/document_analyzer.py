@@ -130,6 +130,7 @@ def register_tasks(celery_app):
 
                     # Call Azure OpenAI
                     result = await _call_azure_openai(
+                        session,
                         text_to_analyze,
                         prompt,
                         category.purpose,
@@ -174,7 +175,7 @@ def register_tasks(celery_app):
                             extraction_type=f"{category.slug}_analysis",
                             extracted_content=content,
                             confidence_score=result.get("confidence"),
-                            ai_model_used=settings.azure_openai_deployment_name,
+                            ai_model_used=result.get("model_name", "unknown"),
                             ai_prompt_version="1.0",
                             raw_ai_response=result.get("raw_response"),
                             tokens_used=result.get("tokens_used"),
@@ -789,6 +790,7 @@ async def _update_analyzed_pages_atomic(
 
 
 async def _call_azure_openai(
+    session,
     text: str,
     prompt: str,
     purpose: str,
@@ -797,13 +799,26 @@ async def _call_azure_openai(
 ) -> dict[str, Any]:
     """Call Azure OpenAI API for document analysis.
 
+    Args:
+        session: Database session for loading LLM credentials
+
     Raises:
-        ValueError: If Azure OpenAI is not configured
+        ValueError: If LLM credentials are not configured
         RuntimeError: If AI call fails
     """
-    from services.ai_client import AzureOpenAIClientFactory
+    from app.models.user_api_credentials import LLMPurpose
+    from services.llm_client_service import LLMClientService
 
-    client = AzureOpenAIClientFactory.create_client()
+    llm_service = LLMClientService(session)
+    client, config = await llm_service.get_system_client(LLMPurpose.DOCUMENT_ANALYSIS)
+
+    if not client or not config:
+        raise ValueError(
+            "Keine LLM-Credentials konfiguriert. "
+            "Bitte konfigurieren Sie die API-Zugangsdaten unter /admin/api-credentials."
+        )
+
+    model_name = llm_service.get_model_name(config)
 
     # Truncate text if too long (keep first ~100k chars)
     max_chars = 100000
@@ -814,7 +829,7 @@ async def _call_azure_openai(
 
     try:
         response = await client.chat.completions.create(
-            model=settings.azure_openai_deployment_name,
+            model=model_name,
             messages=[
                 {
                     "role": "system",
@@ -841,7 +856,7 @@ async def _call_azure_openai(
         if response.usage:
             await record_llm_usage(
                 provider=LLMProvider.AZURE_OPENAI,
-                model=settings.azure_openai_deployment_name,
+                model=model_name,
                 task_type=LLMTaskType.EXTRACT,
                 prompt_tokens=response.usage.prompt_tokens,
                 completion_tokens=response.usage.completion_tokens,
@@ -859,6 +874,7 @@ async def _call_azure_openai(
             "relevance_score": confidence,
             "raw_response": raw_response,
             "tokens_used": response.usage.total_tokens if response.usage else None,
+            "model_name": model_name,
         }
 
     except json.JSONDecodeError as e:
@@ -870,7 +886,7 @@ async def _call_azure_openai(
         duration_ms = int((time.time() - start_time) * 1000)
         await record_llm_usage(
             provider=LLMProvider.AZURE_OPENAI,
-            model=settings.azure_openai_deployment_name,
+            model=model_name,
             task_type=LLMTaskType.EXTRACT,
             prompt_tokens=0,
             completion_tokens=0,

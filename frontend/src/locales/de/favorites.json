@@ -2,6 +2,10 @@
   "favorites": {
     "title": "Favoriten",
     "subtitle": "{count} Entities gespeichert",
+    "info": {
+      "title": "Ihre wichtigsten Datensätze",
+      "description": "Favoriten geben Ihnen schnellen Zugriff auf häufig benötigte Datensätze - ohne jedes Mal suchen zu müssen. Markieren Sie einen Datensatz als Favorit durch Klick auf das Stern-Symbol. Favoriten sind persönlich und für andere Benutzer nicht sichtbar."
+    },
     "myFavorites": "Meine Favoriten",
     "entries": "Einträge",
     "entity": "Entity",

@@ -1,6 +1,10 @@
 {
   "entities": {
     "title": "Entities",
+    "info": {
+      "title": "Your Central Database",
+      "description": "Entities are the core objects of your analysis - e.g. municipalities, organizations, people, or projects. Each entity automatically collects information from linked data sources: Facets (like contacts, issues), documents, and AI-extracted results. Switch between entity types using tabs above and use filters for targeted searches. Tip: Link data sources directly to entities to automatically assign all discovered information."
+    },
     "entity": "Entity",
     "entities": "Entities",
     "overview": "Overview",
@@ -53,6 +57,10 @@
     "loadError": "Error loading data",
     "deleteError": "Error deleting",
     "extendedFilters": "Extended Filters",
+    "extendedFiltersInfo": {
+      "title": "Targeted Filtering",
+      "description": "Combine filters for precise results: Location filters narrow down geographically, range sliders filter by numeric properties (e.g. population, founding year). All filters are combined with AND - the more filters, the narrower the results."
+    },
     "noFilterableAttributes": "No filterable attributes available",
     "location": "Location",
     "country": "Country",
@@ -99,9 +107,14 @@
     "filters": {
       "search": "Search in properties...",
       "type": "Entity Type",
-      "facets": "Facets"
+      "facets": "Facets",
+      "ranges": "Value Ranges"
     },
     "form": {
+      "info": {
+        "title": "Create Entity",
+        "description": "Create a new entity record. Name and entity type are required. The external ID allows linking with external systems (e.g. AGS for municipalities). After creation, you can add facets, relations, and data sources."
+      },
       "name": "Name",
       "externalId": "External ID",
       "type": "Entity Type",
@@ -109,6 +122,10 @@
     },
     "facet": {
       "title": "Add Facet",
+      "info": {
+        "title": "Capture Information",
+        "description": "Facets store information about entities - like contact details, issues, or dates. Select a facet type and enter the value. Optional: Source URL for origin and confidence (0-100%) for AI-extracted data."
+      },
       "type": "Facet Type",
       "value": "Value / Description",
       "sourceUrl": "Source URL",
@@ -169,6 +186,42 @@
         "down": "Falling",
         "stable": "Stable"
       }
+    },
+    "bulkActions": {
+      "selected": "{count} selected",
+      "startCrawl": "Start Crawl",
+      "startCrawlFor": "Start crawl for {count} selected entities",
+      "clearSelection": "Clear Selection",
+      "noSelection": "Please select at least one entity",
+      "toolbarLabel": "Bulk actions for selected entities"
+    },
+    "crawlDialog": {
+      "title": "Start Crawl for Entities",
+      "entitiesSelected": "entities selected",
+      "selectCategory": "Select Analysis Topic",
+      "categoryRequired": "Please select an analysis topic",
+      "sourcesFound": "DataSources found",
+      "noSourcesFound": "No DataSources found for the selected entities",
+      "entitiesWithoutSources": "{count} entities have no associated sources",
+      "saveAsPreset": "Save as Crawl Preset",
+      "presetName": "Preset Name",
+      "presetNameRequired": "Please enter a name",
+      "selectionMode": "Storage Mode",
+      "fixedIds": "Fixed IDs",
+      "dynamicFilter": "Dynamic Filter",
+      "fixedIdsHint": "The specific entity IDs are stored. New entities will not be automatically included.",
+      "dynamicFilterHint": "The filter criteria are stored. Current entities are determined on each execution.",
+      "startCrawl": "Start Crawl",
+      "error": "Error starting crawl"
+    },
+    "selector": {
+      "selected": "{count} entities selected",
+      "search": "Search...",
+      "entityType": "Entity Type",
+      "noEntities": "No entities found",
+      "clearAll": "Clear all",
+      "total": "{count} entities total",
+      "loadError": "Error loading entities"
     }
   },
   "entityTypes": {
@@ -364,6 +417,10 @@
       "saveNote": "Save note",
       "deleteNote": "Delete note?",
       "addRelation": "Add Relation",
+      "relationInfo": {
+        "title": "Connect Entities",
+        "description": "Relations connect entities with each other - e.g. 'Person is mayor of Municipality' or 'Organization is partner of Organization'. Select the type and direction of the relationship. Optional attributes (JSON) store details like time periods."
+      },
       "editRelation": "Edit Relation",
       "deleteRelation": "Delete relation?",
       "deleteRelationConfirm": "Are you sure you want to delete this relation?",

@@ -11,9 +11,10 @@ from typing import Any
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.core.exceptions import AIInterpretationError, SessionRequiredError
 from app.models.llm_usage import LLMProvider, LLMTaskType
+from app.models.user_api_credentials import LLMPurpose
+from services.llm_client_service import LLMClientService
 from services.llm_usage_tracker import record_llm_usage
 
 from ..prompts import build_dynamic_write_prompt
@@ -21,7 +22,6 @@ from ..utils import clean_json_response
 from .base import (
     AI_TEMPERATURE_MEDIUM,
     MAX_TOKENS_WRITE,
-    get_openai_client,
     load_all_types_for_write,
     validate_and_sanitize_query,
 )
@@ -34,19 +34,26 @@ async def interpret_write_command(question: str, session: AsyncSession | None = 
 
     Args:
         question: The natural language command
-        session: Database session for dynamic prompt generation (required)
+        session: Database session for dynamic prompt generation and LLM credentials (required)
 
     Raises:
-        ValueError: If Azure OpenAI is not configured, session is missing, or query is invalid
+        ValueError: If LLM is not configured, session is missing, or query is invalid
         RuntimeError: If command interpretation fails
     """
     # Validate and sanitize input
     sanitized_question = validate_and_sanitize_query(question)
 
-    client = get_openai_client()
-
     if not session:
         raise SessionRequiredError("write command interpretation")
+
+    # Get LLM client
+    llm_service = LLMClientService(session)
+    client, config = await llm_service.get_system_client(LLMPurpose.DOCUMENT_ANALYSIS)
+    if not client or not config:
+        raise ValueError("No LLM credentials configured")
+
+    model_name = llm_service.get_model_name(config)
+    provider = llm_service.get_provider(config)
 
     try:
         # Load all types from database for dynamic prompt
@@ -70,8 +77,8 @@ async def interpret_write_command(question: str, session: AsyncSession | None = 
         )
 
         start_time = time.time()
-        response = client.chat.completions.create(
-            model=settings.azure_openai_deployment_name,
+        response = await client.chat.completions.create(
+            model=model_name,
             messages=[
                 {
                     "role": "system",
@@ -88,8 +95,8 @@ async def interpret_write_command(question: str, session: AsyncSession | None = 
 
         if response.usage:
             await record_llm_usage(
-                provider=LLMProvider.AZURE_OPENAI,
-                model=settings.azure_openai_deployment_name,
+                provider=provider,
+                model=model_name,
                 task_type=LLMTaskType.CHAT,
                 task_name="interpret_write_command",
                 prompt_tokens=response.usage.prompt_tokens,

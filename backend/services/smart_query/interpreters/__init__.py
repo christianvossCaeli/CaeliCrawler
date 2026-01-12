@@ -36,8 +36,6 @@ from .base import (
     TypesCache,
     _types_cache,
     _validate_query_input,
-    # Client
-    get_openai_client,
     invalidate_types_cache,
     load_all_types_for_write,
     # Database loading
@@ -90,8 +88,6 @@ __all__ = [
     "TypesCache",
     "_types_cache",
     "invalidate_types_cache",
-    # Client
-    "get_openai_client",
     # Sanitization
     "PROMPT_INJECTION_PATTERNS",
     "PROMPT_INJECTION_REGEX_PATTERNS",

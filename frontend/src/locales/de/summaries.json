@@ -2,6 +2,10 @@
   "summaries": {
     "title": "Eigene Zusammenfassungen",
     "subtitle": "Erstellen Sie personalisierte Dashboard-Zusammenfassungen mit KI-Unterstützung",
+    "info": {
+      "title": "Automatische Reports mit KI",
+      "description": "Zusammenfassungen sind personalisierte Dashboards, die von der KI automatisch mit aktuellen Daten befüllt werden. Beschreiben Sie in natürlicher Sprache, was Sie sehen möchten (z.B. 'Top 10 Gemeinden mit Problemfeldern'). Drei Trigger: Manuell, zeitgesteuert, oder automatisch nach Crawl-Jobs."
+    },
     "createNew": "Neue Zusammenfassung",
     "createFromPrompt": "Mit KI erstellen",
     "create": "Erstellen",
@@ -54,6 +58,7 @@
     "triggerCron": "Zeitplan",
     "triggerCrawlCategory": "Nach Crawl (Kategorie)",
     "triggerCrawlPreset": "Nach Crawl (Vorlage)",
+    "triggerAuto": "Automatisch",
     "schedule": "Zeitplan",
     "scheduleEnabled": "Zeitplan aktiviert",
     "nextRun": "Nächster Lauf",
@@ -84,6 +89,10 @@
     "saveError": "Fehler beim Speichern",
 
     "addWidget": "Widget hinzufügen",
+    "widgetInfo": {
+      "title": "Dashboard gestalten",
+      "description": "Widgets visualisieren Ihre Daten: Tabellen für Listen, Diagramme für Trends, Karten für Standorte, Statistik-Karten für Kennzahlen. Jedes Widget hat eine eigene Datenabfrage (Entity-Typ, Facets, Filter). Im Bearbeitungsmodus können Sie Widgets verschieben und in der Größe anpassen."
+    },
     "editWidget": "Widget bearbeiten",
     "removeWidget": "Widget entfernen",
     "widgetType": "Widget-Typ",
@@ -134,6 +143,10 @@
 
     "createDialog": {
       "title": "Neue Zusammenfassung erstellen",
+      "info": {
+        "title": "Von der Idee zum Dashboard",
+        "description": "Beschreiben Sie einfach, was Sie sehen möchten - die KI erstellt passende Widgets (Tabellen, Diagramme, Karten). Je genauer Ihre Beschreibung, desto besser das Ergebnis. Nach der Erstellung können Sie Widgets verschieben, bearbeiten oder neue hinzufügen."
+      },
       "step1": "Beschreiben Sie Ihre Zusammenfassung",
       "step2": "KI verarbeitet...",
       "step3": "Vorschau & Bestätigung",
@@ -177,6 +190,10 @@
     "hasChanges": "Enthält Änderungen",
 
     "shareSummary": "Zusammenfassung teilen",
+    "shareInfo": {
+      "title": "Externe freigeben",
+      "description": "Teilen Sie Zusammenfassungen per Link mit Externen - ohne Login. Optionaler Passwortschutz und Ablaufdatum erhöhen die Sicherheit. Aktivieren Sie 'Export erlauben', damit Empfänger das Dashboard als PDF speichern können. Links können jederzeit deaktiviert werden."
+    },
     "existingShares": "Bestehende Links",
     "createNewShare": "Neuen Link erstellen",
     "sharePassword": "Passwort (optional)",
@@ -245,6 +262,7 @@
       "scheduled": "Geplant",
       "afterCrawl": "Nach Crawl",
       "afterPreset": "Nach Preset",
+      "auto": "Automatisch",
       "manual": "Manuell"
     },
 

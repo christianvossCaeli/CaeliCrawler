@@ -34,19 +34,18 @@ def check_scheduled_presets():
     from sqlalchemy import select
 
     from app.database import get_celery_session_context
-    from app.models import CrawlPreset, PresetStatus
+    from app.models import CrawlPreset
 
     async def _check_and_execute():
         async with get_celery_session_context() as session:
             schedule_tz = get_schedule_timezone()
             now = datetime.now(schedule_tz)
 
-            # Get all presets due for execution
+            # Get all presets due for execution (schedule_enabled is the only activation check)
             result = await session.execute(
                 select(CrawlPreset)
                 .where(
                     CrawlPreset.schedule_enabled.is_(True),
-                    CrawlPreset.status == PresetStatus.ACTIVE,
                     CrawlPreset.next_run_at <= now,
                 )
                 .with_for_update(skip_locked=True)
@@ -117,7 +116,7 @@ def execute_crawl_preset(self, preset_id: str):
         preset_id: UUID of the CrawlPreset to execute.
     """
     from app.database import get_celery_session_context
-    from app.models import CrawlPreset, PresetStatus
+    from app.models import CrawlPreset
     from services.smart_query.crawl_operations import find_sources_for_crawl, start_crawl_jobs
 
     async def _execute():
@@ -130,15 +129,6 @@ def execute_crawl_preset(self, preset_id: str):
                     preset_id=preset_id,
                 )
                 return {"success": False, "error": "Preset not found"}
-
-            if preset.status != PresetStatus.ACTIVE:
-                logger.warning(
-                    "crawl_preset_not_active",
-                    preset_id=preset_id,
-                    preset_name=preset.name,
-                    status=preset.status.value,
-                )
-                return {"success": False, "error": "Preset is not active"}
 
             logger.info(
                 "crawl_preset_execution_started",
@@ -168,11 +158,17 @@ def execute_crawl_preset(self, preset_id: str):
                         "message": "No sources matched the preset filters",
                     }
 
-                # Start crawl jobs for all matched sources
+                # Extract category_id from preset filters (required field)
+                category_id = preset.filters.get("category_id")
+                if category_id and isinstance(category_id, str):
+                    category_id = UUID(category_id)
+
+                # Start crawl jobs for all matched sources, using the preset's category
                 job_ids = await start_crawl_jobs(
                     session,
                     sources,
                     force=False,  # Respect crawl cooldown for scheduled executions
+                    category_id=category_id,
                 )
 
                 # Update execution statistics
@@ -214,29 +210,29 @@ def execute_crawl_preset(self, preset_id: str):
     return run_async(_execute())
 
 
-@celery_app.task(name="workers.crawl_preset_tasks.cleanup_archived_presets")
-def cleanup_archived_presets():
-    """Cleanup old archived presets.
+@celery_app.task(name="workers.crawl_preset_tasks.cleanup_unused_presets")
+def cleanup_unused_presets():
+    """Cleanup old unused presets.
 
-    This task runs weekly and removes archived presets that
-    haven't been used in the last 90 days.
+    This task runs weekly and removes presets without active schedule
+    that haven't been used in the last 90 days.
     """
     from datetime import timedelta
 
     from sqlalchemy import delete
 
     from app.database import get_celery_session_context
-    from app.models import CrawlPreset, PresetStatus
+    from app.models import CrawlPreset
 
     async def _cleanup():
         async with get_celery_session_context() as session:
             cutoff_date = datetime.now(UTC) - timedelta(days=90)
 
-            # Delete old archived presets that haven't been used
+            # Delete old unused presets (no schedule, not favorite, not used recently)
             result = await session.execute(
                 delete(CrawlPreset)
                 .where(
-                    CrawlPreset.status == PresetStatus.ARCHIVED,
+                    CrawlPreset.schedule_enabled.is_(False),
                     CrawlPreset.is_favorite.is_(False),  # Never delete favorites
                     CrawlPreset.last_used_at < cutoff_date,
                 )

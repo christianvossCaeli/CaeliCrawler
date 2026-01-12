@@ -75,6 +75,8 @@ describe('useCustomSummariesStore', () => {
     schedule_cron: null,
     trigger_category_id: null,
     trigger_preset_id: null,
+    auto_trigger_entity_types: [],
+    last_auto_trigger_reason: null,
     schedule_enabled: false,
     next_run_at: null,
     check_relevance: false,

@@ -57,10 +57,6 @@ class PricingInfo(TypedDict):
 class ModelPricingService:
     """Service for model pricing operations."""
 
-    # Cache for pricing data (refreshed on each request to DB)
-    _cache: dict[str, PricingInfo] = {}
-    _cache_loaded: bool = False
-
     @classmethod
     async def get_pricing(
         cls,
@@ -490,94 +486,12 @@ class ModelPricingService:
         return int(total_cents + 0.5)
 
     @classmethod
-    async def _sync_provider_from_defaults(
-        cls,
-        session: AsyncSession,
-        provider: PricingProvider,
-        default_source_url: str,
-    ) -> dict:
-        """
-        Sync prices for a provider from predefined defaults.
-
-        Generic method to avoid code duplication for OpenAI/Anthropic sync.
-
-        Args:
-            session: Database session
-            provider: The provider to sync
-            default_source_url: Default URL if not specified in defaults
-
-        Returns:
-            Dict with sync results (updated, added, errors)
-        """
-        results: dict = {"updated": 0, "added": 0, "errors": []}
-
-        try:
-            for entry in DEFAULT_PRICING:
-                if entry["provider"] != provider:
-                    continue
-
-                try:
-                    await cls.upsert_pricing(
-                        session=session,
-                        provider=entry["provider"].value,
-                        model_name=entry["model_name"],
-                        display_name=entry.get("display_name"),
-                        input_price_per_1m=entry["input_price_per_1m"],
-                        output_price_per_1m=entry["output_price_per_1m"],
-                        source="official_docs",
-                        source_url=entry.get("source_url", default_source_url),
-                    )
-                    results["updated"] += 1
-                except Exception as e:
-                    results["errors"].append(f"{entry['model_name']}: {str(e)}")
-
-            await session.commit()
-            logger.info(f"{provider.value}_prices_synced", **results)
-
-        except Exception as e:
-            logger.error(f"{provider.value}_price_sync_failed", error=str(e))
-            results["errors"].append(f"Sync failed: {str(e)}")
-
-        return results
-
-    @classmethod
-    async def sync_openai_prices(cls, session: AsyncSession) -> dict:
-        """
-        Sync OpenAI prices from predefined defaults.
-
-        Since OpenAI doesn't provide a public pricing API, we use
-        the latest manually curated prices from their pricing page.
-
-        Returns:
-            Dict with sync results (updated, added, errors)
-        """
-        return await cls._sync_provider_from_defaults(
-            session=session,
-            provider=PricingProvider.OPENAI,
-            default_source_url="https://openai.com/api/pricing/",
-        )
-
-    @classmethod
-    async def sync_anthropic_prices(cls, session: AsyncSession) -> dict:
-        """
-        Sync Anthropic prices from predefined defaults.
-
-        Since Anthropic doesn't provide a public pricing API, we use
-        the latest manually curated prices from their pricing page.
-
-        Returns:
-            Dict with sync results (updated, added, errors)
-        """
-        return await cls._sync_provider_from_defaults(
-            session=session,
-            provider=PricingProvider.ANTHROPIC,
-            default_source_url="https://www.anthropic.com/pricing",
-        )
-
-    @classmethod
     async def sync_all_prices(cls, session: AsyncSession) -> dict:
         """
         Sync prices from all providers.
+
+        - Azure: from Azure API
+        - OpenAI/Anthropic: from LiteLLM community database (most reliable source)
 
         Returns:
             Dict with combined sync results
@@ -591,19 +505,29 @@ class ModelPricingService:
             "total_errors": 0,
         }
 
-        # Sync each provider
+        # Sync Azure from Azure API
         azure_result = await cls.sync_azure_prices(session)
-        openai_result = await cls.sync_openai_prices(session)
-        anthropic_result = await cls.sync_anthropic_prices(session)
-
         all_results["azure_openai"] = azure_result
-        all_results["openai"] = openai_result
-        all_results["anthropic"] = anthropic_result
-        all_results["total_updated"] = azure_result["updated"] + openai_result["updated"] + anthropic_result["updated"]
-        all_results["total_added"] = azure_result["added"] + openai_result["added"] + anthropic_result["added"]
-        all_results["total_errors"] = (
-            len(azure_result["errors"]) + len(openai_result["errors"]) + len(anthropic_result["errors"])
-        )
+
+        # Sync OpenAI and Anthropic from LiteLLM (more up-to-date than manual defaults)
+        litellm_result = await cls.sync_from_litellm(session, providers=["openai", "anthropic"])
+
+        # Map LiteLLM results to the expected structure
+        # LiteLLM returns combined results, we split them for consistency
+        all_results["openai"] = {
+            "updated": litellm_result["updated"],
+            "added": litellm_result["added"],
+            "errors": litellm_result["errors"],
+        }
+        all_results["anthropic"] = {
+            "updated": 0,  # Already counted in openai
+            "added": 0,
+            "errors": [],
+        }
+
+        all_results["total_updated"] = azure_result["updated"] + litellm_result["updated"]
+        all_results["total_added"] = azure_result["added"] + litellm_result["added"]
+        all_results["total_errors"] = len(azure_result["errors"]) + len(litellm_result["errors"])
 
         # Refresh the pricing cache after sync
         try:

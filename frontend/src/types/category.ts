@@ -43,8 +43,6 @@ export interface CategoryBase {
   schedule_cron: string;
   /** If true, automatic crawls are enabled based on schedule_cron. Must be explicitly set. */
   schedule_enabled: boolean;
-  /** Whether category is active for crawling */
-  is_active: boolean;
   /** If true, visible to all users */
   is_public: boolean;
   /** Target EntityType for extracted entities */
@@ -80,8 +78,6 @@ export interface CategoryCreate {
   schedule_cron?: string;
   /** If true, automatic crawls are enabled based on schedule_cron */
   schedule_enabled?: boolean;
-  /** Whether category is active for crawling */
-  is_active?: boolean;
   /** If true, visible to all users */
   is_public?: boolean;
   /** Target EntityType for extracted entities */
@@ -119,8 +115,6 @@ export interface CategoryUpdate {
   schedule_cron?: string;
   /** If true, automatic crawls are enabled */
   schedule_enabled?: boolean;
-  /** Whether category is active for crawling */
-  is_active?: boolean;
   /** If true, visible to all users */
   is_public?: boolean;
   /** Target EntityType for extracted entities */
@@ -199,8 +193,8 @@ export interface CategoryListParams {
   page?: number;
   /** Items per page (1-100) */
   per_page?: number;
-  /** Filter by active status */
-  is_active?: boolean;
+  /** Filter by scheduled categories only */
+  scheduled_only?: boolean;
   /** Filter by public/private visibility */
   is_public?: boolean;
   /** Include user's private categories */
@@ -379,6 +373,42 @@ export interface CategoryAiPreviewData {
 }
 
 /**
+ * AI Prefill suggestion from Smart Write preview (create_category_setup)
+ */
+export interface CategoryAiPrefillSuggestion {
+  /** Suggested category name */
+  name?: string;
+  /** Suggested purpose */
+  purpose?: string;
+  /** Optional description */
+  description?: string;
+  /** Suggested search terms */
+  search_terms?: string[];
+  /** Suggested document types */
+  document_types?: string[];
+  /** Suggested languages */
+  languages?: LanguageCode[];
+  /** Suggested schedule cron */
+  schedule_cron?: string;
+  /** Suggested schedule enabled flag */
+  schedule_enabled?: boolean;
+  /** Suggested include patterns */
+  url_include_patterns?: string[];
+  /** Suggested exclude patterns */
+  url_exclude_patterns?: string[];
+  /** Suggested geographic filter */
+  geographic_filter?: {
+    country?: string;
+    admin_level_1?: string;
+    admin_level_2?: string;
+  };
+  /** Suggested time focus */
+  time_focus?: string;
+  /** Suggested target entity types */
+  target_entity_types?: string[];
+}
+
+/**
  * Adapted AI preview data with required fields for CategoryAiPreviewDialog
  * Ensures all required fields have default values
  */
@@ -477,8 +507,6 @@ export interface CategoryFormData {
   schedule_enabled: boolean;
   /** AI extraction prompt */
   ai_extraction_prompt: string;
-  /** Whether category is active */
-  is_active: boolean;
   /** Handler for processing extractions */
   extraction_handler: ExtractionHandler;
   /** If true, visible to all users */
@@ -502,7 +530,6 @@ export const DEFAULT_CATEGORY_FORM_DATA: CategoryFormData = {
   schedule_cron: '0 2 * * *',
   schedule_enabled: false,
   ai_extraction_prompt: '',
-  is_active: true,
   extraction_handler: 'default',
   is_public: false,
   target_entity_type_id: null,
@@ -514,8 +541,10 @@ export const DEFAULT_CATEGORY_FORM_DATA: CategoryFormData = {
 export interface CategoryFilters {
   /** Search query */
   search: string;
-  /** Status filter (active/inactive) */
+  /** Status filter (active/inactive/paused) */
   status: string | null;
+  /** Scheduled filter (scheduled/not-scheduled) */
+  scheduled: string | null;
   /** Has documents filter (with/without) */
   hasDocuments: string | null;
   /** Language filter */
@@ -528,6 +557,7 @@ export interface CategoryFilters {
 export const DEFAULT_CATEGORY_FILTERS: CategoryFilters = {
   search: '',
   status: null,
+  scheduled: null,
   hasDocuments: null,
   language: null,
 };
@@ -550,6 +580,10 @@ export interface CategorySource {
   source_type?: string;
   /** Base URL */
   base_url?: string;
+  /** Tags assigned to the source */
+  tags?: string[];
+  /** Document count */
+  document_count?: number;
   /** Last crawl timestamp */
   last_crawled_at?: string;
   /** Whether source is assigned to category */
@@ -572,6 +606,30 @@ export interface DataSourcesTabState {
   assigning: boolean;
   /** Available tags for selection */
   availableTags: string[];
+  /** Pending source IDs for create mode (to be assigned after save) */
+  pendingSourceIds: string[];
+  /** Directly selected sources via autocomplete */
+  directSelectedSources: CategorySource[];
+  /** Search results for direct source search */
+  sourceSearchResults: CategorySource[];
+  /** Loading state for direct source search */
+  searchingDirectSources: boolean;
+  /** Currently assigned sources (for edit mode) */
+  assignedSources: CategorySource[];
+  /** Total count of assigned sources */
+  assignedSourcesTotal: number;
+  /** Loading state for assigned sources */
+  assignedSourcesLoading: boolean;
+  /** Current page for assigned sources */
+  assignedSourcesPage: number;
+  /** Items per page for assigned sources */
+  assignedSourcesPerPage: number;
+  /** Search query for assigned sources */
+  assignedSourcesSearch: string;
+  /** Tag filter for assigned sources */
+  assignedSourcesTagFilter: string[];
+  /** Available tags in assigned sources */
+  availableTagsInAssigned: string[];
 }
 
 /**
@@ -584,6 +642,18 @@ export const DEFAULT_DATA_SOURCES_TAB_STATE: DataSourcesTabState = {
   loading: false,
   assigning: false,
   availableTags: [],
+  pendingSourceIds: [],
+  directSelectedSources: [],
+  sourceSearchResults: [],
+  searchingDirectSources: false,
+  assignedSources: [],
+  assignedSourcesTotal: 0,
+  assignedSourcesLoading: false,
+  assignedSourcesPage: 1,
+  assignedSourcesPerPage: 25,
+  assignedSourcesSearch: '',
+  assignedSourcesTagFilter: [],
+  availableTagsInAssigned: [],
 };
 
 /**
@@ -629,4 +699,30 @@ export const DEFAULT_SNACKBAR_STATE: SnackbarState = {
   show: false,
   text: '',
   color: 'success',
+};
+
+// ============================================
+// Operation Result Types
+// ============================================
+
+/**
+ * Standardized result type for async operations
+ * Used by composable functions to provide consistent return values
+ */
+export interface OperationResult {
+  /** Whether the operation succeeded */
+  success: boolean;
+  /** Number of items affected (for bulk operations) */
+  count?: number;
+  /** Human-readable message for display */
+  message?: string;
+}
+
+/**
+ * Result indicating no operation was performed
+ * Used when preconditions aren't met (e.g., empty selection)
+ */
+export const NO_OP_RESULT: OperationResult = {
+  success: true,
+  count: 0,
 };

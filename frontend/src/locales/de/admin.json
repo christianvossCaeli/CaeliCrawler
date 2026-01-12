@@ -3,6 +3,10 @@
     "users": {
       "title": "Benutzerverwaltung",
       "subtitle": "Benutzer erstellen, bearbeiten und verwalten",
+      "info": {
+        "title": "Wer darf was?",
+        "description": "Verwalten Sie Benutzerkonten und deren Zugriffsrechte. Drei Rollen verfügbar: 'Viewer' kann nur lesen, 'Editor' kann Daten bearbeiten und Crawls starten, 'Admin' hat vollen Zugriff inkl. Benutzerverwaltung. Jeder Benutzer sieht nur die Bereiche, für die er berechtigt ist."
+      },
       "emptyState": {
         "title": "Keine Benutzer",
         "description": "Es wurden noch keine Benutzer angelegt."
@@ -68,6 +72,10 @@
     "auditLog": {
       "title": "Änderungsverlauf",
       "subtitle": "Alle Benutzeraktionen und Systemänderungen",
+      "info": {
+        "title": "Wer hat wann was geändert?",
+        "description": "Das Audit-Log protokolliert automatisch alle wichtigen Aktionen: Wer hat welchen Datensatz bearbeitet, wann wurden Crawls gestartet, welche Konfigurationen wurden geändert. Nutzen Sie Filter nach Benutzer, Zeitraum oder Aktionstyp für gezielte Recherchen."
+      },
       "filters": {
         "user": "Benutzer",
         "action": "Aktion",
@@ -150,6 +158,10 @@
     "entityTypes": {
       "title": "Datentypen",
       "subtitle": "Kategorien für Datensätze verwalten (z.B. Gemeinden, Personen, Organisationen)",
+      "info": {
+        "title": "Welche Arten von Daten sammeln Sie?",
+        "description": "Datentypen (Entity Types) definieren die Kategorien Ihrer Datensätze - z.B. 'Gemeinde', 'Person', 'Organisation' oder 'Windpark'. Jeder Typ hat eigene Merkmalstypen und kann ein eigenes Icon/Farbe haben. Die Standard-Typen decken häufige Anwendungsfälle ab."
+      },
       "emptyState": {
         "title": "Keine Datentypen vorhanden",
         "description": "Es wurden noch keine Datentypen erstellt. Erstellen Sie Ihren ersten Datentyp, um zu beginnen."
@@ -227,6 +239,10 @@
     "facetTypes": {
       "title": "Merkmalstypen",
       "subtitle": "Eigenschaften und Attribute für Datentypen verwalten",
+      "info": {
+        "title": "Welche Informationen sollen erfasst werden?",
+        "description": "Merkmalstypen (Facet Types) definieren, welche Eigenschaften zu Datensätzen gespeichert werden können - z.B. 'Kontaktperson', 'Problemfeld', 'Chance'. Aktivieren Sie 'KI-Extraktion' für Merkmale, die automatisch aus Dokumenten erkannt werden sollen."
+      },
       "allTypes": "Alle Typen",
       "emptyState": {
         "title": "Keine Merkmalstypen vorhanden",
@@ -351,6 +367,10 @@
     "apiTemplates": {
       "title": "API-Vorlagen",
       "subtitle": "Wiederverwendbare API-Konfigurationen für die KI-Suche verwalten",
+      "info": {
+        "title": "API-Konfigurationen wiederverwenden",
+        "description": "API-Vorlagen speichern getestete Konfigurationen für externe APIs (OParl, REST, SPARQL). Bei der KI-Suche werden passende Vorlagen automatisch vorgeschlagen. Schlüsselwörter bestimmen, wann eine Vorlage passt. Tipp: Speichern Sie erfolgreiche API-Konfigurationen als Vorlage für zukünftige Suchen."
+      },
       "filters": {
         "search": "Suche",
         "status": "Status",
@@ -511,6 +531,25 @@
     "llmUsage": {
       "title": "LLM-Verbrauch",
       "subtitle": "Token-Verbrauch und Kostenanalyse für KI-Modelle",
+      "info": {
+        "title": "KI-Kosten überwachen"
+      },
+      "tabs": {
+        "budgets": "Budgets & Limits",
+        "analytics": "Verbrauchsanalyse"
+      },
+      "analytics": {
+        "infoCompact": "Analysieren Sie den LLM-Verbrauch nach Zeitraum, Benutzer, Task-Typ und Modell."
+      },
+      "infoBox": {
+        "description": "Diese Übersicht zeigt den LLM-Verbrauch (Token-Nutzung und Kosten) für alle KI-Funktionen des Systems.",
+        "features": "Funktionen im Überblick:",
+        "featureAnalytics": "Verbrauchsanalyse nach Zeitraum, Modell, Aufgabentyp und Kategorie",
+        "featureCharts": "Trenddiagramme und Kostenverteilung für bessere Übersicht",
+        "featureBudgets": "Budget-Konfiguration mit Warnungen und optionaler Blockierung bei Überschreitung",
+        "featureUsers": "Verbrauchsübersicht pro Benutzer mit API-Zugangsdaten-Status",
+        "budgetInfo": "Budgets können global, pro Benutzer, pro Kategorie, pro Task-Typ oder pro Modell definiert werden. Bei aktivierter Blockierung wird der LLM-Zugriff automatisch eingeschränkt, wenn 100% des Budgets erreicht sind."
+      },
       "noData": "Keine Daten verfügbar",
       "uncategorized": "Ohne Kategorie",
       "stats": {
@@ -562,6 +601,15 @@
         "criticalWarning": "ACHTUNG: Ein oder mehrere Budgets haben die kritische Schwelle überschritten!",
         "blocksOnLimitTooltip": "Blockiert LLM-Zugriff bei Überschreitung",
         "monitorOnlyTooltip": "Nur Monitoring (blockiert nicht)",
+        "viewBudgets": "Budgets anzeigen",
+        "infoCompact": "Budget-Typen kontrollieren verschiedene Bereiche:",
+        "typeDescriptions": {
+          "global": "Gesamtbudget für alle LLM-Nutzung",
+          "user": "Individuelles Limit pro Benutzer",
+          "category": "Limit für eine Kategorie",
+          "taskType": "Limit für einen Task-Typ",
+          "model": "Limit für ein bestimmtes Modell"
+        },
         "info": {
           "show": "Info anzeigen",
           "title": "So funktionieren LLM-Budgets",
@@ -718,6 +766,12 @@
         "embeddingsModel": "Embeddings-Modell",
         "embeddingsModelPlaceholder": "z.B. text-embedding-3-large"
       },
+      "webSearch": {
+        "primary": "Primär",
+        "fallback": "Fallback",
+        "fallbackHint": "SerpAPI wird als primäre Suche genutzt, Serper dient als Fallback bei Fehlern oder ausgeschöpftem Kontingent.",
+        "atLeastOne": "Bitte mindestens einen API-Schlüssel angeben."
+      },
       "status": {
         "configured": "Konfiguriert",
         "notConfigured": "Nicht konfiguriert",
@@ -731,6 +785,16 @@
       "dialog": {
         "deleteTitle": "Konfiguration löschen?",
         "deleteConfirm": "Möchten Sie diese Konfiguration wirklich löschen? Der entsprechende Dienst wird nicht mehr funktionieren."
+      },
+      "embeddings": {
+        "statsTitle": "Embedding-Status",
+        "entities": "Entities",
+        "types": "Typen",
+        "facetValues": "Facetten-Werte",
+        "generate": "Embeddings generieren",
+        "taskRunning": "Embedding-Generierung läuft...",
+        "generateSuccess": "Embedding-Generierung gestartet",
+        "generateError": "Fehler beim Starten der Generierung"
       },
       "messages": {
         "saved": "Konfiguration erfolgreich gespeichert",
@@ -778,27 +842,29 @@
         "litellm": "LiteLLM"
       },
       "daysAgo": "{days} Tage",
+      "lastSynced": "Letzte Sync: {date}",
       "status": {
         "active": "Aktiv",
         "deprecated": "Veraltet",
         "stale": "Veraltet"
       },
+      "emptyState": {
+        "title": "Keine Preisdaten vorhanden",
+        "description": "Synchronisieren Sie die Preise, um aktuelle Modellpreise zu laden."
+      },
       "actions": {
         "add": "Preis hinzufügen",
         "edit": "Bearbeiten",
-        "verify": "Als geprüft markieren",
         "delete": "Löschen",
-        "syncAll": "Alle synchronisieren",
-        "syncAzure": "Azure-Preise synchronisieren",
-        "syncLiteLLM": "LiteLLM",
-        "syncLiteLLMTooltip": "Aktuelle Preise aus der LiteLLM Community-Datenbank synchronisieren (OpenAI, Anthropic)",
+        "sync": "Preise synchronisieren",
+        "syncTooltip": "Aktuelle Preise synchronisieren (Azure API + LiteLLM für OpenAI/Anthropic)",
         "seedDefaults": "Standardpreise laden"
       },
       "dialog": {
         "addTitle": "Neuen Preis hinzufügen",
         "editTitle": "Preis bearbeiten",
         "deleteTitle": "Preis löschen?",
-        "deleteConfirm": "Möchten Sie diesen Preiseintrag wirklich als veraltet markieren?"
+        "deleteConfirm": "Möchten Sie den Preiseintrag für \"{model}\" wirklich als veraltet markieren?"
       },
       "form": {
         "provider": "Anbieter",
@@ -817,13 +883,9 @@
         "created": "Preiseintrag erstellt",
         "updated": "Preiseintrag aktualisiert",
         "deleted": "Preiseintrag als veraltet markiert",
-        "verified": "Preis als geprüft markiert",
         "syncSuccess": "Preise synchronisiert: {updated} aktualisiert, {added} hinzugefügt",
         "syncFailed": "Synchronisierung fehlgeschlagen",
         "syncPartialFailed": "Synchronisierung teilweise fehlgeschlagen ({errors} Fehler)",
-        "litellmSuccess": "LiteLLM-Preise synchronisiert: {updated} aktualisiert, {added} hinzugefügt",
-        "litellmFailed": "LiteLLM-Synchronisierung fehlgeschlagen",
-        "litellmPartialFailed": "LiteLLM-Synchronisierung teilweise fehlgeschlagen ({errors} Fehler)",
         "seeded": "{count} Standardpreise geladen",
         "seedFailed": "Laden der Standardpreise fehlgeschlagen",
         "alreadySeeded": "Preisdaten waren bereits vorhanden",

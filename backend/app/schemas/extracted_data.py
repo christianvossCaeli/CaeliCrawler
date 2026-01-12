@@ -38,6 +38,11 @@ class ExtractedDataResponse(BaseModel):
     human_corrections: dict[str, Any] | None
     verified_by: str | None
     verified_at: datetime | None
+    # Rejection fields
+    is_rejected: bool = False
+    rejected_by: str | None = None
+    rejected_at: datetime | None = None
+    rejection_reason: str | None = None
     relevance_score: float | None
     created_at: datetime
     updated_at: datetime
@@ -101,6 +106,29 @@ class ExtractedDataVerify(BaseModel):
     corrections: dict[str, Any] | None = Field(None, description="Optional corrections")
 
 
+class ExtractedDataReject(BaseModel):
+    """Schema for rejecting extracted data."""
+
+    rejected: bool = Field(default=True, description="Mark as rejected")
+    reason: str | None = Field(None, description="Optional rejection reason", max_length=1000)
+    cascade_to_facets: bool = Field(
+        default=True,
+        description="Also deactivate related facet values from the same document",
+    )
+
+
+class ExtractedDataRejectResponse(BaseModel):
+    """Response for reject operation with cascade information."""
+
+    extraction: "ExtractedDataResponse"
+    deactivated_facets_count: int = Field(
+        description="Number of facet values that were deactivated"
+    )
+    protected_facets_count: int = Field(
+        description="Number of facet values that were protected (already verified/corrected)"
+    )
+
+
 class ExtractedDataBulkVerify(BaseModel):
     """Schema for bulk verifying extracted data."""
 
@@ -114,6 +142,24 @@ class ExtractedDataBulkVerifyResponse(BaseModel):
     failed_ids: list[UUID] = Field(default_factory=list, description="Failed verification IDs")
     verified_count: int = Field(..., description="Number of successfully verified extractions")
     failed_count: int = Field(..., description="Number of failed verifications")
+
+
+class ExtractedDataBulkReject(BaseModel):
+    """Schema for bulk rejecting extracted data."""
+
+    ids: list[UUID] = Field(..., description="List of extraction IDs to reject", min_length=1, max_length=100)
+    cascade_to_facets: bool = Field(default=True, description="Whether to deactivate related facet values")
+
+
+class ExtractedDataBulkRejectResponse(BaseModel):
+    """Response for bulk reject operation."""
+
+    rejected_ids: list[UUID] = Field(default_factory=list, description="Successfully rejected IDs")
+    failed_ids: list[UUID] = Field(default_factory=list, description="Failed rejection IDs")
+    rejected_count: int = Field(..., description="Number of successfully rejected extractions")
+    failed_count: int = Field(..., description="Number of failed rejections")
+    total_deactivated_facets: int = Field(default=0, description="Total facet values deactivated")
+    total_protected_facets: int = Field(default=0, description="Total facet values that were protected")
 
 
 class ExtractedDataSearchParams(BaseModel):

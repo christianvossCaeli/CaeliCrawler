@@ -88,6 +88,11 @@ export interface SearchResult {
   human_verified?: boolean
   verified_by?: string
   verified_at?: string
+  // Rejection fields
+  is_rejected?: boolean
+  rejected_by?: string
+  rejected_at?: string
+  rejection_reason?: string
   created_at: string
   updated_at?: string
   source_name?: string
@@ -154,11 +159,13 @@ export interface ResultsStats {
 
 export interface ResultsFilterState {
   searchQuery: string
+  documentIdFilter: string | null
   locationFilter: string | null
   extractionTypeFilter: string | null
   categoryFilter: string | null
   minConfidence: number
   verifiedFilter: boolean | null
+  showRejected: boolean
   dateFrom: string | null
   dateTo: string | null
 }

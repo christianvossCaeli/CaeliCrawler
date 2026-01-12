@@ -296,8 +296,9 @@ def execute_summary_task(self, summary_id: str, triggered_by: str = "manual", tr
 def on_crawl_completed(self, crawl_job_id: str, category_id: str):
     """Event handler: Trigger summaries when a crawl completes.
 
-    This task is called after a crawl job completes and triggers
-    any summaries configured with trigger_type=crawl_category.
+    This task is called after a crawl job completes and triggers:
+    1. Summaries configured with trigger_type=CRAWL_CATEGORY for this category
+    2. Summaries configured with trigger_type=AUTO that reference matching entity types
 
     Args:
         crawl_job_id: UUID of the completed crawl job.
@@ -308,10 +309,14 @@ def on_crawl_completed(self, crawl_job_id: str, category_id: str):
     from app.database import get_celery_session_context
     from app.models import CustomSummary
     from app.models.custom_summary import SummaryStatus, SummaryTriggerType
+    from services.summaries.source_resolver import find_summaries_for_category_crawl
 
     async def _trigger_summaries():
         async with get_celery_session_context() as session:
-            # Find summaries triggered by this category
+            triggered_ids: set[UUID] = set()  # Track to avoid double-triggering
+            triggered = 0
+
+            # 1. Find summaries triggered by CRAWL_CATEGORY (direct link)
             result = await session.execute(
                 select(CustomSummary).where(
                     CustomSummary.trigger_type == SummaryTriggerType.CRAWL_CATEGORY,
@@ -319,23 +324,15 @@ def on_crawl_completed(self, crawl_job_id: str, category_id: str):
                     CustomSummary.status == SummaryStatus.ACTIVE,
                 )
             )
-            summaries = result.scalars().all()
+            direct_summaries = result.scalars().all()
 
-            if not summaries:
-                logger.debug(
-                    "crawl_completed_no_summaries_to_trigger",
-                    crawl_job_id=crawl_job_id,
-                    category_id=category_id,
-                )
-                return {"triggered": 0}
-
-            triggered = 0
-            for summary in summaries:
+            for summary in direct_summaries:
                 execute_summary_task.delay(
                     str(summary.id),
                     "crawl_event",
                     {"crawl_job_id": crawl_job_id, "category_id": category_id},
                 )
+                triggered_ids.add(summary.id)
                 triggered += 1
 
                 logger.info(
@@ -344,9 +341,65 @@ def on_crawl_completed(self, crawl_job_id: str, category_id: str):
                     summary_name=summary.name,
                     crawl_job_id=crawl_job_id,
                     category_id=category_id,
+                    trigger_type="CRAWL_CATEGORY",
                 )
 
-            return {"triggered": triggered}
+            # 2. Find AUTO summaries with matching entity types
+            auto_matches = await find_summaries_for_category_crawl(
+                session, UUID(category_id)
+            )
+
+            auto_triggered_count = 0
+            for summary, matched_entity_types in auto_matches:
+                # Skip if already triggered via CRAWL_CATEGORY
+                if summary.id in triggered_ids:
+                    logger.debug(
+                        "summary_already_triggered",
+                        summary_id=str(summary.id),
+                        reason="already triggered via CRAWL_CATEGORY",
+                    )
+                    continue
+
+                # Trigger the summary
+                execute_summary_task.delay(
+                    str(summary.id),
+                    "crawl_event",
+                    {
+                        "crawl_job_id": crawl_job_id,
+                        "category_id": category_id,
+                        "trigger_reason": "auto_entity_match",
+                        "matched_entity_types": matched_entity_types,
+                    },
+                )
+                triggered_ids.add(summary.id)
+                triggered += 1
+                auto_triggered_count += 1
+
+                # Update last_auto_trigger_reason for transparency
+                summary.last_auto_trigger_reason = f"Matched: {', '.join(matched_entity_types)}"
+
+                logger.info(
+                    "summary_triggered_by_crawl",
+                    summary_id=str(summary.id),
+                    summary_name=summary.name,
+                    crawl_job_id=crawl_job_id,
+                    category_id=category_id,
+                    trigger_type="AUTO",
+                    matched_entity_types=matched_entity_types,
+                )
+
+            # Batch commit all AUTO trigger reason updates
+            if auto_triggered_count > 0:
+                await session.commit()
+
+            if triggered == 0:
+                logger.debug(
+                    "crawl_completed_no_summaries_to_trigger",
+                    crawl_job_id=crawl_job_id,
+                    category_id=category_id,
+                )
+
+            return {"triggered": triggered, "direct": len(direct_summaries), "auto": len(auto_matches)}
 
     try:
         return run_async(_trigger_summaries())

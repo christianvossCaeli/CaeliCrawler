@@ -12,9 +12,10 @@ from typing import Any
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.core.exceptions import AIInterpretationError, SessionRequiredError
 from app.models.llm_usage import LLMProvider, LLMTaskType
+from app.models.user_api_credentials import LLMPurpose
+from services.llm_client_service import LLMClientService
 from services.llm_usage_tracker import record_llm_usage
 
 from ..prompts import build_compound_query_prompt
@@ -23,7 +24,7 @@ from .base import (
     AI_TEMPERATURE_LOW,
     MAX_TOKENS_COMPOUND,
     MAX_TOKENS_QUERY,
-    get_openai_client,
+    load_all_types_for_write,
     load_facet_and_entity_types,
     validate_and_sanitize_query,
 )
@@ -34,9 +35,10 @@ logger = structlog.get_logger()
 def build_dynamic_query_prompt(
     facet_types: list[dict[str, Any]],
     entity_types: list[dict[str, Any]],
+    relation_types: list[dict[str, Any]] | None = None,
     query: str = "",
 ) -> str:
-    """Build the query interpretation prompt dynamically with current facet and entity types."""
+    """Build the query interpretation prompt dynamically with current facet, entity and relation types."""
     today = date.today().isoformat()
 
     # Build facet types section
@@ -54,6 +56,20 @@ def build_dynamic_query_prompt(
         entity_lines.append(f"- {et['slug']}: {desc}")
     entity_section = "\n".join(entity_lines) if entity_lines else "- (keine Entity-Typen definiert)"
 
+    # Build relation types section (dynamisch aus DB oder Fallback)
+    if relation_types:
+        relation_lines = []
+        for rt in relation_types:
+            desc = rt.get("description") or rt.get("name", rt["slug"])
+            relation_lines.append(f"- {rt['slug']}: {desc}")
+        relation_section = "\n".join(relation_lines) if relation_lines else "- (keine Relation-Typen definiert)"
+    else:
+        # Fallback für Abwärtskompatibilität
+        relation_section = """- works_for: Person arbeitet für Municipality
+- attends: Person nimmt teil an Event
+- located_in: Event findet statt in Municipality
+- member_of: Person ist Mitglied von Organization"""
+
     return f"""Du bist ein Query-Interpreter für ein Entity-Facet-System.
 
 ## Verfügbare Entity Types:
@@ -63,10 +79,7 @@ def build_dynamic_query_prompt(
 {facet_section}
 
 ## Verfügbare Relation Types:
-- works_for: Person arbeitet für Municipality
-- attends: Person nimmt teil an Event
-- located_in: Event findet statt in Municipality
-- member_of: Person ist Mitglied von Organization
+{relation_section}
 
 ## Multi-Hop Relationen (WICHTIG für komplexe Abfragen!):
 Verwende `relation_chain` für Abfragen über mehrere Beziehungsebenen:
@@ -243,29 +256,42 @@ async def interpret_query(question: str, session: AsyncSession | None = None) ->
 
     Args:
         question: The natural language query
-        session: Database session for dynamic prompt generation
+        session: Database session for dynamic prompt generation and LLM credentials
 
     Raises:
-        ValueError: If Azure OpenAI is not configured or query is invalid
+        ValueError: If LLM is not configured or query is invalid
         RuntimeError: If query interpretation fails
     """
     # Validate and sanitize input
     sanitized_question = validate_and_sanitize_query(question)
 
-    client = get_openai_client()
+    if not session:
+        raise SessionRequiredError("query interpretation")
+
+    # Get LLM client
+    llm_service = LLMClientService(session)
+    client, config = await llm_service.get_system_client(LLMPurpose.DOCUMENT_ANALYSIS)
+    if not client or not config:
+        raise ValueError("No LLM credentials configured")
+
+    model_name = llm_service.get_model_name(config)
+    provider = llm_service.get_provider(config)
 
     try:
-        # Build prompt dynamically with session
-        if session:
-            facet_types, entity_types = await load_facet_and_entity_types(session)
-            prompt = build_dynamic_query_prompt(facet_types, entity_types, query=sanitized_question)
-            logger.debug("Using dynamic prompt with facet_types", facet_count=len(facet_types))
-        else:
-            raise SessionRequiredError("query interpretation")
+        # Build prompt dynamically with session (including relation types)
+        entity_types, facet_types, relation_types, _ = await load_all_types_for_write(session)
+        prompt = build_dynamic_query_prompt(
+            facet_types, entity_types, relation_types=relation_types, query=sanitized_question
+        )
+        logger.debug(
+            "Using dynamic prompt with types",
+            facet_count=len(facet_types),
+            relation_count=len(relation_types),
+        )
 
         start_time = time.time()
-        response = client.chat.completions.create(
-            model=settings.azure_openai_deployment_name,
+        response = await client.chat.completions.create(
+            model=model_name,
             messages=[
                 {
                     "role": "system",
@@ -282,8 +308,8 @@ async def interpret_query(question: str, session: AsyncSession | None = None) ->
 
         if response.usage:
             await record_llm_usage(
-                provider=LLMProvider.AZURE_OPENAI,
-                model=settings.azure_openai_deployment_name,
+                provider=provider,
+                model=model_name,
                 task_type=LLMTaskType.CHAT,
                 task_name="interpret_query",
                 prompt_tokens=response.usage.prompt_tokens,
@@ -318,7 +344,7 @@ async def detect_compound_query(question: str, session: AsyncSession | None = No
 
     Args:
         question: The natural language query
-        session: Database session for loading types
+        session: Database session for loading types and LLM credentials
 
     Returns:
         Dict with:
@@ -327,16 +353,23 @@ async def detect_compound_query(question: str, session: AsyncSession | None = No
         - sub_queries: List[Dict] - decomposed sub-queries if compound
 
     Raises:
-        ValueError: If Azure OpenAI is not configured, session is missing, or query is invalid
+        ValueError: If LLM is not configured, session is missing, or query is invalid
         RuntimeError: If detection fails
     """
     # Validate and sanitize input
     sanitized_question = validate_and_sanitize_query(question)
 
-    client = get_openai_client()
-
     if not session:
         raise SessionRequiredError("compound query detection")
+
+    # Get LLM client
+    llm_service = LLMClientService(session)
+    client, config = await llm_service.get_system_client(LLMPurpose.DOCUMENT_ANALYSIS)
+    if not client or not config:
+        raise ValueError("No LLM credentials configured")
+
+    model_name = llm_service.get_model_name(config)
+    provider = llm_service.get_provider(config)
 
     try:
         # Load types for context
@@ -357,8 +390,8 @@ async def detect_compound_query(question: str, session: AsyncSession | None = No
         )
 
         start_time = time.time()
-        response = client.chat.completions.create(
-            model=settings.azure_openai_deployment_name,
+        response = await client.chat.completions.create(
+            model=model_name,
             messages=[
                 {
                     "role": "system",
@@ -375,8 +408,8 @@ async def detect_compound_query(question: str, session: AsyncSession | None = No
 
         if response.usage:
             await record_llm_usage(
-                provider=LLMProvider.AZURE_OPENAI,
-                model=settings.azure_openai_deployment_name,
+                provider=provider,
+                model=model_name,
                 task_type=LLMTaskType.CHAT,
                 task_name="detect_compound_query",
                 prompt_tokens=response.usage.prompt_tokens,

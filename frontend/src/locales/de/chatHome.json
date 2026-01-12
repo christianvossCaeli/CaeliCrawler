@@ -1,0 +1,91 @@
+{
+  "chatHome": {
+    "welcome": {
+      "morning": "Guten Morgen",
+      "afternoon": "Guten Tag",
+      "evening": "Guten Abend",
+      "subtitle": "Wie kann ich dir heute helfen? Stelle mir eine Frage oder wähle einen Vorschlag."
+    },
+    "input": {
+      "placeholder": "Stelle eine Frage...",
+      "placeholderWrite": "Beschreibe, was du erstellen oder ändern möchtest...",
+      "placeholderPlan": "Beschreibe dein Vorhaben und ich erstelle einen Plan...",
+      "listening": "Ich höre zu...",
+      "send": "Senden",
+      "attachFile": "Datei anhängen",
+      "startRecording": "Spracheingabe starten",
+      "stopRecording": "Spracheingabe beenden"
+    },
+    "mode": {
+      "read": "Lesen",
+      "write": "Schreiben",
+      "plan": "Plan"
+    },
+    "categories": {
+      "all": "Alle",
+      "query": "Abfragen",
+      "crawler": "Crawler",
+      "summary": "Zusammenfassungen"
+    },
+    "suggestions": {
+      "showEntities": {
+        "title": "Entitäten anzeigen",
+        "query": "Zeige mir alle Entitäten aus Hamburg"
+      },
+      "countDocuments": {
+        "title": "Dokumente zählen",
+        "query": "Wie viele Dokumente wurden diese Woche hinzugefügt?"
+      },
+      "searchDocuments": {
+        "title": "Dokumente suchen",
+        "query": "Suche nach Vergabe-Dokumenten"
+      },
+      "startCrawl": {
+        "title": "Crawl starten",
+        "query": "Starte Crawl für alle RSS-Quellen"
+      },
+      "crawlerStatus": {
+        "title": "Crawler-Status",
+        "query": "Was ist der aktuelle Crawler-Status?"
+      },
+      "retryCrawl": {
+        "title": "Fehlgeschlagene erneut crawlen",
+        "query": "Crawle die fehlgeschlagenen Quellen erneut"
+      },
+      "whatsNew": {
+        "title": "Was ist neu?",
+        "query": "Was ist neu seit meinem letzten Login?"
+      },
+      "createSummary": {
+        "title": "Zusammenfassung erstellen",
+        "query": "Erstelle eine Zusammenfassung der Top-Entitäten"
+      },
+      "weeklyChanges": {
+        "title": "Wöchentliche Änderungen",
+        "query": "Zeige mir wichtige Änderungen dieser Woche"
+      }
+    },
+    "history": {
+      "title": "Verlauf",
+      "toggle": "Verlauf anzeigen",
+      "favorites": "Favoriten",
+      "recent": "Zuletzt verwendet",
+      "empty": "Noch keine Abfragen",
+      "justNow": "Gerade eben",
+      "minutesAgo": "Vor {count} Min.",
+      "hoursAgo": "Vor {count} Std.",
+      "daysAgo": "Vor {count} Tagen"
+    },
+    "results": {
+      "entities": "Ergebnisse",
+      "visualization": "Visualisierung",
+      "results": "Ergebnisse",
+      "items": "Einträge",
+      "showAll": "Alle {count} anzeigen"
+    },
+    "messages": {
+      "complete": "Fertig! Kann ich noch etwas für dich tun?",
+      "error": "Es ist ein Fehler aufgetreten. Bitte versuche es erneut."
+    }
+  }
+}

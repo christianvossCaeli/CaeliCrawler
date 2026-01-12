@@ -6,6 +6,10 @@
       icon="mdi-bell"
     />
 
+    <PageInfoBox :storage-key="INFO_BOX_STORAGE_KEYS.NOTIFICATIONS" :title="t('notifications.info.title')">
+      {{ t('notifications.info.description') }}
+    </PageInfoBox>
+
     <v-row>
       <v-col cols="12">
         <v-tabs v-model="activeTab" color="primary" class="mb-4">
@@ -52,15 +56,21 @@
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
-import { useNotifications } from '@/composables/useNotifications'
+import { storeToRefs } from 'pinia'
+import { useNotificationsStore } from '@/stores/notifications'
 import NotificationInbox from '@/components/notifications/NotificationInbox.vue'
 import NotificationRules from '@/components/notifications/NotificationRules.vue'
 import NotificationSettings from '@/components/notifications/NotificationSettings.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
+import PageInfoBox from '@/components/common/PageInfoBox.vue'
+import { INFO_BOX_STORAGE_KEYS } from '@/config/infoBox'
 
 const { t } = useI18n()
 const route = useRoute()
-const { unreadCount, loadUnreadCount } = useNotifications()
+
+// Store
+const store = useNotificationsStore()
+const { unreadCount } = storeToRefs(store)
 
 // Tab management
 const activeTab = ref('inbox')
@@ -74,6 +84,6 @@ onMounted(async () => {
   }
 
   // Load unread count for badge
-  await loadUnreadCount()
+  await store.loadUnreadCount()
 })
 </script>

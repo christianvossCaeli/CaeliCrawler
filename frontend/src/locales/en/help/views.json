@@ -549,7 +549,9 @@
         "oparlApi": "OPARL_API",
         "oparlApiDesc": "OParl interface for council information systems",
         "rss": "RSS",
-        "rssDesc": "RSS feed for news aggregation"
+        "rssDesc": "RSS feed for news aggregation",
+        "sharepoint": "SHAREPOINT",
+        "sharepointDesc": "Microsoft SharePoint Online - Document libraries via Microsoft Graph API"
       },
       "availableFilters": "Available Filters",
       "filterDescription": "Country (with count), Municipality (Autocomplete), Category, Status, Search (Name/URL)",
@@ -629,6 +631,45 @@
         "activeDesc": "Successfully crawled",
         "error": "ERROR",
         "errorDesc": "Last crawl failed"
+      },
+      "sharepoint": {
+        "title": "SharePoint Sources",
+        "description": "SharePoint sources allow crawling documents from Microsoft SharePoint Online.",
+        "prerequisites": {
+          "title": "Prerequisites",
+          "azureApp": "Azure AD App Registration with Microsoft Graph API permissions",
+          "permissions": "Required permissions: Sites.Read.All, Files.Read.All",
+          "envVars": "Environment variables: SHAREPOINT_TENANT_ID, SHAREPOINT_CLIENT_ID, SHAREPOINT_CLIENT_SECRET"
+        },
+        "configuration": {
+          "title": "Configuration",
+          "siteUrl": "Site URL - SharePoint site (e.g. contoso.sharepoint.com:/sites/Documents)",
+          "driveName": "Document Library - Name of the Document Library",
+          "folderPath": "Folder Path - Subfolder in the library (optional)",
+          "recursive": "Recursive - Include subfolders",
+          "fileExtensions": "File Types - Allowed extensions (.pdf, .docx, .xlsx, etc.)",
+          "maxFiles": "Max. Files - Limit for documents (default: 1000)"
+        },
+        "workflow": {
+          "title": "Typical Workflow",
+          "step1": "Create Azure AD App with Graph API permissions",
+          "step2": "Add SharePoint source with folder and file types",
+          "step3": "Create category with search terms and AI prompt",
+          "step4": "Link SharePoint source to category",
+          "step5": "Start crawl - Documents are downloaded and analyzed"
+        },
+        "keywordFiltering": {
+          "title": "Keyword Pre-filtering",
+          "description": "Documents are filtered by keywords AFTER download but BEFORE AI analysis:",
+          "howItWorks": "category.search_terms defines the keywords",
+          "threshold": "At least 2 keywords must match (min_keywords=2)",
+          "benefit": "Irrelevant documents are not sent to AI - saves costs"
+        },
+        "testConnection": {
+          "title": "Connection Test",
+          "description": "Before saving, you can test the connection:",
+          "checks": "Site reachability, Document Library access, File discovery"
+        }
       }
     },
     "crawler": {

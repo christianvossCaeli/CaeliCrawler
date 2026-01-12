@@ -124,6 +124,122 @@ export const assignSourcesByTags = (
     data
   )
 
+/**
+ * Request body for assigning sources by IDs
+ */
+export interface AssignSourcesByIdsRequest {
+  /** Source IDs to assign */
+  source_ids: string[]
+}
+
+/**
+ * Assign sources to a category by their IDs
+ */
+export const assignSourcesById = (
+  categoryId: string,
+  data: AssignSourcesByIdsRequest
+) =>
+  api.post<AssignSourcesByTagsResponse>(
+    `/admin/categories/${categoryId}/assign-sources`,
+    data
+  )
+
+// ============================================
+// Category Sources (Assigned)
+// ============================================
+
+/**
+ * Parameters for getting category sources
+ */
+export interface GetCategorySourcesParams {
+  /** Page number */
+  page?: number
+  /** Items per page */
+  per_page?: number
+  /** Search query */
+  search?: string
+  /** Filter by tags */
+  tags?: string[]
+}
+
+/**
+ * Response for category sources
+ */
+export interface CategorySourcesResponse {
+  /** List of sources */
+  items: Array<{
+    id: string
+    name: string
+    base_url?: string
+    status?: string
+    source_type?: string
+    tags?: string[]
+    document_count?: number
+  }>
+  /** Total count */
+  total: number
+  /** Current page */
+  page: number
+  /** Items per page */
+  per_page: number
+}
+
+/**
+ * Get sources assigned to a category with pagination and filters
+ */
+export const getCategorySources = (
+  categoryId: string,
+  params?: GetCategorySourcesParams
+) =>
+  api.get<CategorySourcesResponse>(
+    `/admin/categories/${categoryId}/sources`,
+    { params }
+  )
+
+/**
+ * Get available tags in sources assigned to a category
+ */
+export const getCategorySourcesTags = (categoryId: string) =>
+  api.get<{ tags: string[] }>(`/admin/categories/${categoryId}/sources/tags`)
+
+/**
+ * Unassign a source from a category
+ */
+export const unassignSource = (categoryId: string, sourceId: string) =>
+  api.delete(`/admin/categories/${categoryId}/sources/${sourceId}`)
+
+/**
+ * Request body for bulk unassigning sources
+ */
+export interface UnassignSourcesBulkRequest {
+  /** Source IDs to unassign */
+  source_ids: string[]
+}
+
+/**
+ * Response for bulk unassign operation
+ */
+export interface UnassignSourcesBulkResponse {
+  /** Number of sources successfully unassigned */
+  removed: number
+  /** Number of sources not found in category */
+  not_found: number
+  /** Human-readable result message */
+  message: string
+}
+
+/**
+ * Bulk unassign multiple sources from a category
+ */
+export const unassignSourcesBulk = (
+  categoryId: string,
+  data: UnassignSourcesBulkRequest
+) =>
+  api.post<UnassignSourcesBulkResponse>(
+    `/admin/categories/${categoryId}/unassign-sources`,
+    data
+  )
+
 // ============================================
 // Grouped API Object (for import convenience)
 // ============================================
@@ -144,6 +260,11 @@ export const categoryApi = {
   previewAiSetup: previewCategoryAiSetup,
   // Sources
   assignSourcesByTags,
+  assignSourcesById,
+  getCategorySources,
+  getCategorySourcesTags,
+  unassignSource,
+  unassignSourcesBulk,
 }
 
 export default categoryApi

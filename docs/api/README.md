@@ -32,6 +32,7 @@ Die API-Dokumentation ist in mehrere thematische Dateien aufgeteilt:
 | [SMART_QUERY.md](./SMART_QUERY.md) | Smart Query & Analyse |
 | [PYSIS.md](./PYSIS.md) | PySis Integration |
 | [SYSTEM.md](./SYSTEM.md) | System & Health, Konfiguration |
+| [MIGRATION_v2.2.md](./MIGRATION_v2.2.md) | **NEU:** Migration Guide fuer Breaking Changes in v2.2.0 |
 
 ---
 
@@ -222,3 +223,5 @@ In Produktion sollte HTTPS verwendet werden.
 | 1.2.0 | 2024-12-20 | Assistant: Save to Entity Attachments |
 | 2.0.0 | 2025-12-20 | Vollstaendige Modularisierung der API-Dokumentation |
 | 2.1.0 | 2025-12-21 | Smart Write: `create_category_setup` mit AI Source Discovery |
+| 2.2.0 | 2026-01-05 | **BREAKING:** `is_active` → `scheduled_only`, CrawlPreset `status` entfernt |
+| 2.2.0 | 2026-01-05 | Attachment Volltext-Suche, Extraction Rejection, Smart Query Schedule/Summary Operations |

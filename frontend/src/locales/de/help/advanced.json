@@ -385,13 +385,44 @@
         "endpoints": {
           "data": "Extrahierte Daten (mit Filtern)",
           "stats": "Extraktions-Statistiken",
+          "unverifiedCount": "Anzahl unverifierter Extraktionen (optimiert fuer Badge)",
           "locations": "Locations mit Extraktionen",
           "countries": "Länder mit Extraktionen",
           "documents": "Alle Dokumente",
           "documentDetails": "Dokument-Details",
           "documentLocations": "Dokument-Locations",
           "search": "Volltextsuche",
-          "verify": "Extraktion verifizieren (nur Editor)"
+          "verify": "Extraktion verifizieren (nur Editor)",
+          "reject": "Extraktion ablehnen (mit optionalem Grund)"
+        }
+      },
+      "facets": {
+        "title": "Facets",
+        "note": "Facet-Values verknuepfen Entities mit extrahierten Daten. Sie koennen nach verschiedenen Kriterien gefiltert und durchsucht werden.",
+        "endpoints": {
+          "values": "Alle Facet-Values (mit Filtern)",
+          "types": "Alle Facet-Typen",
+          "typesForCategory": "Facet-Typen fuer eine Kategorie",
+          "search": "Volltextsuche in Facet-Values",
+          "entitySummary": "Facet-Zusammenfassung einer Entity",
+          "referencedBy": "Facets die diese Entity referenzieren",
+          "createValue": "Facet-Value erstellen",
+          "verifyValue": "Facet-Value verifizieren"
+        }
+      },
+      "attachments": {
+        "title": "Anhaenge",
+        "note": "Anhaenge koennen zu Entities hochgeladen und per KI analysiert werden. NEU: Volltextsuche ueber alle Anhaenge.",
+        "endpoints": {
+          "search": "Volltextsuche ueber alle Anhaenge",
+          "upload": "Anhang zu Entity hochladen",
+          "list": "Anhaenge einer Entity auflisten",
+          "get": "Anhang-Details abrufen",
+          "download": "Anhang herunterladen",
+          "thumbnail": "Thumbnail abrufen (fuer Bilder)",
+          "analyze": "KI-Analyse starten",
+          "applyFacets": "Erkannte Facets uebernehmen",
+          "delete": "Anhang loeschen"
         }
       },
       "entities": {

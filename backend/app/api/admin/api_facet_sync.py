@@ -17,7 +17,9 @@ from app.core.deps import require_editor
 from app.database import get_session
 from app.models import User
 from app.models.api_configuration import APIConfiguration, ImportMode
+from app.models.audit_log import AuditAction
 from app.schemas.common import MessageResponse
+from app.services.audit_service import create_audit_log
 
 router = APIRouter()
 
@@ -291,6 +293,17 @@ async def trigger_sync_now(
 
     config_name = config.data_source.name if config.data_source else f"Config {str(config.id)[:8]}"
 
+    # Create audit log entry
+    await create_audit_log(
+        session=session,
+        action=AuditAction.UPDATE,
+        entity_type="APIFacetSync",
+        entity_id=config.id,
+        entity_name=f"{config_name} (sync triggered)",
+        user=user,
+    )
+    await session.commit()
+
     return SyncTriggerResponse(
         message=f"Sync für '{config_name}' gestartet",
         task_id=task.id,
@@ -333,6 +346,18 @@ async def update_schedule(
     else:
         config.next_run_at = None
 
+    config_name = config.data_source.name if config.data_source else f"Config {str(config.id)[:8]}"
+
+    # Create audit log entry
+    await create_audit_log(
+        session=session,
+        action=AuditAction.CONFIG_UPDATE,
+        entity_type="APIFacetSync",
+        entity_id=config.id,
+        entity_name=f"{config_name} (schedule {'enabled' if sync_enabled else 'disabled'})",
+        user=user,
+    )
+
     await session.commit()
     await session.refresh(config)
 
@@ -359,6 +384,16 @@ async def delete_api_facet_sync(
         raise HTTPException(status_code=404, detail="Configuration not found")
 
     config_name = config.data_source.name if config.data_source else f"Config {str(config.id)[:8]}"
+
+    # Create audit log entry
+    await create_audit_log(
+        session=session,
+        action=AuditAction.DELETE,
+        entity_type="APIFacetSync",
+        entity_id=config_id,
+        entity_name=config_name,
+        user=user,
+    )
 
     await session.delete(config)
     await session.commit()

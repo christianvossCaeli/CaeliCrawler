@@ -139,9 +139,6 @@ class Category(Base):
         comment="User whose API credentials are used for automatic scheduled crawls",
     )
 
-    # Status
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-
     # Ownership & Visibility
     created_by_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),

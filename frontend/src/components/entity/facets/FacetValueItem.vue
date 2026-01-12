@@ -31,11 +31,11 @@
             v-if="facet.target_entity_id"
             size="small"
             variant="tonal"
-            color="primary"
+            :color="targetEntityColor"
             class="cursor-pointer"
             @click.stop="$emit('navigate-to-entity', facet)"
           >
-            <v-icon start size="small">mdi-link-variant</v-icon>
+            <v-icon start size="small">{{ targetEntityIcon }}</v-icon>
             {{ facet.target_entity_name || t('entityDetail.viewEntity') }}
           </v-chip>
           <v-menu v-if="canEdit" location="bottom">
@@ -189,6 +189,10 @@ const normalizedValue = computed(() => {
 const sourceColor = computed(() => getFacetSourceColor(props.facet.source_type))
 const sourceIcon = computed(() => getFacetSourceIcon(props.facet.source_type))
 const confidenceColor = computed(() => getConfidenceColor(props.facet.confidence_score ?? null))
+
+// Target entity visuals - use API values with fallback
+const targetEntityIcon = computed(() => props.facet.target_entity_type_icon || 'mdi-link-variant')
+const targetEntityColor = computed(() => props.facet.target_entity_type_color || 'primary')
 
 function formatDate(date: string): string {
   return formatRelativeTime(date)

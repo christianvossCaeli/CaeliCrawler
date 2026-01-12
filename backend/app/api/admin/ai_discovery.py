@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.admin.sources import validate_crawler_url
 from app.core.audit import AuditContext
-from app.core.deps import require_editor
+from app.core.deps import require_editor, require_llm_budget
 from app.core.rate_limit import check_rate_limit
 from app.core.security_logging import security_logger
 from app.database import get_session
@@ -148,6 +148,7 @@ async def discover_sources(
     http_request: Request,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_editor),
+    _budget_check: User = Depends(require_llm_budget),  # Budget check before LLM usage
 ):
     """
     KI-gesteuerte Datenquellen-Entdeckung.
@@ -177,6 +178,7 @@ async def discover_sources(
     serper_key = await get_serper_key(session, user.id)
 
     service = AISourceDiscoveryService(
+        session=session,
         serpapi_key=serpapi_key,
         serper_key=serper_key,
     )
@@ -365,6 +367,7 @@ async def discover_sources_v2(
     http_request: Request,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_editor),
+    _budget_check: User = Depends(require_llm_budget),  # Budget check before LLM usage
 ):
     """
     KI-First Datenquellen-Entdeckung (V2).
@@ -400,6 +403,7 @@ async def discover_sources_v2(
     serper_key = await get_serper_key(session, user.id)
 
     service = AISourceDiscoveryService(
+        session=session,
         serpapi_key=serpapi_key,
         serper_key=serper_key,
     )

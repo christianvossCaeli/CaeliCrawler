@@ -557,6 +557,15 @@ export function useDocumentsView() {
   // ============================================================================
 
   async function initialize() {
+    // Check for search query parameter from results links
+    if (route.query.search) {
+      const search = Array.isArray(route.query.search) ? route.query.search[0] : route.query.search
+      if (search) {
+        searchQuery.value = search
+        page.value = 1
+      }
+    }
+
     // Check for processing_status query parameter from dashboard widget
     if (route.query.processing_status) {
       const status = route.query.processing_status as string
@@ -575,6 +584,15 @@ export function useDocumentsView() {
       if (doc) {
         selectedDocument.value = doc
         detailsDialog.value = true
+      } else {
+        try {
+          const response = await dataApi.getDocument(docId)
+          selectedDocument.value = response.data
+          detailsDialog.value = true
+        } catch (error) {
+          logger.warn('Could not load document details:', error)
+          showError(t('documents.loadDetailsError'))
+        }
       }
     }
   }

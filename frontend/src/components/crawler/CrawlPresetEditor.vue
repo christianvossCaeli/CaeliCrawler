@@ -63,6 +63,31 @@
           <!-- Filter Configuration -->
           <div class="text-subtitle-2 mb-2">{{ t('crawlPresets.filters') }}</div>
 
+          <!-- Category: Single-Select Dropdown (Required, first position) -->
+          <v-autocomplete
+            v-model="formData.filters.category_id"
+            :label="t('crawlPresets.category') + ' *'"
+            :items="categories"
+            item-title="name"
+            item-value="id"
+            variant="outlined"
+            density="compact"
+            :loading="categoriesLoading"
+            :rules="[v => !!v || t('crawlPresets.categoryRequired')]"
+            class="mb-3"
+            :no-data-text="t('common.noData')"
+          >
+            <template #item="{ item, props: itemProps }">
+              <v-list-item v-bind="itemProps">
+                <template #append>
+                  <v-chip v-if="item.raw.sources_count" size="x-small" color="grey">
+                    {{ item.raw.sources_count }} {{ t('crawlPresets.sourcesMatched').split(' ')[0] }}
+                  </v-chip>
+                </template>
+              </v-list-item>
+            </template>
+          </v-autocomplete>
+
           <!-- Entity Type: Multi-Select Dropdown -->
           <v-autocomplete
             v-model="formData.filters.entity_type"
@@ -80,31 +105,6 @@
             class="mb-3"
             :no-data-text="t('common.noData')"
           />
-
-          <!-- Category: Single-Select Dropdown -->
-          <v-autocomplete
-            v-model="formData.filters.category_id"
-            :label="t('crawlPresets.category')"
-            :items="categories"
-            item-title="name"
-            item-value="id"
-            variant="outlined"
-            density="compact"
-            :loading="categoriesLoading"
-            clearable
-            class="mb-3"
-            :no-data-text="t('common.noData')"
-          >
-            <template #item="{ item, props: itemProps }">
-              <v-list-item v-bind="itemProps">
-                <template #append>
-                  <v-chip v-if="item.raw.sources_count" size="x-small" color="grey">
-                    {{ item.raw.sources_count }} {{ t('crawlPresets.sourcesMatched').split(' ')[0] }}
-                  </v-chip>
-                </template>
-              </v-list-item>
-            </template>
-          </v-autocomplete>
 
           <!-- Tags: Multi-Select from available tags -->
           <v-autocomplete
@@ -184,6 +184,73 @@
               />
             </v-col>
           </v-row>
+
+          <!-- Entity Selection (Optional) -->
+          <v-divider class="my-4" />
+          <v-expansion-panels variant="accordion" class="mb-4">
+            <v-expansion-panel>
+              <v-expansion-panel-title>
+                <v-icon class="mr-2">mdi-account-group</v-icon>
+                {{ t('crawlPresets.entitySelection.title') }}
+                <v-chip
+                  v-if="formData.filters.entity_ids && formData.filters.entity_ids.length > 0"
+                  size="x-small"
+                  color="primary"
+                  class="ml-2"
+                >
+                  {{ formData.filters.entity_ids.length }}
+                </v-chip>
+              </v-expansion-panel-title>
+              <v-expansion-panel-text>
+                <v-alert
+                  type="info"
+                  variant="tonal"
+                  density="compact"
+                  class="mb-3"
+                >
+                  {{ t('crawlPresets.entitySelection.description') }}
+                </v-alert>
+
+                <v-radio-group
+                  v-model="formData.filters.entity_selection_mode"
+                  inline
+                  hide-details
+                  class="mb-3"
+                >
+                  <v-radio
+                    :value="undefined"
+                    :label="t('crawlPresets.entitySelection.none')"
+                  />
+                  <v-radio
+                    value="fixed"
+                    :label="t('crawlPresets.entitySelection.fixed')"
+                  />
+                  <v-radio
+                    value="dynamic"
+                    :label="t('crawlPresets.entitySelection.dynamic')"
+                  />
+                </v-radio-group>
+
+                <p class="text-caption text-medium-emphasis mb-3">
+                  <template v-if="!formData.filters.entity_selection_mode">
+                    {{ t('crawlPresets.entitySelection.noneHint') }}
+                  </template>
+                  <template v-else-if="formData.filters.entity_selection_mode === 'fixed'">
+                    {{ t('crawlPresets.entitySelection.fixedHint') }}
+                  </template>
+                  <template v-else>
+                    {{ t('crawlPresets.entitySelection.dynamicHint') }}
+                  </template>
+                </p>
+
+                <EntitySelector
+                  v-if="formData.filters.entity_selection_mode === 'fixed'"
+                  :model-value="formData.filters.entity_ids ?? []"
+                  @update:model-value="formData.filters.entity_ids = $event"
+                />
+              </v-expansion-panel-text>
+            </v-expansion-panel>
+          </v-expansion-panels>
 
           <!-- Schedule Configuration -->
           <v-divider class="my-4" />
@@ -277,15 +344,22 @@ import { crawlPresetsApi, entityApi, adminApi } from '@/services/api'
 import { categoryApi } from '@/services/api/categories'
 import { useSnackbar } from '@/composables/useSnackbar'
 import ScheduleBuilder from '@/components/common/ScheduleBuilder.vue'
+import EntitySelector from '@/components/entities/EntitySelector.vue'
 import { useLogger } from '@/composables/useLogger'
 
 interface Props {
   modelValue: boolean
   preset?: CrawlPreset | null
+  /** Initial entity IDs to pre-fill (for creating preset from entity selection) */
+  initialEntityIds?: string[]
+  /** Initial category ID to pre-fill */
+  initialCategoryId?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
   preset: null,
+  initialEntityIds: () => [],
+  initialCategoryId: undefined,
 })
 
 const emit = defineEmits<{
@@ -344,6 +418,8 @@ const formData = ref({
     status: undefined as string | undefined,
     search: undefined as string | undefined,
     limit: undefined as number | undefined,
+    entity_ids: [] as string[],
+    entity_selection_mode: undefined as 'fixed' | 'dynamic' | undefined,
   } as CrawlPresetFilters,
   schedule_cron: '',
   schedule_enabled: false,
@@ -430,6 +506,16 @@ watch(
   }
 )
 
+// Clear entity_ids when selection mode changes away from "fixed"
+watch(
+  () => formData.value.filters.entity_selection_mode,
+  (newMode) => {
+    if (newMode !== 'fixed') {
+      formData.value.filters.entity_ids = []
+    }
+  }
+)
+
 // Reset form when dialog opens
 watch(() => props.modelValue, async (visible) => {
   if (visible) {
@@ -470,17 +556,21 @@ watch(() => props.modelValue, async (visible) => {
         schedule_enabled: props.preset.schedule_enabled,
       }
     } else {
+      // Check if we have initial values (e.g., from entity selection)
+      const hasInitialEntities = props.initialEntityIds && props.initialEntityIds.length > 0
       formData.value = {
         name: '',
         description: '',
         filters: {
           entity_type: [],
-          category_id: undefined,
+          category_id: props.initialCategoryId || undefined,
           tags: [],
           source_type: [],
           status: undefined,
           search: undefined,
           limit: undefined,
+          entity_ids: hasInitialEntities ? [...props.initialEntityIds] : [],
+          entity_selection_mode: hasInitialEntities ? 'fixed' : undefined,
         },
         schedule_cron: '',
         schedule_enabled: false,

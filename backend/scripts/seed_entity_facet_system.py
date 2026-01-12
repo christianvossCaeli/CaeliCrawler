@@ -506,7 +506,7 @@ async def seed_analysis_templates(session, entity_type_ids: dict, facet_type_ids
     """Seed analysis templates."""
 
     # Get default category if exists
-    result = await session.execute(select(Category).where(Category.is_active.is_(True)).limit(1))
+    result = await session.execute(select(Category).limit(1))
     default_category = result.scalar_one_or_none()
     category_id = default_category.id if default_category else None
 

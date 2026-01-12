@@ -2,6 +2,10 @@
   "sources": {
     "title": "Data Sources",
     "subtitle": "Manage websites, APIs and RSS feeds as data sources",
+    "info": {
+      "title": "Where Does Your Data Come From?",
+      "description": "Data sources are the websites, APIs, or RSS feeds that CaeliCrawler regularly searches for new documents. Each source must be assigned to at least one analysis topic so the AI knows what to look for. The status indicator (green/yellow/red) shows the state of the last data collection. Tip: Use 'AI Discovery' to automatically find relevant sources for a topic, or import multiple sources at once via CSV."
+    },
     "source": "Data Source",
     "sources": "Data Sources",
     "tabs": {
@@ -46,6 +50,10 @@
       "showMoreTags": "Show {count} more tags",
       "quickAccess": "Quick access categories",
       "selectCategory": "Select {name} ({count} items)"
+    },
+    "runningJobs": {
+      "active": "data collection running | data collections running",
+      "viewAll": "View all"
     },
     "status": {
       "active": "Active",
@@ -154,6 +162,10 @@
     "dialog": {
       "edit": "Edit Data Source",
       "create": "New Data Source",
+      "createInfo": {
+        "title": "Setting Up a Data Source",
+        "description": "Each data source needs a URL and at least one analysis topic. In the 'Crawl Settings' tab, you can set URL filters (whitelist = only these URLs, blacklist = ignore these URLs) and limit crawl depth. Tip: Test with low depth (2-3) to check if the source works before crawling deeper."
+      },
       "bulkImport": "Bulk Import",
       "delete": "Delete data source?",
       "deleteConfirm": "Do you really want to delete \"{name}\"?",
@@ -169,8 +181,8 @@
       "excludePatterns": "Exclude Patterns (Blacklist)",
       "aiPrompt": "AI Extraction Prompt",
       "languages": "Languages",
-      "active": "Active",
-      "inactive": "Inactive"
+      "scheduled": "Scheduled",
+      "manual": "Manual"
     },
     "messages": {
       "created": "Data source created successfully",
@@ -193,6 +205,10 @@
     "apiImport": {
       "title": "API Import",
       "subtitle": "Import data sources from external APIs",
+      "info": {
+        "title": "Structured Data from APIs",
+        "description": "Import data sources directly from public APIs. Wikidata (SPARQL) provides structured data from the world's largest free knowledge base. OParl APIs offer municipal data (council information, meetings). For other REST APIs, use the custom option. Tip: Templates save frequently used API configurations."
+      },
       "apiType": "API Type",
       "template": "Template",
       "apiUrl": "API URL",
@@ -208,6 +224,10 @@
       "importSuccess": "{count} sources imported successfully"
     },
     "bulk": {
+      "info": {
+        "title": "Many Sources at Once",
+        "description": "Import up to 100 data sources via CSV file or copy-paste. Format: Name;URL;SourceType;Tags (semicolon or comma as delimiter). Default tags are automatically assigned to all sources. Tip: Export an existing source as CSV to see the format."
+      },
       "defaultTags": "Default Tags",
       "defaultTagsHint": "These tags will be applied to all imported sources",
       "csvData": "CSV Data",
@@ -232,6 +252,10 @@
     "aiDiscovery": {
       "title": "AI-Powered Search",
       "subtitle": "Automatically find data sources from the internet",
+      "info": {
+        "title": "How AI Search Works",
+        "description": "Describe what data you want to collect - the AI will search the internet for matching sources. Three levels: 'Quick' finds only known APIs, 'Standard' also searches for websites, 'Deep' additionally analyzes page structure. Found API sources (e.g. OParl) provide structured data and are preferred over web sources."
+      },
       "prompt": "What do you want to find?",
       "promptPlaceholder": "e.g. All German Bundesliga football clubs",
       "examples": "Examples",

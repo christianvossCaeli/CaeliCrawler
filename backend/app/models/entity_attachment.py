@@ -15,7 +15,7 @@ from sqlalchemy import (
     Text,
     func,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -113,6 +113,14 @@ class EntityAttachment(Base):
         Text,
         nullable=True,
     )
+
+    # Full-text search (auto-populated by database trigger)
+    search_vector: Mapped[str | None] = mapped_column(
+        TSVECTOR,
+        nullable=True,
+        comment="Full-text search vector for filename, description, and analysis content",
+    )
+
     analyzed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,

@@ -1,22 +1,11 @@
 <template>
   <v-card>
-    <v-card-title class="d-flex align-center">
-      <v-icon :color="status?.is_configured ? 'success' : 'grey'" class="mr-2">
+    <v-card-title class="d-flex align-center flex-wrap">
+      <v-icon :color="status?.is_configured ? 'success' : 'grey'" class="mr-2 flex-shrink-0">
         {{ status?.is_configured ? 'mdi-check-circle' : 'mdi-circle-outline' }}
       </v-icon>
-      <v-icon :icon="purposeInfo.icon" class="mr-2" size="small" />
-      {{ purposeInfo.name }}
-      <v-spacer />
-      <v-chip
-        :color="status?.is_configured ? 'success' : 'grey'"
-        size="small"
-        variant="tonal"
-      >
-        {{ status?.is_configured
-          ? t('admin.llmConfig.status.configured')
-          : t('admin.llmConfig.status.notConfigured')
-        }}
-      </v-chip>
+      <v-icon :icon="purposeInfo.icon" class="mr-2 flex-shrink-0" size="small" />
+      <span class="purpose-title">{{ purposeInfo.name }}</span>
     </v-card-title>
 
     <v-card-text>
@@ -205,6 +194,70 @@
           </template>
         </template>
       </v-form>
+
+      <!-- Embeddings Statistics (only for EMBEDDINGS purpose) -->
+      <template v-if="isEmbeddingsPurpose && status?.is_configured">
+        <v-divider class="my-4" />
+
+        <div class="d-flex align-center justify-space-between mb-3">
+          <span class="text-subtitle-2">{{ t('admin.llmConfig.embeddings.statsTitle') }}</span>
+          <v-btn
+            variant="text"
+            size="x-small"
+            :loading="loadingStats"
+            @click="loadEmbeddingStats"
+          >
+            <v-icon size="small">mdi-refresh</v-icon>
+          </v-btn>
+        </div>
+
+        <v-alert
+          v-if="embeddingStats"
+          type="info"
+          variant="tonal"
+          density="compact"
+          class="mb-3"
+        >
+          <div class="d-flex flex-wrap ga-2">
+            <v-chip size="x-small" label>
+              {{ t('admin.llmConfig.embeddings.entities') }}:
+              {{ embeddingStats.entities_with_embedding }}/{{ embeddingStats.entities_total }}
+            </v-chip>
+            <v-chip size="x-small" label>
+              {{ t('admin.llmConfig.embeddings.types') }}:
+              {{ embeddingStats.entity_types_with_embedding + embeddingStats.facet_types_with_embedding + embeddingStats.categories_with_embedding }}/{{ embeddingStats.entity_types_total + embeddingStats.facet_types_total + embeddingStats.categories_total }}
+            </v-chip>
+            <v-chip size="x-small" label>
+              {{ t('admin.llmConfig.embeddings.facetValues') }}:
+              {{ embeddingStats.facet_values_with_embedding }}/{{ embeddingStats.facet_values_total }}
+            </v-chip>
+          </div>
+        </v-alert>
+
+        <v-alert
+          v-if="embeddingStats?.task_running"
+          type="warning"
+          variant="tonal"
+          density="compact"
+          class="mb-3"
+        >
+          <v-icon start size="small">mdi-cog-sync</v-icon>
+          {{ t('admin.llmConfig.embeddings.taskRunning') }}
+        </v-alert>
+
+        <v-btn
+          color="secondary"
+          variant="tonal"
+          size="small"
+          block
+          :loading="generatingEmbeddings"
+          :disabled="embeddingStats?.task_running || !status?.is_configured"
+          @click="handleGenerateEmbeddings"
+        >
+          <v-icon start>mdi-vector-polyline</v-icon>
+          {{ t('admin.llmConfig.embeddings.generate') }}
+        </v-btn>
+      </template>
     </v-card-text>
 
     <v-card-actions>
@@ -219,6 +272,17 @@
         {{ t('admin.llmConfig.actions.delete') }}
       </v-btn>
       <v-spacer />
+      <v-chip
+        :color="status?.is_configured ? 'success' : 'grey'"
+        size="small"
+        variant="tonal"
+        class="mr-2"
+      >
+        {{ status?.is_configured
+          ? t('admin.llmConfig.status.configured')
+          : t('admin.llmConfig.status.notConfigured')
+        }}
+      </v-chip>
       <v-btn
         v-if="status?.is_configured"
         color="secondary"
@@ -246,9 +310,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { PurposeInfo, PurposeConfigStatus } from '@/services/api/admin'
+import type { PurposeInfo, PurposeConfigStatus, EmbeddingStats } from '@/services/api/admin'
+import { getEmbeddingStats, generateEmbeddings } from '@/services/api/admin'
 import { useDateFormatter } from '@/composables'
 
 const props = defineProps<{
@@ -263,6 +328,55 @@ const emit = defineEmits<{
   test: []
   delete: []
 }>()
+
+// Check if this is the EMBEDDINGS purpose
+const isEmbeddingsPurpose = computed(() => props.purposeInfo.value === 'EMBEDDINGS')
+
+// Embedding stats state
+const embeddingStats = ref<EmbeddingStats | null>(null)
+const loadingStats = ref(false)
+const generatingEmbeddings = ref(false)
+
+async function loadEmbeddingStats() {
+  if (!isEmbeddingsPurpose.value) return
+
+  loadingStats.value = true
+  try {
+    const response = await getEmbeddingStats()
+    embeddingStats.value = response.data
+  } catch {
+    // Silently fail - stats are optional
+  } finally {
+    loadingStats.value = false
+  }
+}
+
+async function handleGenerateEmbeddings() {
+  generatingEmbeddings.value = true
+  try {
+    await generateEmbeddings({ target: 'all', force: false })
+    // Reload stats after a short delay to show the task is running
+    setTimeout(() => loadEmbeddingStats(), 1000)
+  } catch {
+    // Error handling is done by the API layer
+  } finally {
+    generatingEmbeddings.value = false
+  }
+}
+
+// Load embedding stats when component mounts (only for EMBEDDINGS purpose)
+onMounted(() => {
+  if (isEmbeddingsPurpose.value && props.status?.is_configured) {
+    loadEmbeddingStats()
+  }
+})
+
+// Reload stats when status changes to configured
+watch(() => props.status?.is_configured, (isConfigured) => {
+  if (isConfigured && isEmbeddingsPurpose.value) {
+    loadEmbeddingStats()
+  }
+})
 
 const { formatDateTime } = useDateFormatter()
 
@@ -350,3 +464,10 @@ function handleSave() {
   emit('save', selectedProvider.value, credentials)
 }
 </script>
+
+<style scoped>
+.purpose-title {
+  word-break: break-word;
+  line-height: 1.3;
+}
+</style>

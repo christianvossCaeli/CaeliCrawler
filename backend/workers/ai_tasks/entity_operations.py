@@ -15,7 +15,6 @@ from uuid import UUID
 import structlog
 from celery.exceptions import SoftTimeLimitExceeded
 
-from app.config import settings
 from app.models.llm_usage import LLMProvider, LLMTaskType
 from services.llm_usage_tracker import record_llm_usage
 from workers.async_runner import run_async
@@ -24,6 +23,45 @@ if TYPE_CHECKING:
     from app.models.facet_type import FacetType
 
 logger = structlog.get_logger()
+
+
+# =============================================================================
+# Embedding Task Status Tracking
+# =============================================================================
+
+_embedding_task_status: dict[str, Any] = {
+    "running": False,
+    "task_id": None,
+    "started_at": None,
+    "target": None,
+}
+
+
+def get_embedding_task_status() -> dict[str, Any]:
+    """Get the current status of embedding generation task."""
+    return _embedding_task_status.copy()
+
+
+def _set_embedding_task_running(task_id: str, target: str) -> None:
+    """Mark embedding task as running."""
+    global _embedding_task_status
+    _embedding_task_status = {
+        "running": True,
+        "task_id": task_id,
+        "started_at": datetime.now(UTC).isoformat(),
+        "target": target,
+    }
+
+
+def _set_embedding_task_completed() -> None:
+    """Mark embedding task as completed."""
+    global _embedding_task_status
+    _embedding_task_status = {
+        "running": False,
+        "task_id": None,
+        "started_at": None,
+        "target": None,
+    }
 
 
 # =============================================================================
@@ -152,6 +190,7 @@ def register_tasks(celery_app):
 
                 # 6. Run AI analysis
                 ai_result = await _run_entity_data_ai_analysis(
+                    session,
                     collected_data,
                     existing_facets,
                     facet_types,
@@ -227,7 +266,7 @@ def register_tasks(celery_app):
                                     "value": item,
                                     "text": str(text_repr)[:500],
                                     "confidence": item.get("confidence", 0.7),
-                                    "ai_model": settings.azure_openai_deployment_name,
+                                    "ai_model": ai_result.get("_model_name", "unknown"),
                                 }
                             )
 
@@ -263,6 +302,7 @@ def register_tasks(celery_app):
                 await fail_task(f"Analyse fehlgeschlagen: {str(e)}")
 
     async def _run_entity_data_ai_analysis(
+        session,
         collected_data: dict[str, Any],
         existing_facets: list[dict[str, Any]],
         facet_types: list["FacetType"],
@@ -272,6 +312,7 @@ def register_tasks(celery_app):
         Run AI analysis on collected entity data.
 
         Args:
+            session: Database session for loading LLM credentials
             collected_data: Data collected from various sources
             existing_facets: Existing facet values for deduplication context
             facet_types: Target facet types to generate
@@ -280,9 +321,19 @@ def register_tasks(celery_app):
         Returns:
             Dict with "facets" key containing extracted data per facet type
         """
-        from services.ai_client import AzureOpenAIClientFactory
+        from app.models.user_api_credentials import LLMPurpose
+        from services.llm_client_service import LLMClientService
 
-        client = AzureOpenAIClientFactory.create_client()
+        llm_service = LLMClientService(session)
+        client, config = await llm_service.get_system_client(LLMPurpose.DOCUMENT_ANALYSIS)
+
+        if not client or not config:
+            raise RuntimeError(
+                "Keine LLM-Credentials konfiguriert. "
+                "Bitte konfigurieren Sie die API-Zugangsdaten unter /admin/api-credentials."
+            )
+
+        model_name = llm_service.get_model_name(config)
 
         # Build context from collected data
         context_parts = [f"DATEN FÜR ENTITY: {entity_name}\n"]
@@ -388,7 +439,7 @@ def register_tasks(celery_app):
 
         try:
             response = await client.chat.completions.create(
-                model=settings.azure_openai_deployment_name,
+                model=model_name,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": context_text},
@@ -402,7 +453,7 @@ def register_tasks(celery_app):
             if response.usage:
                 await record_llm_usage(
                     provider=LLMProvider.AZURE_OPENAI,
-                    model=settings.azure_openai_deployment_name,
+                    model=model_name,
                     task_type=LLMTaskType.ENTITY_ANALYSIS,
                     task_name="entity_data_ai_analysis",
                     prompt_tokens=response.usage.prompt_tokens,
@@ -413,6 +464,7 @@ def register_tasks(celery_app):
                 )
 
             result = json.loads(response.choices[0].message.content)
+            result["_model_name"] = model_name
             return result
 
         except json.JSONDecodeError as e:
@@ -422,7 +474,7 @@ def register_tasks(celery_app):
             # Track error
             await record_llm_usage(
                 provider=LLMProvider.AZURE_OPENAI,
-                model=settings.azure_openai_deployment_name,
+                model=model_name,
                 task_type=LLMTaskType.ENTITY_ANALYSIS,
                 task_name="entity_data_ai_analysis",
                 prompt_tokens=0,
@@ -574,6 +626,7 @@ def register_tasks(celery_app):
                         filename=attachment.filename,
                     )
                     analysis_result = await analyze_image_with_vision(
+                        session,
                         file_path,
                         entity.name,
                         facet_types,
@@ -585,6 +638,7 @@ def register_tasks(celery_app):
                         filename=attachment.filename,
                     )
                     analysis_result = await analyze_pdf_with_ai(
+                        session,
                         file_path,
                         entity.name,
                         facet_types,
@@ -659,8 +713,133 @@ def register_tasks(celery_app):
                 logger.exception("Attachment analysis failed", attachment_id=attachment_id)
                 await fail_task(f"Analyse fehlgeschlagen: {str(e)}")
 
+    # =========================================================================
+    # Embedding Generation Task
+    # =========================================================================
+
+    @celery_app.task(
+        bind=True,
+        name="workers.ai_tasks.generate_embeddings",
+        max_retries=1,
+        soft_time_limit=3600,  # 1 hour
+        time_limit=3660,
+    )
+    def generate_embeddings_task(
+        self,
+        target: str = "all",
+        force: bool = False,
+        user_id: str | None = None,
+    ):
+        """
+        Generate embeddings for entities, types, and/or facet values.
+
+        This task populates embedding columns in the database using the
+        configured embedding provider (Azure OpenAI or OpenAI).
+
+        Args:
+            target: What to generate embeddings for:
+                    - 'all': All embedding columns
+                    - 'entities': Only Entity.name_embedding
+                    - 'types': EntityType, FacetType, Category, RelationType embeddings
+                    - 'facet_values': Only FacetValue.text_embedding
+            force: If True, regenerate all embeddings (even existing ones)
+            user_id: User ID for audit logging
+        """
+        _set_embedding_task_running(self.request.id, target)
+
+        try:
+            run_async(
+                _generate_embeddings_async(
+                    task_id=self.request.id,
+                    target=target,
+                    force=force,
+                    user_id=user_id,
+                )
+            )
+        finally:
+            _set_embedding_task_completed()
+
+    async def _generate_embeddings_async(
+        task_id: str,
+        target: str,
+        force: bool,
+        user_id: str | None,
+    ):
+        """Async implementation of embedding generation."""
+        from app.database import async_session_factory
+        from app.models import Category, EntityType, FacetType
+        from app.utils.similarity import (
+            batch_update_embeddings,
+            batch_update_facet_value_embeddings,
+            batch_update_relation_type_embeddings,
+            batch_update_type_embeddings,
+            populate_all_embeddings,
+            reset_similarity_stats,
+        )
+
+        logger.info(
+            "Starting embedding generation",
+            task_id=task_id,
+            target=target,
+            force=force,
+            user_id=user_id,
+        )
+
+        only_missing = not force
+        reset_similarity_stats()
+
+        try:
+            async with async_session_factory() as session:
+                results = {}
+
+                if target == "all":
+                    results = await populate_all_embeddings(session, only_missing=only_missing)
+                elif target == "types":
+                    results["entity_types"] = await batch_update_type_embeddings(
+                        session, EntityType, only_missing
+                    )
+                    results["facet_types"] = await batch_update_type_embeddings(
+                        session, FacetType, only_missing
+                    )
+                    results["categories"] = await batch_update_type_embeddings(
+                        session, Category, only_missing
+                    )
+                    results["relation_types"] = await batch_update_relation_type_embeddings(
+                        session, only_missing
+                    )
+                    await session.commit()
+                elif target == "entities":
+                    results["entities"] = await batch_update_embeddings(
+                        session, only_missing=only_missing
+                    )
+                    await session.commit()
+                elif target == "facet_values":
+                    results["facet_values"] = await batch_update_facet_value_embeddings(
+                        session, only_missing=only_missing
+                    )
+                    await session.commit()
+
+                total = sum(results.values())
+                logger.info(
+                    "Embedding generation completed",
+                    task_id=task_id,
+                    target=target,
+                    results=results,
+                    total_updated=total,
+                )
+
+        except Exception as e:
+            logger.exception(
+                "Embedding generation failed",
+                task_id=task_id,
+                target=target,
+                error=str(e),
+            )
+            raise
+
     # Return task references
     return (
         analyze_entity_data_for_facets,
         analyze_attachment_task,
+        generate_embeddings_task,
     )

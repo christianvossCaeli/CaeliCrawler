@@ -20,15 +20,16 @@ from uuid import UUID
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
-from app.models.llm_usage import LLMProvider, LLMTaskType
+from app.models.llm_usage import LLMTaskType
+from app.models.user_api_credentials import LLMPurpose
 from app.schemas.assistant import (
     AssistantContext,
     QueryResponse,
     QueryResultData,
     SuggestedAction,
 )
-from services.assistant.common import AIServiceNotAvailableException, get_openai_client
+from services.assistant.common import AIServiceNotAvailableException
+from services.llm_client_service import LLMClientService
 from services.assistant.context_builder import build_entity_context, prepare_entity_data_for_ai
 from services.assistant.utils import format_entity_link
 from services.llm_usage_tracker import record_llm_usage
@@ -170,7 +171,7 @@ async def handle_context_query(
         )
 
         # Use AI to generate intelligent response
-        ai_response = await generate_context_response_with_ai(user_question=message, entity_data=entity_data)
+        ai_response = await generate_context_response_with_ai(db, user_question=message, entity_data=entity_data)
 
         # Build items for response
         items = [
@@ -195,10 +196,13 @@ async def handle_context_query(
         return QueryResponse(message=f"Fehler: {str(e)}", data=QueryResultData()), []
 
 
-async def generate_context_response_with_ai(user_question: str, entity_data: dict[str, Any]) -> str:
+async def generate_context_response_with_ai(
+    db: AsyncSession, user_question: str, entity_data: dict[str, Any]
+) -> str:
     """Use AI to generate an intelligent response about the entity.
 
     Args:
+        db: Database session
         user_question: User's question
         entity_data: Entity context data
 
@@ -206,11 +210,15 @@ async def generate_context_response_with_ai(user_question: str, entity_data: dic
         AI-generated response text
 
     Raises:
-        AIServiceNotAvailableException: If Azure OpenAI not configured
+        AIServiceNotAvailableException: If LLM not configured
     """
-    client = get_openai_client()
-    if not client:
-        raise AIServiceNotAvailableException("KI-Service nicht verfügbar. Bitte Azure OpenAI konfigurieren.")
+    llm_service = LLMClientService(db)
+    client, config = await llm_service.get_system_client(LLMPurpose.ASSISTANT)
+    if not client or not config:
+        raise AIServiceNotAvailableException("KI-Service nicht verfügbar. Bitte LLM in Admin-Einstellungen konfigurieren.")
+
+    model_name = llm_service.get_model_name(config)
+    provider = llm_service.get_provider(config)
 
     # Prepare data summary
     data_summary = prepare_entity_data_for_ai(entity_data)
@@ -242,8 +250,8 @@ async def generate_context_response_with_ai(user_question: str, entity_data: dic
 """
 
     start_time = time.time()
-    response = client.chat.completions.create(
-        model=settings.azure_openai_deployment_name,
+    response = await client.chat.completions.create(
+        model=model_name,
         messages=[
             {
                 "role": "system",
@@ -257,8 +265,8 @@ async def generate_context_response_with_ai(user_question: str, entity_data: dic
 
     if response.usage:
         await record_llm_usage(
-            provider=LLMProvider.AZURE_OPENAI,
-            model=settings.azure_openai_deployment_name,
+            provider=provider,
+            model=model_name,
             task_type=LLMTaskType.CHAT,
             task_name="generate_context_response_with_ai",
             prompt_tokens=response.usage.prompt_tokens,

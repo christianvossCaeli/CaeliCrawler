@@ -19,6 +19,11 @@
       </template>
     </PageHeader>
 
+    <!-- Info Box -->
+    <PageInfoBox :storage-key="INFO_BOX_STORAGE_KEYS.ENTITY_TYPES" :title="t('admin.entityTypes.info.title')">
+      {{ t('admin.entityTypes.info.description') }}
+    </PageInfoBox>
+
     <!-- Entity Types Table -->
     <v-card>
       <v-data-table
@@ -594,6 +599,8 @@ import { useI18n } from "vue-i18n";
 import { useEntityTypesAdmin } from "@/composables/useEntityTypesAdmin";
 import { getContrastColor } from "@/composables/useColorHelpers";
 import PageHeader from "@/components/common/PageHeader.vue";
+import PageInfoBox from "@/components/common/PageInfoBox.vue";
+import { INFO_BOX_STORAGE_KEYS } from "@/config/infoBox";
 import { DIALOG_SIZES } from "@/config/ui";
 
 const { t } = useI18n();

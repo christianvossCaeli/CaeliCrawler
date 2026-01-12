@@ -131,6 +131,7 @@
     "tryAdjustingFilters": "Try adjusting your filters",
     "showMore": "+{count} more",
     "showLess": "Show less",
+    "loadMore": "Load more ({count} remaining)",
     "filterActive": "Filter active",
     "clickToFilter": "Click to filter",
     "confirmDelete": "Are you sure you want to delete this item?",
@@ -143,6 +144,9 @@
       "technicalDetails": "Technical Details",
       "retry": "Try Again",
       "refresh": "Refresh Page"
+    },
+    "infoBox": {
+      "showInfo": "Show info"
     },
     "scheduleBuilder": {
       "mode": "Schedule type",
@@ -177,6 +181,13 @@
   },
   "nav": {
     "toggleMenu": "Toggle menu",
+    "groups": {
+      "workflow": "Workflow",
+      "dataCapture": "Capture Data",
+      "analysis": "Analysis",
+      "tools": "Tools"
+    },
+    "chatHome": "Chat",
     "dashboard": "Dashboard",
     "entities": "Entities",
     "entityTypes": "Entity Types",

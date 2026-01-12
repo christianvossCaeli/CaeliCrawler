@@ -7,20 +7,23 @@ Provides AI-powered capabilities:
 - Classification and categorization
 - Named entity recognition
 - Custom prompt-based analysis
+
+IMPORTANT: This service now uses database-stored credentials via LLMClientService.
+Environment variables are no longer used for API access.
 """
 
 import json
 import time
 import uuid
 from enum import Enum
-from typing import Any, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Optional, TypeVar
 
 import structlog
-from openai import AsyncAzureOpenAI
+from openai import AsyncAzureOpenAI, AsyncOpenAI
 from pydantic import BaseModel, Field
 
-from app.config import settings
 from app.models.llm_usage import LLMProvider, LLMTaskType
+from app.models.user_api_credentials import LLMPurpose
 from app.utils.security import (
     SecurityConstants,
     log_security_event,
@@ -28,6 +31,9 @@ from app.utils.security import (
     should_block_request,
 )
 from services.llm_usage_tracker import record_llm_usage, track_llm_usage
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = structlog.get_logger()
 
@@ -172,42 +178,45 @@ class AIService:
     """
     Azure OpenAI service for document analysis.
 
-    Supports multiple model deployments for different task types.
+    IMPORTANT: This service now uses database-stored credentials.
+    A database session is REQUIRED for all operations.
 
     Example usage:
-        service = AIService()
+        async with async_session_factory() as session:
+            service = AIService(session)
 
-        # Summarize a document (uses chat deployment)
-        summary = await service.summarize(document_text)
+            # Summarize a document (uses chat deployment)
+            summary = await service.summarize(document_text)
 
-        # Extract structured information (uses extraction deployment)
-        info = await service.extract_information(document_text)
+            # Extract structured information (uses extraction deployment)
+            info = await service.extract_information(document_text)
 
-        # Generate embeddings (uses embeddings deployment)
-        embeddings = await service.generate_embeddings(["text1", "text2"])
+            # Generate embeddings (uses embeddings deployment)
+            embeddings = await service.generate_embeddings(["text1", "text2"])
 
-        # Custom analysis with specific task type
-        result = await service.analyze_custom(
-            document_text,
-            prompt="Extract deadlines",
-            task_type=TaskType.PDF  # Use PDF-optimized model
-        )
+            # Custom analysis with specific task type
+            result = await service.analyze_custom(
+                document_text,
+                prompt="Extract deadlines",
+                task_type=TaskType.PDF  # Use PDF-optimized model
+            )
     """
 
     def __init__(
         self,
-        api_key: str | None = None,
-        endpoint: str | None = None,
-        deployment: str | None = None,
-        api_version: str | None = None,
+        session: "AsyncSession | None" = None,
     ):
-        self.api_key = api_key or settings.azure_openai_api_key
-        self.endpoint = endpoint or settings.azure_openai_endpoint
-        self.default_deployment = deployment or settings.azure_openai_deployment_name
-        self.embeddings_deployment = settings.azure_openai_embeddings_deployment
-        self.api_version = api_version or settings.azure_openai_api_version
+        """
+        Initialize AIService.
 
-        self._client: AsyncAzureOpenAI | None = None
+        Args:
+            session: Database session for loading credentials.
+                     Required for all API calls.
+        """
+        self.session = session
+        self._client: AsyncAzureOpenAI | AsyncOpenAI | None = None
+        self._config: dict[str, Any] | None = None
+        self._llm_service = None
         self.logger = logger.bind(service="AIService")
 
         # Token limits (GPT-4 context window)
@@ -216,20 +225,57 @@ class AIService:
 
     def get_deployment(self, task_type: TaskType = TaskType.CHAT) -> str:
         """Get the appropriate deployment for a task type."""
-        return settings.get_deployment_for_task(task_type.value)
+        if not self._config:
+            raise ValueError("Client not initialized - call an async method first")
 
-    async def _get_client(self) -> AsyncAzureOpenAI:
-        """Get or create Azure OpenAI client."""
+        from services.llm_client_service import LLMClientService
+
+        service = LLMClientService(self.session)
+        return service.get_model_name(self._config, for_embeddings=(task_type == TaskType.EMBEDDINGS))
+
+    async def _get_client(self) -> AsyncAzureOpenAI | AsyncOpenAI:
+        """Get or create OpenAI client using database credentials."""
         if self._client is None:
-            if not self.api_key or not self.endpoint:
-                raise ValueError("Azure OpenAI API key and endpoint required")
+            if not self.session:
+                raise ValueError(
+                    "Database session required for AIService. "
+                    "Please configure API credentials in /admin/api-credentials."
+                )
 
-            self._client = AsyncAzureOpenAI(
-                api_key=self.api_key,
-                api_version=self.api_version,
-                azure_endpoint=self.endpoint,
+            from services.llm_client_service import LLMClientService
+
+            self._llm_service = LLMClientService(self.session)
+            self._client, self._config = await self._llm_service.get_system_client(
+                LLMPurpose.DOCUMENT_ANALYSIS
             )
+
+            if not self._client or not self._config:
+                raise ValueError(
+                    "No LLM credentials configured in database. "
+                    "Please configure API credentials in /admin/api-credentials."
+                )
+
         return self._client
+
+    @property
+    def embeddings_deployment(self) -> str:
+        """Get embeddings deployment name."""
+        if not self._config:
+            raise ValueError("Client not initialized - call _get_client() first")
+        from services.llm_client_service import LLMClientService
+
+        service = LLMClientService(self.session)
+        return service.get_model_name(self._config, for_embeddings=True)
+
+    @property
+    def default_deployment(self) -> str:
+        """Get default deployment name."""
+        if not self._config:
+            raise ValueError("Client not initialized - call _get_client() first")
+        from services.llm_client_service import LLMClientService
+
+        service = LLMClientService(self.session)
+        return service.get_model_name(self._config, for_embeddings=False)
 
     async def close(self):
         """Close the client."""
@@ -840,13 +886,16 @@ DOKUMENT (erste 2000 Zeichen):
             raise
 
 
-# Singleton instance
-_ai_service: AIService | None = None
+def get_ai_service(session: "AsyncSession") -> AIService:
+    """
+    Create AIService with database session.
 
+    Note: AIService is no longer a singleton since it requires a database session.
 
-def get_ai_service() -> AIService:
-    """Get AI service singleton."""
-    global _ai_service
-    if _ai_service is None:
-        _ai_service = AIService()
-    return _ai_service
+    Args:
+        session: Database session for loading credentials
+
+    Returns:
+        AIService instance
+    """
+    return AIService(session)

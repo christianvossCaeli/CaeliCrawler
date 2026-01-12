@@ -385,13 +385,44 @@
         "endpoints": {
           "data": "Extracted data (with filters)",
           "stats": "Extraction statistics",
+          "unverifiedCount": "Count of unverified extractions (optimized for badge)",
           "locations": "Locations with extractions",
           "countries": "Countries with extractions",
           "documents": "All documents",
           "documentDetails": "Document details",
           "documentLocations": "Document locations",
           "search": "Full-text search",
-          "verify": "Verify extraction (Editor only)"
+          "verify": "Verify extraction (Editor only)",
+          "reject": "Reject extraction (with optional reason)"
+        }
+      },
+      "facets": {
+        "title": "Facets",
+        "note": "Facet values link entities with extracted data. They can be filtered and searched by various criteria.",
+        "endpoints": {
+          "values": "All facet values (with filters)",
+          "types": "All facet types",
+          "typesForCategory": "Facet types for a category",
+          "search": "Full-text search in facet values",
+          "entitySummary": "Facet summary for an entity",
+          "referencedBy": "Facets referencing this entity",
+          "createValue": "Create facet value",
+          "verifyValue": "Verify facet value"
+        }
+      },
+      "attachments": {
+        "title": "Attachments",
+        "note": "Attachments can be uploaded to entities and analyzed by AI. NEW: Full-text search across all attachments.",
+        "endpoints": {
+          "search": "Full-text search across all attachments",
+          "upload": "Upload attachment to entity",
+          "list": "List attachments of an entity",
+          "get": "Get attachment details",
+          "download": "Download attachment",
+          "thumbnail": "Get thumbnail (for images)",
+          "analyze": "Start AI analysis",
+          "applyFacets": "Apply recognized facets",
+          "delete": "Delete attachment"
         }
       },
       "entities": {

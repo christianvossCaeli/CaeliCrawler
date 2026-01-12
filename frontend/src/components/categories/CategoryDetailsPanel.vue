@@ -1,203 +1,141 @@
 <template>
-  <div>
-    <v-alert type="info" variant="tonal" class="mb-4">
-      <div class="d-flex align-center">
-        <v-icon start>mdi-tag-multiple</v-icon>
-        {{ $t('categories.dataSourcesTab.description') }}
-      </div>
+  <div role="region" :aria-label="$t('categories.dataSourcesTab.title')">
+    <!-- Info for Create mode -->
+    <v-alert v-if="!editMode" type="info" variant="tonal" density="compact" class="mb-4">
+      {{ $t('categories.dataSourcesTab.createModeInfo') }}
     </v-alert>
 
+    <!-- Direct Source Selection -->
+    <DirectSourceSelector
+      :selected-sources="directSelectedSources"
+      :search-results="sourceSearchResults"
+      :searching="searchingDirectSources"
+      :assigning="assigning"
+      :get-status-color="getStatusColor"
+      :get-source-type-icon="getSourceTypeIcon"
+      @update:selected-sources="emit('update:directSelectedSources', $event)"
+      @search="emit('search-sources', $event)"
+      @assign="emit('assign-direct', $event)"
+    />
+
     <!-- Tag Filter Section -->
-    <v-card variant="outlined" class="mb-4">
-      <v-card-title class="text-subtitle-1 pb-2">
-        <v-icon start color="primary">mdi-filter</v-icon>
-        {{ $t('categories.dataSourcesTab.filterByTags') }}
-      </v-card-title>
-      <v-card-text>
-        <v-row>
-          <v-col cols="12" md="8">
-            <v-combobox
-              :model-value="selectedTags"
-              :items="availableTags"
-              :label="$t('categories.dataSourcesTab.filterByTags')"
-              multiple
-              chips
-              closable-chips
-              variant="outlined"
-              density="compact"
-              @update:model-value="emit('update:selectedTags', $event)"
-            >
-              <template #chip="{ item, props }">
-                <v-chip v-bind="props" color="primary" variant="tonal">
-                  <v-icon start size="small">mdi-tag</v-icon>
-                  {{ item.raw }}
-                </v-chip>
-              </template>
-            </v-combobox>
-          </v-col>
-          <v-col cols="12" md="4">
-            <v-radio-group
-              :model-value="matchMode"
-              inline
-              hide-details
-              @update:model-value="emit('update:matchMode', $event)"
-            >
-              <v-radio value="all">
-                <template #label>
-                  <span class="text-caption">{{ $t('categories.dataSourcesTab.matchAll') }}</span>
-                </template>
-              </v-radio>
-              <v-radio value="any">
-                <template #label>
-                  <span class="text-caption">{{ $t('categories.dataSourcesTab.matchAny') }}</span>
-                </template>
-              </v-radio>
-            </v-radio-group>
-          </v-col>
-        </v-row>
-      </v-card-text>
-    </v-card>
+    <TagFilterSection
+      :selected-tags="selectedTags"
+      :match-mode="matchMode"
+      :available-tags="availableTags"
+      @update:selected-tags="emit('update:selectedTags', $event)"
+      @update:match-mode="emit('update:matchMode', $event)"
+    />
 
-    <!-- Results Section -->
-    <v-card variant="outlined">
-      <v-card-title class="text-subtitle-1 d-flex align-center justify-space-between">
-        <div>
-          <v-icon start color="secondary">mdi-database-search</v-icon>
-          {{ $t('categories.dataSourcesTab.foundSources') }}
-          <v-chip v-if="foundSources.length" size="small" color="info" class="ml-2">
-            {{ foundSources.length }}
-          </v-chip>
-        </div>
-        <div v-if="foundSources.length > 0">
-          <v-btn
-            size="small"
-            variant="tonal"
-            color="primary"
-            :loading="assigning"
-            @click="emit('assign-all')"
-          >
-            <v-icon start>mdi-link-plus</v-icon>
-            {{ $t('categories.dataSourcesTab.assignAll') }} ({{ foundSources.length }})
-          </v-btn>
-        </div>
-      </v-card-title>
-      <v-card-text>
-        <!-- Loading state -->
-        <div v-if="loading" class="text-center py-8">
-          <v-progress-circular indeterminate color="primary" class="mb-2" />
-          <div class="text-caption">{{ $t('categories.dataSourcesTab.loading') }}</div>
-        </div>
+    <!-- Found Sources List (Tag Search Results) -->
+    <FoundSourcesList
+      :sources="foundSources"
+      :loading="loading"
+      :assigning="assigning"
+      :has-selected-tags="selectedTags.length > 0"
+      :get-status-color="getStatusColor"
+      :get-source-type-icon="getSourceTypeIcon"
+      @assign-all="emit('assign-all')"
+    />
 
-        <!-- No tags selected -->
-        <v-alert v-else-if="!selectedTags.length" type="info" variant="tonal">
-          {{ $t('categories.dataSourcesTab.noTagsSelected') }}
-        </v-alert>
+    <!-- Assigned Sources Table (Edit mode only) -->
+    <v-alert v-if="editMode" type="info" density="compact" class="mb-2">
+      <strong>DEBUG CategoryDetailsPanel:</strong> editMode={{ editMode }}, category.id={{ category?.id }}, assignedSources={{ assignedSources?.length ?? 'undefined' }}, total={{ assignedSourcesTotal ?? 'undefined' }}
+    </v-alert>
+    <template v-if="editMode && category?.id">
+      <AssignedSourcesTable
+        :sources="assignedSources ?? []"
+        :total="assignedSourcesTotal ?? 0"
+        :loading="assignedSourcesLoading ?? false"
+        :page="assignedSourcesPage ?? 1"
+        :per-page="assignedSourcesPerPage ?? 25"
+        :search="assignedSourcesSearch ?? ''"
+        :tag-filter="assignedSourcesTagFilter ?? []"
+        :available-tags="availableTagsInAssigned ?? []"
+        :get-status-color="getStatusColor"
+        :get-source-type-icon="getSourceTypeIcon"
+        @update:page="emit('update:assignedSourcesPage', $event)"
+        @update:per-page="emit('update:assignedSourcesPerPage', $event)"
+        @update:search="emit('update:assignedSourcesSearch', $event)"
+        @update:tag-filter="emit('update:assignedSourcesTagFilter', $event)"
+        @unassign="emit('unassign-source', $event)"
+      />
+    </template>
 
-        <!-- No results -->
-        <v-alert v-else-if="!foundSources.length" type="warning" variant="tonal">
-          {{ $t('categories.dataSourcesTab.noSourcesFound') }}
-        </v-alert>
-
-        <!-- Results list -->
-        <v-list v-else lines="two" class="sources-result-list">
-          <v-list-item
-            v-for="source in foundSources.slice(0, 50)"
-            :key="source.id"
-            :title="source.name"
-            :subtitle="source.base_url"
-          >
-            <template #prepend>
-              <v-avatar :color="getStatusColor(source.status)" size="36">
-                <v-icon size="small" :color="getContrastColor(getStatusColor(source.status))">
-                  {{ getSourceTypeIcon(source.source_type) }}
-                </v-icon>
-              </v-avatar>
-            </template>
-            <template #append>
-              <div class="d-flex align-center ga-2">
-                <div class="d-flex flex-wrap ga-1">
-                  <v-chip
-                    v-for="tag in (source.tags || []).slice(0, 3)"
-                    :key="tag"
-                    size="x-small"
-                    color="primary"
-                    variant="outlined"
-                  >
-                    {{ tag }}
-                  </v-chip>
-                  <v-chip
-                    v-if="(source.tags || []).length > 3"
-                    size="x-small"
-                    color="grey"
-                  >
-                    +{{ (source.tags || []).length - 3 }}
-                  </v-chip>
-                </div>
-                <v-chip
-                  v-if="source.is_assigned"
-                  size="x-small"
-                  color="success"
-                  variant="tonal"
-                >
-                  <v-icon start size="x-small">mdi-check</v-icon>
-                  {{ $t('categories.dataSourcesTab.alreadyAssigned') }}
-                </v-chip>
-              </div>
-            </template>
-          </v-list-item>
-          <v-list-item v-if="foundSources.length > 50" class="text-center text-medium-emphasis">
-            ... {{ $t('sources.bulk.moreEntries', { count: foundSources.length - 50 }) }}
-          </v-list-item>
-        </v-list>
-      </v-card-text>
-    </v-card>
-
-    <!-- Current assigned count -->
-    <v-alert v-if="currentSourceCount" type="success" variant="tonal" class="mt-4">
-      <v-icon start>mdi-check-circle</v-icon>
+    <!-- Current assigned count (fallback for non-edit mode) -->
+    <v-alert v-if="!editMode && currentSourceCount" type="success" variant="tonal" class="mt-4">
       {{ $t('categories.dataSourcesTab.currentlyAssigned') }}: <strong>{{ currentSourceCount }}</strong> {{ $t('categories.crawler.sourcesCount') }}
     </v-alert>
   </div>
 </template>
 
 <script setup lang="ts">
-import { getContrastColor } from '@/composables/useColorHelpers'
-
-interface FoundSource {
-  id: string
-  name: string
-  base_url?: string
-  status?: string
-  source_type?: string
-  tags?: string[]
-  is_assigned?: boolean
-}
+import type { Category, CategorySource } from '@/types/category'
+import {
+  DirectSourceSelector,
+  TagFilterSection,
+  FoundSourcesList,
+  AssignedSourcesTable,
+} from './dataSourcesTab'
 
 export interface CategoryDetailsPanelProps {
+  // Tag-based search
   selectedTags: string[]
   matchMode: 'all' | 'any'
   availableTags: string[]
-  foundSources: FoundSource[]
+  foundSources: CategorySource[]
   loading: boolean
   assigning: boolean
   currentSourceCount?: number
+  editMode?: boolean
+  category?: Category
+  // Direct source selection
+  directSelectedSources?: CategorySource[]
+  sourceSearchResults?: CategorySource[]
+  searchingDirectSources?: boolean
+  // Assigned sources
+  assignedSources?: CategorySource[]
+  assignedSourcesTotal?: number
+  assignedSourcesLoading?: boolean
+  assignedSourcesPage?: number
+  assignedSourcesPerPage?: number
+  assignedSourcesSearch?: string
+  assignedSourcesTagFilter?: string[]
+  availableTagsInAssigned?: string[]
+  // Helpers
   getStatusColor: (status?: string) => string
   getSourceTypeIcon: (type?: string) => string
 }
 
 export interface CategoryDetailsPanelEmits {
   (e: 'update:selectedTags', tags: string[]): void
-  (e: 'update:matchMode', mode: 'all' | 'any' | null): void
+  (e: 'update:matchMode', mode: 'all' | 'any'): void
   (e: 'assign-all'): void
+  // Direct selection
+  (e: 'search-sources', query: string): void
+  (e: 'update:directSelectedSources', sources: CategorySource[]): void
+  (e: 'assign-direct', sources: CategorySource[]): void
+  // Assigned sources
+  (e: 'update:assignedSourcesPage', page: number): void
+  (e: 'update:assignedSourcesPerPage', perPage: number): void
+  (e: 'update:assignedSourcesSearch', search: string): void
+  (e: 'update:assignedSourcesTagFilter', tags: string[]): void
+  (e: 'unassign-source', sourceId: string): void
 }
 
-defineProps<CategoryDetailsPanelProps>()
+withDefaults(defineProps<CategoryDetailsPanelProps>(), {
+  directSelectedSources: () => [],
+  sourceSearchResults: () => [],
+  searchingDirectSources: false,
+  assignedSources: () => [],
+  assignedSourcesTotal: 0,
+  assignedSourcesLoading: false,
+  assignedSourcesPage: 1,
+  assignedSourcesPerPage: 25,
+  assignedSourcesSearch: '',
+  assignedSourcesTagFilter: () => [],
+  availableTagsInAssigned: () => [],
+})
+
 const emit = defineEmits<CategoryDetailsPanelEmits>()
 </script>
-
-<style scoped>
-.sources-result-list {
-  max-height: 350px;
-  overflow-y: auto;
-}
-</style>

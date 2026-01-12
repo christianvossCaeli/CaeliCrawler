@@ -131,6 +131,7 @@
     "tryAdjustingFilters": "Versuchen Sie, Ihre Filter anzupassen",
     "showMore": "+{count} weitere",
     "showLess": "Weniger anzeigen",
+    "loadMore": "Mehr laden ({count} weitere)",
     "filterActive": "Filter aktiv",
     "clickToFilter": "Klicken zum Filtern",
     "confirmDelete": "Möchten Sie diesen Eintrag wirklich löschen?",
@@ -143,6 +144,9 @@
       "technicalDetails": "Technische Details",
       "retry": "Erneut versuchen",
       "refresh": "Seite neu laden"
+    },
+    "infoBox": {
+      "showInfo": "Info anzeigen"
     },
     "scheduleBuilder": {
       "mode": "Zeitplan-Typ",
@@ -177,6 +181,13 @@
   },
   "nav": {
     "toggleMenu": "Menü umschalten",
+    "groups": {
+      "workflow": "Workflow",
+      "dataCapture": "Daten erfassen",
+      "analysis": "Analyse",
+      "tools": "Werkzeuge"
+    },
+    "chatHome": "Chat",
     "dashboard": "Übersicht",
     "entities": "Datensätze",
     "entityTypes": "Datentypen",

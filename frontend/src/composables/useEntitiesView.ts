@@ -56,6 +56,14 @@ export interface SchemaAttribute {
   title: string
   description?: string
   type: string
+  is_numeric?: boolean
+  min_value?: number | null
+  max_value?: number | null
+}
+
+export interface RangeFilterValue {
+  min?: number
+  max?: number
 }
 
 /**
@@ -83,8 +91,11 @@ export function useEntitiesView() {
   const sortBy = ref<Array<{ key: string; order: 'asc' | 'desc' }>>([])
 
   // Bulk selection
-  const showBulkSelect = ref(false)
+  const showBulkSelect = ref(true)
   const selectedEntities = ref<Entity[]>([])
+
+  // Entity crawl dialog
+  const entityCrawlDialog = ref(false)
 
 
   // Data
@@ -127,6 +138,15 @@ export function useEntitiesView() {
   // Active filter from dashboard widget
   const isActiveFilter = ref<boolean | null>(null)
 
+  // Initialize search query from route (e.g., /entities?search=...)
+  if (route.query.search) {
+    const search = Array.isArray(route.query.search) ? route.query.search[0] : route.query.search
+    if (search) {
+      searchQuery.value = search
+      currentPage.value = 1
+    }
+  }
+
   // Initialize from route query params
   if (route.query.is_active !== undefined) {
     isActiveFilter.value = route.query.is_active === 'true'
@@ -145,9 +165,10 @@ export function useEntitiesView() {
     }
   }
 
-  // Extended Filters
-  const extendedFilters = ref<Record<string, string | null>>({})
-  const tempExtendedFilters = ref<Record<string, string | null>>({})
+  // Extended Filters (supports both string values and range objects {min, max})
+  type FilterValue = string | RangeFilterValue | null
+  const extendedFilters = ref<Record<string, FilterValue>>({})
+  const tempExtendedFilters = ref<Record<string, FilterValue>>({})
   const locationOptions = ref<LocationOptions>({
     countries: [],
     admin_level_1: [],
@@ -176,19 +197,29 @@ export function useEntitiesView() {
   const totalEntities = computed(() => store.entitiesTotal)
   const totalPages = computed(() => Math.ceil(totalEntities.value / itemsPerPage.value))
 
+  // Helper to check if a filter value is active
+  const isFilterActive = (v: FilterValue): boolean => {
+    if (v === null || v === undefined || v === '') return false
+    if (typeof v === 'object') {
+      // Range filter is active if it has at least one value
+      return v.min !== undefined || v.max !== undefined
+    }
+    return true
+  }
+
   const hasExtendedFilters = computed(() =>
-    Object.values(extendedFilters.value).some(v => v !== null && v !== undefined && v !== '')
+    Object.values(extendedFilters.value).some(isFilterActive)
   )
 
   const activeExtendedFilterCount = computed(() =>
-    Object.values(extendedFilters.value).filter(v => v !== null && v !== undefined && v !== '').length
+    Object.values(extendedFilters.value).filter(isFilterActive).length
   )
 
   const allExtendedFilters = computed(() => {
-    const result: Record<string, string> = {}
+    const result: Record<string, string | RangeFilterValue> = {}
     for (const [key, value] of Object.entries(extendedFilters.value)) {
-      if (value !== null && value !== undefined && value !== '') {
-        result[key] = value
+      if (isFilterActive(value)) {
+        result[key] = value as string | RangeFilterValue
       }
     }
     return result
@@ -244,15 +275,17 @@ export function useEntitiesView() {
       // Extended filters (location + schema attributes)
       if (hasExtendedFilters.value) {
         const locationParams: Record<string, string> = {}
-        const attrParams: Record<string, string> = {}
+        const attrParams: Record<string, string | RangeFilterValue> = {}
 
         for (const [key, value] of Object.entries(extendedFilters.value)) {
-          if (value !== null && value !== undefined && value !== '') {
-            if (locationFieldKeys.includes(key)) {
-              locationParams[key] = value
-            } else {
-              attrParams[key] = value
-            }
+          if (!isFilterActive(value)) continue
+
+          if (locationFieldKeys.includes(key)) {
+            // Location filters are always strings
+            locationParams[key] = value as string
+          } else {
+            // Attribute filters can be strings or range objects
+            attrParams[key] = value as string | RangeFilterValue
           }
         }
 
@@ -597,6 +630,23 @@ export function useEntitiesView() {
     loadEntities(1)
   }
 
+  // Bulk selection functions
+  function clearSelection() {
+    selectedEntities.value = []
+  }
+
+  function openEntityCrawlDialog() {
+    if (selectedEntities.value.length === 0) {
+      showError(t('entities.bulkActions.noSelection'))
+      return
+    }
+    entityCrawlDialog.value = true
+  }
+
+  function closeEntityCrawlDialog() {
+    entityCrawlDialog.value = false
+  }
+
   // Watchers
   watch(selectedTypeTab, () => {
     if (selectedTypeTab.value) {
@@ -629,6 +679,10 @@ export function useEntitiesView() {
     // Bulk selection
     showBulkSelect,
     selectedEntities,
+    entityCrawlDialog,
+    clearSelection,
+    openEntityCrawlDialog,
+    closeEntityCrawlDialog,
 
     // Data
     categories,

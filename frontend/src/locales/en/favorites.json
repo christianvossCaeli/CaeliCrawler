@@ -2,6 +2,10 @@
   "favorites": {
     "title": "Favorites",
     "subtitle": "{count} entities saved",
+    "info": {
+      "title": "Your Most Important Records",
+      "description": "Favorites give you quick access to frequently needed records - without searching every time. Mark a record as favorite by clicking the star icon. Favorites are personal and not visible to other users."
+    },
     "myFavorites": "My Favorites",
     "entries": "entries",
     "entity": "Entity",

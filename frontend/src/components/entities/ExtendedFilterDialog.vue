@@ -37,7 +37,7 @@
               <v-row dense>
                 <v-col v-if="hasAttribute('country')" cols="12" sm="4">
                   <v-select
-                    :model-value="tempExtendedFilters.country"
+                    :model-value="getStringFilter('country')"
                     :items="locationOptions.countries"
                     :label="t('entities.country')"
                     density="compact"
@@ -50,12 +50,12 @@
                 </v-col>
                 <v-col v-if="hasAttribute('admin_level_1')" cols="12" sm="4">
                   <v-select
-                    :model-value="tempExtendedFilters.admin_level_1"
+                    :model-value="getStringFilter('admin_level_1')"
                     :items="locationOptions.admin_level_1"
                     :label="t('entities.region')"
                     density="compact"
                     variant="outlined"
-                    :disabled="!tempExtendedFilters.country"
+                    :disabled="!getStringFilter('country')"
                     clearable
                     hide-details
                     @update:model-value="updateTempFilter('admin_level_1', $event)"
@@ -63,12 +63,12 @@
                 </v-col>
                 <v-col v-if="hasAttribute('admin_level_2')" cols="12" sm="4">
                   <v-select
-                    :model-value="tempExtendedFilters.admin_level_2"
+                    :model-value="getStringFilter('admin_level_2')"
                     :items="locationOptions.admin_level_2"
                     :label="t('entities.district')"
                     density="compact"
                     variant="outlined"
-                    :disabled="!tempExtendedFilters.admin_level_1"
+                    :disabled="!getStringFilter('admin_level_1')"
                     clearable
                     hide-details
                     @update:model-value="updateTempFilter('admin_level_2', $event)"
@@ -78,8 +78,41 @@
             </div>
           </div>
 
-          <!-- Other Attributes Section -->
-          <div v-if="nonLocationAttributes.length > 0" class="filter-section">
+          <!-- Numeric Attributes Section (Range Sliders) -->
+          <div v-if="numericAttributes.length > 0" class="filter-section">
+            <div class="filter-section-header">
+              <v-icon size="small" class="mr-2">mdi-tune-vertical</v-icon>
+              {{ t('entities.filters.ranges', 'Wertebereiche') }}
+            </div>
+            <div class="filter-section-content">
+              <div
+                v-for="attr in numericAttributes"
+                :key="attr.key"
+                class="range-filter-item"
+              >
+                <div class="range-filter-label">
+                  <span>{{ attr.title }}</span>
+                  <span class="range-filter-value">
+                    {{ formatRangeDisplay(attr) }}
+                  </span>
+                </div>
+                <v-range-slider
+                  :model-value="getRangeValue(attr)"
+                  :min="attr.min_value ?? 0"
+                  :max="attr.max_value ?? 100"
+                  :step="getStepForAttribute(attr)"
+                  density="compact"
+                  hide-details
+                  thumb-label
+                  color="primary"
+                  @update:model-value="updateRangeFilter(attr.key, $event)"
+                ></v-range-slider>
+              </div>
+            </div>
+          </div>
+
+          <!-- String Attributes Section (Dropdowns) -->
+          <div v-if="stringAttributes.length > 0" class="filter-section">
             <div class="filter-section-header">
               <v-icon size="small" class="mr-2">mdi-tag-multiple</v-icon>
               {{ t('entities.attributes') }}
@@ -87,13 +120,13 @@
             <div class="filter-section-content">
               <v-row dense>
                 <v-col
-                  v-for="attr in nonLocationAttributes"
+                  v-for="attr in stringAttributes"
                   :key="attr.key"
                   cols="12"
                   sm="6"
                 >
                   <v-select
-                    :model-value="tempExtendedFilters[attr.key]"
+                    :model-value="getStringFilter(attr.key)"
                     :items="attributeValueOptions[attr.key] || []"
                     :label="attr.title"
                     density="compact"
@@ -143,13 +176,16 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { DIALOG_SIZES } from '@/config/ui'
-import type { SchemaAttribute, LocationOptions } from '@/composables/useEntitiesView'
+import type { SchemaAttribute, LocationOptions, RangeFilterValue } from '@/composables/useEntitiesView'
+
+type FilterValue = string | RangeFilterValue | null
 
 interface Props {
   modelValue: boolean
-  tempExtendedFilters: Record<string, string | null>
+  tempExtendedFilters: Record<string, FilterValue>
   schemaAttributes: SchemaAttribute[]
   attributeValueOptions: Record<string, string[]>
   locationOptions: LocationOptions
@@ -162,7 +198,7 @@ interface Props {
 
 interface Emits {
   (e: 'update:model-value', value: boolean): void
-  (e: 'update:temp-extended-filters', value: Record<string, string | null>): void
+  (e: 'update:temp-extended-filters', value: Record<string, FilterValue>): void
   (e: 'load-location-options'): void
   (e: 'load-attribute-values', key: string): void
   (e: 'apply-filters'): void
@@ -174,8 +210,76 @@ const emit = defineEmits<Emits>()
 
 const { t } = useI18n()
 
+// Separate numeric and string attributes
+const numericAttributes = computed(() =>
+  props.nonLocationAttributes.filter(attr => attr.is_numeric)
+)
+
+const stringAttributes = computed(() =>
+  props.nonLocationAttributes.filter(attr => !attr.is_numeric)
+)
+
+// Get string filter value
+function getStringFilter(key: string): string | null {
+  const value = props.tempExtendedFilters[key]
+  return typeof value === 'string' ? value : null
+}
+
+// Get range value for slider [min, max]
+function getRangeValue(attr: SchemaAttribute): [number, number] {
+  const value = props.tempExtendedFilters[attr.key]
+  const minDefault = attr.min_value ?? 0
+  const maxDefault = attr.max_value ?? 100
+
+  if (value && typeof value === 'object' && 'min' in value) {
+    return [value.min ?? minDefault, value.max ?? maxDefault]
+  }
+  return [minDefault, maxDefault]
+}
+
+// Format range display for label - always show current values
+function formatRangeDisplay(attr: SchemaAttribute): string {
+  const [min, max] = getRangeValue(attr)
+  return `${formatNumber(min)} - ${formatNumber(max)}`
+}
+
+// Format number for display
+function formatNumber(value: number): string {
+  if (value >= 1000000) {
+    return (value / 1000000).toFixed(1) + 'M'
+  }
+  if (value >= 1000) {
+    return (value / 1000).toFixed(1) + 'k'
+  }
+  return value.toFixed(value % 1 === 0 ? 0 : 1)
+}
+
+// Calculate appropriate step for slider
+function getStepForAttribute(attr: SchemaAttribute): number {
+  const range = (attr.max_value ?? 100) - (attr.min_value ?? 0)
+  if (range <= 10) return 0.1
+  if (range <= 100) return 1
+  if (range <= 1000) return 10
+  if (range <= 10000) return 100
+  return 1000
+}
+
 function updateTempFilter(key: string, value: string | null) {
   emit('update:temp-extended-filters', { ...props.tempExtendedFilters, [key]: value })
+}
+
+function updateRangeFilter(key: string, value: [number, number]) {
+  const attr = props.schemaAttributes.find(a => a.key === key)
+  const minDefault = attr?.min_value ?? 0
+  const maxDefault = attr?.max_value ?? 100
+
+  // If range is at defaults, clear the filter
+  if (value[0] === minDefault && value[1] === maxDefault) {
+    emit('update:temp-extended-filters', { ...props.tempExtendedFilters, [key]: null })
+  } else {
+    const rangeValue: RangeFilterValue = { min: value[0], max: value[1] }
+    emit('update:temp-extended-filters', { ...props.tempExtendedFilters, [key]: rangeValue })
+  }
 }
 </script>
 
@@ -199,5 +303,24 @@ function updateTempFilter(key: string, value: string | null) {
 }
 .filter-section-content {
   padding: 12px 16px 16px;
+}
+
+.range-filter-item {
+  margin-bottom: 16px;
+}
+.range-filter-item:last-child {
+  margin-bottom: 0;
+}
+.range-filter-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+  font-size: 0.875rem;
+}
+.range-filter-value {
+  font-size: 0.75rem;
+  color: rgba(var(--v-theme-on-surface), 0.6);
+  font-weight: 500;
 }
 </style>

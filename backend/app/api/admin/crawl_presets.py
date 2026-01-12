@@ -14,7 +14,9 @@ from app.core.deps import require_editor
 from app.core.exceptions import NotFoundError, ValidationError
 from app.core.rate_limit import check_rate_limit
 from app.database import get_session
-from app.models import CrawlPreset, DataSource, PresetStatus, User
+from app.models import CrawlPreset, DataSource, User
+from app.models.audit_log import AuditAction
+from app.services.audit_service import create_audit_log
 from app.schemas.common import MessageResponse
 from app.schemas.crawl_preset import (
     SCHEDULE_PRESETS,
@@ -27,11 +29,15 @@ from app.schemas.crawl_preset import (
     CrawlPresetListResponse,
     CrawlPresetResponse,
     CrawlPresetUpdate,
+    EntityCrawlPreviewRequest,
+    EntityCrawlPreviewResponse,
+    EntityCrawlRequest,
+    EntitySourcePreviewItem,
 )
 from app.utils.cron import croniter_for_expression, get_schedule_timezone, is_valid_cron_expression
 
 # Import crawl operations at module level to avoid repeated imports
-from services.smart_query.crawl_operations import find_sources_for_crawl, start_crawl_jobs
+from services.smart_query.crawl_operations import find_sources_for_crawl, find_sources_for_entities, start_crawl_jobs
 
 router = APIRouter()
 
@@ -166,7 +172,7 @@ def _build_preview_response(
     max_preview: int = 10,
 ) -> dict[str, Any]:
     """Build standardized preview response from sources list."""
-    preview_items = [SourcePreviewItem(id=str(s.id), name=s.name, url=s.url) for s in sources[:max_preview]]
+    preview_items = [SourcePreviewItem(id=str(s.id), name=s.name, url=s.base_url) for s in sources[:max_preview]]
 
     response = {
         "sources_count": len(sources),
@@ -186,7 +192,7 @@ async def list_presets(
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=100),
     favorites_only: bool = Query(default=False, description="Only return favorites"),
-    status: str | None = Query(default=None, description="Filter by status (active, archived)"),
+    scheduled_only: bool = Query(default=False, description="Only return presets with active schedule"),
     search: str | None = Query(default=None, description="Search by name"),
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_editor),
@@ -199,12 +205,8 @@ async def list_presets(
     if favorites_only:
         query = query.where(CrawlPreset.is_favorite)
 
-    if status:
-        try:
-            preset_status = PresetStatus(status)
-            query = query.where(CrawlPreset.status == preset_status)
-        except ValueError:
-            pass  # Invalid status, ignore filter
+    if scheduled_only:
+        query = query.where(CrawlPreset.schedule_enabled.is_(True))
 
     if search:
         # Sanitize search input to prevent SQL LIKE injection
@@ -265,6 +267,17 @@ async def create_preset(
         schedule_cron=preset_data.schedule_cron,
         schedule_enabled=preset_data.schedule_enabled,
     )
+
+    # Create audit log entry
+    await create_audit_log(
+        session=session,
+        action=AuditAction.CREATE,
+        entity_type="CrawlPreset",
+        entity_id=preset.id,
+        entity_name=preset.name,
+        user=current_user,
+    )
+    await session.commit()
 
     return CrawlPresetResponse(
         **preset.__dict__,
@@ -328,14 +341,22 @@ async def update_preset(
         preset.schedule_enabled = update_data.schedule_enabled
     if update_data.is_favorite is not None:
         preset.is_favorite = update_data.is_favorite
-    if update_data.status is not None:
-        preset.status = update_data.status
 
     # Recalculate next run if schedule changed
     if preset.schedule_enabled and preset.schedule_cron:
         preset.next_run_at = calculate_next_run(preset.schedule_cron)
     elif not preset.schedule_enabled:
         preset.next_run_at = None
+
+    # Create audit log entry
+    await create_audit_log(
+        session=session,
+        action=AuditAction.UPDATE,
+        entity_type="CrawlPreset",
+        entity_id=preset.id,
+        entity_name=preset.name,
+        user=current_user,
+    )
 
     await session.commit()
     await session.refresh(preset)
@@ -356,6 +377,18 @@ async def delete_preset(
     preset = await session.get(CrawlPreset, preset_id)
     if not preset or preset.user_id != current_user.id:
         raise NotFoundError("Crawl Preset", str(preset_id))
+
+    preset_name = preset.name
+
+    # Create audit log entry
+    await create_audit_log(
+        session=session,
+        action=AuditAction.DELETE,
+        entity_type="CrawlPreset",
+        entity_id=preset_id,
+        entity_name=preset_name,
+        user=current_user,
+    )
 
     await session.delete(preset)
     await session.commit()
@@ -391,11 +424,17 @@ async def execute_preset(
             message="No sources match the preset filters",
         )
 
-    # Start crawl jobs
+    # Extract category_id from preset filters (required field)
+    category_id = preset.filters.get("category_id")
+    if category_id and isinstance(category_id, str):
+        category_id = UUID(category_id)
+
+    # Start crawl jobs for the preset's specific category
     job_ids = await start_crawl_jobs(
         session,
         sources,
         force=execute_request.force,
+        category_id=category_id,
     )
 
     # Update statistics
@@ -424,6 +463,17 @@ async def toggle_favorite(
         raise NotFoundError("Crawl Preset", str(preset_id))
 
     preset.is_favorite = not preset.is_favorite
+
+    # Create audit log entry
+    await create_audit_log(
+        session=session,
+        action=AuditAction.FAVORITE_ADD if preset.is_favorite else AuditAction.FAVORITE_REMOVE,
+        entity_type="CrawlPreset",
+        entity_id=preset.id,
+        entity_name=preset.name,
+        user=current_user,
+    )
+
     await session.commit()
 
     return CrawlPresetFavoriteToggleResponse(
@@ -453,6 +503,17 @@ async def create_preset_from_filters(
         schedule_cron=preset_data.schedule_cron,
         schedule_enabled=preset_data.schedule_enabled,
     )
+
+    # Create audit log entry
+    await create_audit_log(
+        session=session,
+        action=AuditAction.CREATE,
+        entity_type="CrawlPreset",
+        entity_id=preset.id,
+        entity_name=preset.name,
+        user=current_user,
+    )
+    await session.commit()
 
     return CrawlPresetResponse(
         **preset.__dict__,
@@ -502,3 +563,128 @@ async def preview_filters(
     sources = await find_sources_for_crawl(session, filter_dict, limit=10000)
 
     return FiltersPreviewResponse(**_build_preview_response(sources))
+
+
+# --- Entity-based Crawl Endpoints ---
+
+
+@router.post("/preview-entities", response_model=EntityCrawlPreviewResponse)
+async def preview_entity_sources(
+    request: EntityCrawlPreviewRequest,
+    http_request: Request,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_editor),
+):
+    """Preview how many DataSources would be crawled for selected entities.
+
+    This endpoint shows which DataSources are associated with the given entities
+    via their ExtractedData connections.
+    """
+    await check_rate_limit(http_request, "crawl_presets_preview", identifier=str(current_user.id))
+
+    sources, entities_without_sources = await find_sources_for_entities(
+        session,
+        entity_ids=request.entity_ids,
+        category_id=request.category_id,
+    )
+
+    # Build preview items using typed schema
+    max_preview = 10
+    preview_items = [
+        EntitySourcePreviewItem(id=str(s.id), name=s.name, url=s.base_url)
+        for s in sources[:max_preview]
+    ]
+
+    return EntityCrawlPreviewResponse(
+        entity_count=len(request.entity_ids),
+        sources_count=len(sources),
+        sources_preview=preview_items,
+        entities_without_sources=entities_without_sources,
+        has_more=len(sources) > max_preview,
+    )
+
+
+@router.post("/entity-crawl", response_model=CrawlPresetExecuteResponse)
+async def start_entity_crawl(
+    request: EntityCrawlRequest,
+    http_request: Request,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_editor),
+):
+    """Start a crawl for DataSources associated with selected entities.
+
+    This endpoint:
+    1. Finds DataSources connected to the given entities (via ExtractedData)
+    2. Starts crawl jobs for these sources
+    3. Optionally saves the selection as a preset
+
+    Args:
+        request: Entity crawl request with entity_ids and category_id
+
+    Returns:
+        CrawlPresetExecuteResponse with created job information
+    """
+    await check_rate_limit(http_request, "crawl_presets_execute", identifier=str(current_user.id))
+
+    # Validate preset name if saving
+    if request.save_as_preset and not request.preset_name:
+        raise ValidationError("preset_name is required when save_as_preset is True")
+
+    # Find sources for the selected entities
+    sources, entities_without_sources = await find_sources_for_entities(
+        session,
+        entity_ids=request.entity_ids,
+        category_id=request.category_id,
+    )
+
+    preset_id = None
+
+    # Optionally create a preset
+    if request.save_as_preset and request.preset_name:
+        # Build filters based on selection mode
+        filters = CrawlPresetFilters(
+            category_id=request.category_id,
+            entity_ids=request.entity_ids if request.selection_mode == "fixed" else None,
+            entity_selection_mode=request.selection_mode,
+        )
+
+        preset = await _create_preset_internal(
+            session=session,
+            user_id=current_user.id,
+            name=request.preset_name,
+            filters=filters,
+            description=f"Entity-basiertes Preset ({len(request.entity_ids)} Entities)",
+        )
+        preset_id = preset.id
+
+    if not sources:
+        return CrawlPresetExecuteResponse(
+            preset_id=preset_id,
+            jobs_created=0,
+            job_ids=[],
+            sources_matched=0,
+            message=f"Keine DataSources für die {len(request.entity_ids)} ausgewählten Entities gefunden. "
+                    f"{entities_without_sources} Entities haben keine zugeordneten Quellen.",
+        )
+
+    # Start crawl jobs
+    job_ids = await start_crawl_jobs(
+        session,
+        sources,
+        force=request.force,
+        category_id=request.category_id,
+    )
+
+    message = f"{len(job_ids)} Crawl-Jobs für {len(sources)} DataSources gestartet"
+    if entities_without_sources > 0:
+        message += f" ({entities_without_sources} Entities ohne Quellen übersprungen)"
+    if request.save_as_preset:
+        message += f". Preset '{request.preset_name}' wurde erstellt."
+
+    return CrawlPresetExecuteResponse(
+        preset_id=preset_id,
+        jobs_created=len(job_ids),
+        job_ids=[UUID(jid) for jid in job_ids],
+        sources_matched=len(sources),
+        message=message,
+    )

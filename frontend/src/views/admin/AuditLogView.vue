@@ -19,6 +19,11 @@
       </template>
     </PageHeader>
 
+    <!-- Info Box -->
+    <PageInfoBox :storage-key="INFO_BOX_STORAGE_KEYS.AUDIT_LOG" :title="t('admin.auditLog.info.title')">
+      {{ t('admin.auditLog.info.description') }}
+    </PageInfoBox>
+
     <!-- Stats Cards -->
     <v-row v-if="stats" class="mb-4">
       <v-col cols="12" md="3">
@@ -299,6 +304,8 @@ import { DIALOG_SIZES } from '@/config/ui'
 import api from '@/services/api'
 import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
 import PageHeader from '@/components/common/PageHeader.vue'
+import PageInfoBox from '@/components/common/PageInfoBox.vue'
+import { INFO_BOX_STORAGE_KEYS } from '@/config/infoBox'
 import { useLogger } from '@/composables/useLogger'
 import { formatDate as formatViewDate } from '@/utils/viewHelpers'
 

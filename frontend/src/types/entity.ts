@@ -273,6 +273,8 @@ export interface FacetDisplayConfig {
   severity_colors?: Record<string, string>
   /** Layout style: "card", "inline", or "list" */
   layout?: 'card' | 'inline' | 'list'
+  /** Labels for boolean/enum field values (e.g., { is_relevant: { true: "Relevant", false: "Nicht relevant" } }) */
+  labels?: Record<string, Record<string, string>>
 }
 
 export interface FacetTypeValueSchema {
@@ -363,11 +365,16 @@ export interface FacetValue {
   facet_type_id?: string
   facet_type_slug?: string
   facet_type_name?: string
+  category_id?: string
+  category_name?: string
   value?: Record<string, unknown> | string | number | boolean | null
   value_display?: string
   text_representation?: string
   effective_date?: string
   expiration_date?: string
+  event_date?: string
+  valid_from?: string
+  valid_until?: string
   source_type?: FacetSourceType
   source_document_id?: string
   source_url?: string
@@ -378,6 +385,11 @@ export interface FacetValue {
   human_verified?: boolean
   verified_by?: string
   verified_at?: string
+  human_corrections?: Record<string, unknown> | null
+  occurrence_count?: number
+  first_seen?: string
+  last_seen?: string
+  is_active?: boolean
   notes?: string
   created_at?: string
   updated_at?: string
@@ -386,6 +398,8 @@ export interface FacetValue {
   target_entity_name?: string
   target_entity_slug?: string
   target_entity_type_slug?: string
+  target_entity_type_icon?: string
+  target_entity_type_color?: string
 }
 
 // Facet group for entity detail views (matches API response)

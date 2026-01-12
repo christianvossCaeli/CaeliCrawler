@@ -178,6 +178,8 @@ export const adminApi = {
   cancelJob: adminExports.cancelJob,
   retryJob: adminExports.retryJob,
   deleteJob: adminExports.deleteJob,
+  deleteFailedJobs: adminExports.deleteFailedJobs,
+  deleteCancelledJobs: adminExports.deleteCancelledJobs,
   getCrawlerStats: adminExports.getCrawlerStats,
   getCrawlerStatus: adminExports.getCrawlerStatus,
   reanalyzeDocuments: adminExports.reanalyzeDocuments,
@@ -216,9 +218,13 @@ export const dataApi = {
   searchDocuments: sourcesExports.searchDocuments,
   triggerFullAnalysis: sourcesExports.triggerFullAnalysis,
   analyzeMorePages: sourcesExports.analyzeMorePages,
-  // Verification
+  // Verification & Rejection
   verifyExtraction: sourcesExports.verifyExtraction,
   bulkVerifyExtractions: sourcesExports.bulkVerifyExtractions,
+  rejectExtraction: sourcesExports.rejectExtraction,
+  bulkRejectExtractions: sourcesExports.bulkRejectExtractions,
+  // Extraction Facets
+  getExtractionFacets: sourcesExports.getExtractionFacets,
   // Municipalities
   getMunicipalities: sourcesExports.getMunicipalities,
   getMunicipalityReport: sourcesExports.getMunicipalityReport,
@@ -322,6 +328,9 @@ export const notificationApi = {
   getUnreadCount: adminExports.getUnreadCount,
   markAsRead: adminExports.markAsRead,
   markAllAsRead: adminExports.markAllAsRead,
+  deleteNotification: adminExports.deleteNotification,
+  bulkDeleteNotifications: adminExports.bulkDeleteNotifications,
+  bulkMarkAsRead: adminExports.bulkMarkAsRead,
   // Preferences
   getPreferences: adminExports.getNotificationPreferences,
   updatePreferences: adminExports.updateNotificationPreferences,

@@ -114,6 +114,20 @@ Alle Endpunkte koennen folgende Fehler zurueckgeben:
 }
 ```
 
+### 500 Configuration Error (NEU in v2.2.0)
+```json
+{
+  "error": "Configuration Error",
+  "detail": "Missing required configuration: AZURE_OPENAI_API_KEY",
+  "code": "CONFIGURATION_ERROR"
+}
+```
+
+Dieser Fehler tritt auf, wenn eine erforderliche Konfiguration fehlt oder ungueltig ist, z.B.:
+- Fehlende API-Keys fuer externe Dienste (OpenAI, Azure)
+- Ungueltige Datenbankverbindung
+- Fehlende Umgebungsvariablen
+
 ---
 
 ## Rate Limiting

@@ -3,6 +3,10 @@
     "title": "Analysethemen",
     "loading": "Analysethemen werden geladen...",
     "subtitle": "Themen für die automatische Dokumentenanalyse verwalten",
+    "info": {
+      "title": "Themenbasierte Datenerfassung",
+      "description": "Analysethemen bündeln Datenquellen zu einem Thema (z.B. 'Windkraft-Genehmigungen') und definieren, wonach die KI suchen soll. Sie legen fest: Welche URLs werden durchsucht (URL-Filter), welche Suchbegriffe sind relevant, und welche Informationen soll die KI extrahieren (Extraktions-Anweisung). Tipp: Starten Sie mit einem beschreibenden Namen und Zweck - die KI kann daraus automatisch passende Suchbegriffe und Extraktionsregeln vorschlagen."
+    },
     "category": "Analysethema",
     "categories": "Analysethemen",
     "tabs": {
@@ -18,12 +22,17 @@
     "filters": {
       "search": "Suche (Name/Zweck)",
       "status": "Status",
+      "schedule": "Zeitplanung",
       "documents": "Dokumente",
       "language": "Sprache",
       "withDocuments": "Mit Dokumenten",
       "withoutDocuments": "Ohne Dokumente"
     },
     "form": {
+      "info": {
+        "title": "Analysethema konfigurieren",
+        "description": "Ein Analysethema definiert, wonach gesucht wird und wie die KI extrahiert. Der Zweck beschreibt das Ziel (z.B. 'Windkraft-Hemmnisse finden'), Suchbegriffe grenzen die Dokumentsuche ein, und URL-Filter bestimmen, welche Seiten gecrawlt werden. Die KI-Anweisung legt fest, welche Informationen extrahiert werden sollen."
+      },
       "name": "Name",
       "nameRequired": "Name ist erforderlich",
       "description": "Beschreibung",
@@ -50,8 +59,8 @@
       "aiPrompt": "KI-Extraktions-Anweisung",
       "aiPromptHint": "Definieren Sie das JSON-Format und die Extraktionsregeln",
       "keywords": "Schlüsselwörter",
-      "enabled": "Aktiv",
-      "enabledHint": "Inaktive Analysethemen werden nicht gesammelt",
+      "public": "Öffentlich",
+      "publicHint": "Öffentliche Analysethemen sind für alle Benutzer sichtbar",
       "purposeHint": "Beschreiben Sie, was die KI in diesem Analysethema analysieren soll",
       "searchInfo": "Suchbegriffe und Dokumenttypen helfen dem Datensammler, relevante Dokumente zu finden",
       "scheduleTitle": "Zeitplanung",
@@ -65,7 +74,7 @@
       "name": "Name",
       "purpose": "Zweck",
       "languages": "Sprachen",
-      "status": "Status",
+      "schedule": "Zeitplanung",
       "sources": "Quellen",
       "documents": "Dokumente",
       "actions": "Aktionen"
@@ -120,11 +129,14 @@
       "resetFilters": "Filter zurücksetzen",
       "start": "Datensammlung starten",
       "started": "Sammlung für {count} Quellen gestartet",
-      "errorStarting": "Fehler beim Starten der Datensammlung"
+      "errorStarting": "Fehler beim Starten der Datensammlung",
+      "noCategorySelected": "Kein Analysethema ausgewählt"
     },
     "statusOptions": {
       "active": "Aktiv",
-      "inactive": "Inaktiv"
+      "inactive": "Inaktiv",
+      "scheduled": "Geplant",
+      "manual": "Manuell"
     },
     "documentOptions": {
       "with": "Mit Dokumenten",
@@ -199,9 +211,33 @@
       "applyAndSave": "Übernehmen und Speichern",
       "error": "Fehler bei der KI-Generierung"
     },
+    "aiPrefill": {
+      "title": "KI-Start",
+      "description": "Beschreiben Sie das Analysethema in 1-2 Sätzen. Die KI schlägt Name, Zweck und Suchbegriffe vor und füllt das Formular vor.",
+      "promptLabel": "Thema beschreiben",
+      "promptHint": "z.B. Überwache Windkraft-Projekte in Bayern und finde Genehmigungen, Einwände und Fristen.",
+      "generate": "Vorschläge generieren",
+      "apply": "Vorschläge übernehmen",
+      "overwrite": "Vorhandene Felder überschreiben",
+      "examplesTitle": "Beispiele",
+      "examples": [
+        "Überwache Windkraft-Projekte in Bayern und finde Genehmigungen, Einwände und Fristen.",
+        "Erfasse wöchentlich kommunale Beschlüsse zu Solaranlagen im Kreis Heinsberg.",
+        "Finde Förderprogramme für E-Mobilität in NRW inklusive Ansprechpartner."
+      ],
+      "previewTitle": "Vorschau der KI-Vorschläge",
+      "region": "Region",
+      "timeFocus": "Zeitfokus",
+      "promptRequired": "Bitte beschreibe zuerst das Analysethema.",
+      "notRecognized": "Die KI konnte kein Analysethema erkennen. Formuliere die Anfrage konkreter (z.B. \"Erstelle ein Setup für ...\").",
+      "applied": "KI-Vorschläge wurden ins Formular übernommen",
+      "error": "Fehler bei der KI-Generierung",
+      "loadingHint": "KI analysiert den Prompt..."
+    },
     "dataSourcesTab": {
       "title": "Datenquellen zuordnen",
       "description": "Ordnen Sie Datenquellen über Schlagwörter diesem Analysethema zu",
+      "createModeInfo": "Ausgewählte Datenquellen werden nach dem Speichern automatisch zugeordnet.",
       "filterByTags": "Nach Schlagwörtern filtern",
       "matchMode": "Verknüpfung",
       "matchAll": "ALLE Schlagwörter (UND)",
@@ -219,7 +255,20 @@
       "assignSuccess": "{count} Datenquellen erfolgreich zugeordnet",
       "assignError": "Fehler beim Zuordnen der Datenquellen",
       "loading": "Lade Datenquellen...",
-      "currentlyAssigned": "Aktuell zugeordnet"
+      "currentlyAssigned": "Aktuell zugeordnet",
+      "directSelection": "Direkte Auswahl",
+      "searchSources": "Datenquelle suchen...",
+      "assignedSources": "Zugeordnete Datenquellen",
+      "searchAssigned": "Nach Name oder URL suchen...",
+      "filterByTagsAssigned": "Nach Tags filtern",
+      "unassign": "Zuordnung aufheben",
+      "unassignConfirmTitle": "Zuordnung aufheben?",
+      "unassignConfirmMessage": "Möchten Sie die Zuordnung von \"{name}\" zu diesem Analysethema wirklich aufheben?",
+      "unassignSuccess": "Zuordnung erfolgreich aufgehoben",
+      "unassignError": "Fehler beim Aufheben der Zuordnung",
+      "bulkUnassignSuccess": "{count} Zuordnungen erfolgreich aufgehoben",
+      "bulkUnassignError": "Fehler beim Aufheben der Zuordnungen",
+      "noAssignedSources": "Keine Datenquellen zugeordnet"
     }
   }
 }

@@ -105,6 +105,7 @@ class DiscoverSourcesOperation(WriteOperation):
                 serper_key = await get_serper_key(session, user_id)
 
             service = AISourceDiscoveryService(
+                session=session,
                 serpapi_key=serpapi_key,
                 serper_key=serper_key,
             )

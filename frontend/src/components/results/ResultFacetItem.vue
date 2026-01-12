@@ -10,12 +10,12 @@
     <!-- Header: Entity link + Status -->
     <div class="d-flex align-center justify-space-between mb-2">
       <router-link
-        v-if="facet.entity_id"
-        :to="`/entities/${facet.entity_id}`"
+        v-if="facet.target_entity_id"
+        :to="`/entities/${facet.target_entity_id}`"
         class="text-decoration-none d-flex align-center ga-2"
       >
-        <v-icon size="small" color="primary">mdi-domain</v-icon>
-        <span class="font-weight-medium text-primary">{{ facet.entity_name || $t('results.facets.unknownEntity') }}</span>
+        <v-icon size="small" :color="targetEntityVisuals.color">{{ targetEntityVisuals.icon }}</v-icon>
+        <span class="font-weight-medium" :style="{ color: targetEntityVisuals.color }">{{ facet.target_entity_name || $t('results.facets.unknownEntity') }}</span>
       </router-link>
       <span v-else class="text-medium-emphasis">{{ $t('results.facets.noEntity') }}</span>
 
@@ -130,10 +130,23 @@ defineEmits<{
   reactivate: [id: string]
 }>()
 
+// Default visuals when API doesn't provide icon/color
+const DEFAULT_VISUALS = { icon: 'mdi-link-variant', color: 'grey' }
+
 const theme = useTheme()
 const { formatRelativeTime } = useDateFormatter()
 
 const isDark = computed(() => theme.current.value.dark)
+
+/**
+ * Get the visual styling for the target entity type.
+ * Uses API values (from entity_types table) with fallback to defaults.
+ */
+const targetEntityVisuals = computed(() => {
+  const icon = props.facet.target_entity_type_icon || DEFAULT_VISUALS.icon
+  const color = props.facet.target_entity_type_color || DEFAULT_VISUALS.color
+  return { icon, color }
+})
 
 /**
  * A facet is protected if it's human-verified or has corrections.

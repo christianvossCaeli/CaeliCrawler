@@ -47,6 +47,11 @@
       </template>
     </PageHeader>
 
+    <!-- Info Box -->
+    <PageInfoBox :storage-key="INFO_BOX_STORAGE_KEYS.ENTITIES" :title="t('entities.info.title')">
+      {{ t('entities.info.description') }}
+    </PageInfoBox>
+
     <!-- Entity Type Tabs (if no specific type selected) -->
     <v-tabs
       v-if="!typeSlug"
@@ -127,6 +132,13 @@
       @remove-extended-filter="removeExtendedFilter"
     />
 
+    <!-- Bulk Actions Toolbar -->
+    <EntityBulkActions
+      :selected-entities="selectedEntities"
+      @start-crawl="openEntityCrawlDialog"
+      @clear="clearSelection"
+    />
+
     <!-- Entities Table/Grid/Map Container -->
     <EntitiesToolbar
       v-model:view-mode="viewMode"
@@ -171,9 +183,9 @@
       <v-card-text v-else-if="viewMode === 'map'" class="pa-0">
         <EntityMapView
           :entity-type-slug="currentEntityType?.slug"
-          :country="extendedFilters.country || undefined"
-          :admin-level1="extendedFilters.admin_level_1 || undefined"
-          :admin-level2="extendedFilters.admin_level_2 || undefined"
+          :country="getStringFilterValue('country')"
+          :admin-level1="getStringFilterValue('admin_level_1')"
+          :admin-level2="getStringFilterValue('admin_level_2')"
           :search="searchQuery || undefined"
         />
       </v-card-text>
@@ -284,12 +296,29 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- Entity Crawl Dialog -->
+    <EntityCrawlDialog
+      v-model="entityCrawlDialog"
+      :selected-entities="selectedEntities"
+      :categories="categories"
+      @crawl-started="clearSelection"
+      @open-preset-editor="handleOpenPresetEditor"
+    />
+
+    <!-- Crawl Preset Editor (opened from EntityCrawlDialog) -->
+    <CrawlPresetEditor
+      v-model="presetEditorDialog"
+      :initial-entity-ids="presetEditorEntityIds"
+      :initial-category-id="presetEditorCategoryId"
+      @saved="handlePresetSaved"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, watch, defineAsyncComponent, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { onMounted, watch, defineAsyncComponent, computed, ref } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { DIALOG_SIZES } from '@/config/ui'
 import { useEntitiesView } from '@/composables/useEntitiesView'
@@ -302,18 +331,24 @@ const EntityMapView = defineAsyncComponent({
   timeout: 15000,
 })
 import PageHeader from '@/components/common/PageHeader.vue'
+import PageInfoBox from '@/components/common/PageInfoBox.vue'
+import { INFO_BOX_STORAGE_KEYS } from '@/config/infoBox'
 import EntitiesFilters from '@/components/entities/EntitiesFilters.vue'
 import EntitiesToolbar from '@/components/entities/EntitiesToolbar.vue'
 import EntitiesTable from '@/components/entities/EntitiesTable.vue'
 import EntitiesGridView from '@/components/entities/EntitiesGridView.vue'
 import EntityFormDialog from '@/components/entities/EntityFormDialog.vue'
 import ExtendedFilterDialog from '@/components/entities/ExtendedFilterDialog.vue'
+import EntityBulkActions from '@/components/entities/EntityBulkActions.vue'
+import EntityCrawlDialog from '@/components/entities/EntityCrawlDialog.vue'
+import CrawlPresetEditor from '@/components/crawler/CrawlPresetEditor.vue'
 import { usePageContextProvider } from '@/composables/usePageContext'
 import { useDateFormatter } from '@/composables'
 import type { PageContextData, FilterState } from '@/composables/assistant/types'
 
 const { t } = useI18n()
 const router = useRouter()
+const route = useRoute()
 const auth = useAuthStore()
 const canEdit = computed(() => auth.isEditor)
 const { formatNumber } = useDateFormatter()
@@ -390,7 +425,28 @@ const {
   handleSortChange,
   showBulkSelect,
   selectedEntities,
+  entityCrawlDialog,
+  clearSelection,
+  openEntityCrawlDialog,
 } = useEntitiesView()
+
+// Crawl Preset Editor state (opened from EntityCrawlDialog)
+const presetEditorDialog = ref(false)
+const presetEditorEntityIds = ref<string[]>([])
+const presetEditorCategoryId = ref<string | undefined>(undefined)
+
+function handleOpenPresetEditor(data: { entityIds: string[]; categoryId: string }) {
+  presetEditorEntityIds.value = data.entityIds
+  presetEditorCategoryId.value = data.categoryId
+  presetEditorDialog.value = true
+}
+
+function handlePresetSaved() {
+  clearSelection()
+  // Reset initial values
+  presetEditorEntityIds.value = []
+  presetEditorCategoryId.value = undefined
+}
 
 // Page Context Provider for AI Assistant awareness
 const { updateContext } = usePageContextProvider(
@@ -463,15 +519,16 @@ function openExtendedFilterDialog() {
 }
 
 function applyExtendedFilters() {
-  const newFilters: Record<string, string | null> = {}
-  for (const [key, value] of Object.entries(tempExtendedFilters.value)) {
-    if (value !== null && value !== undefined && value !== '') {
-      newFilters[key] = value
-    }
-  }
-  extendedFilters.value = newFilters
+  // Copy non-empty filters from temp to active
+  extendedFilters.value = { ...tempExtendedFilters.value }
   extendedFilterDialog.value = false
   loadEntities(1)
+}
+
+// Helper to get string filter value (for location filters)
+function getStringFilterValue(key: string): string | undefined {
+  const value = extendedFilters.value[key]
+  return typeof value === 'string' ? value : undefined
 }
 
 // Navigation
@@ -510,9 +567,19 @@ onMounted(async () => {
     loadUsers(),
   ])
 
+  if (!typeSlug.value && !selectedTypeTab.value && typeof route.query.type === 'string') {
+    const typeQuery = route.query.type.toLowerCase()
+    const matchingType = store.entityTypes.find(
+      et => et.name.toLowerCase() === typeQuery || et.slug.toLowerCase() === typeQuery
+    )
+    if (matchingType) {
+      selectedTypeTab.value = matchingType.slug
+    }
+  }
+
   if (typeSlug.value) {
     await store.fetchEntityTypeBySlug(typeSlug.value)
-  } else if (store.activeEntityTypes.length > 0) {
+  } else if (!selectedTypeTab.value && store.activeEntityTypes.length > 0) {
     selectedTypeTab.value = store.activeEntityTypes[0].slug
   }
 

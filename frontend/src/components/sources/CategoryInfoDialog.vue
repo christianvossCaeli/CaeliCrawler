@@ -10,8 +10,8 @@
       <v-card-title id="category-info-dialog-title" class="d-flex align-center">
         <v-icon class="mr-2" aria-hidden="true">mdi-folder-outline</v-icon>
         {{ category.name }}
-        <v-chip :color="category.is_active ? 'success' : 'grey'" size="small" class="ml-2">
-          {{ category.is_active ? t('sources.dialog.active') : t('sources.dialog.inactive') }}
+        <v-chip :color="category.schedule_enabled ? 'success' : 'grey'" size="small" class="ml-2">
+          {{ category.schedule_enabled ? t('sources.dialog.scheduled') : t('sources.dialog.manual') }}
         </v-chip>
       </v-card-title>
 

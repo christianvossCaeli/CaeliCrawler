@@ -21,7 +21,7 @@ from app.models.change_log import ChangeLog, ChangeType
 from app.models.crawl_job import CrawlJob, JobStatus
 
 # Crawl Presets
-from app.models.crawl_preset import CrawlPreset, PresetStatus
+from app.models.crawl_preset import CrawlPreset
 
 # Custom Summaries
 from app.models.custom_summary import CustomSummary, SummaryStatus, SummaryTriggerType
@@ -214,7 +214,6 @@ __all__ = [
     "SyncStatus",
     # Crawl Presets
     "CrawlPreset",
-    "PresetStatus",
     # Custom Summaries
     "CustomSummary",
     "SummaryStatus",

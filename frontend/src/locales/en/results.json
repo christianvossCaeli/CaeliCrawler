@@ -2,6 +2,10 @@
   "results": {
     "title": "Results",
     "subtitle": "AI-extracted analysis results from processed documents",
+    "info": {
+      "title": "Review and Approve AI Results",
+      "description": "Here you find all information extracted by AI from documents - e.g. issues, contacts, or events. The 'Confidence' (0-100%) shows how certain the AI was about the extraction: Green (>70%) is usually reliable, Yellow/Red should be reviewed. Click on a result for details including the source document. Use 'Verify' to confirm correct results, 'Reject' to mark errors (these are considered in future extractions). Tip: Use bulk actions for quickly reviewing many results."
+    },
     "aiExtractedData": "AI-extracted Data",
     "emptyState": {
       "title": "No results",
@@ -17,9 +21,11 @@
       "location": "Location",
       "analysisType": "Analysis Type",
       "category": "Category",
+      "confidence": "Confidence",
       "minConfidence": "Min. Confidence",
       "dateFrom": "From",
       "dateTo": "To",
+      "showRejected": "Show rejected",
       "resetFilters": "Reset filters"
     },
     "stats": {
@@ -41,15 +47,43 @@
     "actions": {
       "bulkVerify": "verify",
       "csvExport": "CSV Export",
+      "csvExportSelected": "Export {count}",
       "refresh": "Refresh",
       "viewDetails": "View details",
       "verify": "Verify",
       "verified": "Verified",
+      "reject": "Reject",
+      "unreject": "Undo rejection",
       "goToDocument": "Go to document",
       "exportJson": "Export JSON"
     },
+    "status": {
+      "rejected": "Rejected"
+    },
+    "dialogs": {
+      "rejectTitle": "Reject Result?",
+      "rejectMessage": "This will reject the extraction result and deactivate all related facets that were extracted from this document.",
+      "rejectWarning": "Already verified or corrected facets will be protected and not deactivated.",
+      "unrejectNote": "Note: If you undo this rejection later, the deactivated facets must be reactivated manually.",
+      "confirmReject": "Reject",
+      "bulkRejectTitle": "Reject Multiple Results?",
+      "bulkRejectMessage": "{count} selected results will be rejected and all related facets will be deactivated.",
+      "confirmBulkReject": "Reject All"
+    },
+    "bulkActions": {
+      "toolbarLabel": "Bulk actions for selected results",
+      "selected": "{count} selected",
+      "verify": "Verify",
+      "reject": "Reject",
+      "verifySelected": "Verify {count} results",
+      "rejectSelected": "Reject {count} results",
+      "clearSelection": "Clear selection"
+    },
     "detail": {
       "title": "Extracted Data",
+      "contentTab": "Content",
+      "facetsTab": "Facets",
+      "metadataTab": "Metadata",
       "sourceDocument": "Source Document",
       "goToDocument": "Go to Document",
       "municipality": "Municipality",
@@ -86,14 +120,60 @@
     "messages": {
       "verified": "Result verified",
       "bulkVerified": "Results verified",
+      "rejected": "Result rejected",
+      "bulkRejected": "Results rejected",
+      "unrejected": "Rejection undone",
+      "facetsDeactivated": "facets deactivated",
+      "facetsProtected": "facets protected",
       "jsonExported": "JSON exported",
-      "csvExported": "CSV exported",
+      "csvExported": "{count} results exported as CSV",
       "copiedToClipboard": "Copied to clipboard",
       "errorVerifying": "Error verifying",
       "errorBulkVerifying": "Error with bulk verification",
-      "errorLoading": "Error loading data"
+      "errorRejecting": "Error rejecting result",
+      "errorBulkRejecting": "Error with bulk rejection",
+      "errorUnrejecting": "Error undoing rejection",
+      "errorLoading": "Error loading data",
+      "errorExporting": "Error exporting data",
+      "noResultsToExport": "No results to export"
+    },
+    "export": {
+      "source": "Source",
+      "verifiedBy": "Verified by",
+      "verifiedAt": "Verified at",
+      "rejected": "Rejected",
+      "rejectionReason": "Rejection reason",
+      "entities": "Linked entities",
+      "aiModel": "AI model",
+      "tokensUsed": "Tokens used",
+      "priority": "Priority",
+      "reason": "Reason"
     },
     "never": "Never",
-    "noResults": "No results found"
+    "noResults": "No results found",
+    "facets": {
+      "title": "Extracted Facets",
+      "showInactive": "Show inactive",
+      "noFacets": "No facets extracted from this result.",
+      "unknownType": "Unknown type",
+      "unknownEntity": "Unknown entity",
+      "noEntity": "No entity",
+      "inactive": "Inactive",
+      "verified": "Verified",
+      "corrected": "Corrected",
+      "verifiedCount": "verified",
+      "verify": "Verify",
+      "reject": "Deactivate",
+      "reactivate": "Reactivate",
+      "protectedTooltip": "Protected (verified or corrected)",
+      "errorLoading": "Error loading facets",
+      "errorVerifying": "Error verifying facet",
+      "errorRejecting": "Error deactivating facet",
+      "errorReactivating": "Error reactivating facet",
+      "errorUpdating": "Error updating facet",
+      "updated": "Facet updated",
+      "rejected": "Facet deactivated",
+      "reactivated": "Facet reactivated"
+    }
   }
 }

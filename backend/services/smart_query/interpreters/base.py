@@ -8,14 +8,10 @@ import re
 import time
 
 import structlog
-from openai import AzureOpenAI
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import QueryValidationError
-
-# Import centralized AI client
-from services.ai_client import get_sync_openai_client
 
 logger = structlog.get_logger()
 
@@ -118,22 +114,6 @@ def invalidate_types_cache() -> None:
     or categories are created, updated, or deleted.
     """
     _types_cache.invalidate()
-
-
-# =============================================================================
-# Azure OpenAI Client
-# =============================================================================
-
-
-def get_openai_client() -> AzureOpenAI:
-    """Get or create the Azure OpenAI client.
-
-    This is a wrapper around the centralized ai_client module.
-
-    Raises:
-        ValueError: If Azure OpenAI is not configured
-    """
-    return get_sync_openai_client()
 
 
 # =============================================================================
@@ -479,7 +459,7 @@ async def load_all_types_for_write(session: AsyncSession) -> tuple[list[dict], l
     ]
 
     # Load categories
-    category_result = await session.execute(select(Category).where(Category.is_active.is_(True)))
+    category_result = await session.execute(select(Category))
     categories = [
         {
             "slug": cat.slug,
@@ -522,8 +502,6 @@ __all__ = [
     "TypesCache",
     "_types_cache",
     "invalidate_types_cache",
-    # Client
-    "get_openai_client",
     # Sanitization
     "PROMPT_INJECTION_PATTERNS",
     "PROMPT_INJECTION_REGEX_PATTERNS",

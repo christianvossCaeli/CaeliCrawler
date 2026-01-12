@@ -59,17 +59,25 @@ export async function updateOwnLimit(newLimitCents: number): Promise<UserBudgetS
  * List all limit increase requests (admin only).
  */
 export async function getLimitRequests(params?: {
-  status?: LimitRequestStatus | ''  // v-select may clear to empty string
+  status?: LimitRequestStatus | '' | null  // v-select may clear to empty string or null
   limit?: number
 }): Promise<LimitRequestListResponse> {
-  // Filter out empty strings and undefined values to prevent 422 validation errors
-  const cleanParams = params ? Object.fromEntries(
-    Object.entries(params).filter(([, v]) => v !== undefined && v !== '' && v !== null)
-  ) : undefined
+  // Build clean params object explicitly to avoid sending empty/null values
+  const cleanParams: Record<string, string | number> = {}
 
-  const { data } = await api.get<LimitRequestListResponse>('/admin/llm-budget/limit-requests', {
-    params: Object.keys(cleanParams || {}).length > 0 ? cleanParams : undefined,
-  })
+  // Only add status if it's a valid non-empty value
+  if (params?.status && params.status !== '') {
+    cleanParams.status = params.status
+  }
+
+  // Only add limit if explicitly provided
+  if (params?.limit !== undefined && params.limit !== null) {
+    cleanParams.limit = params.limit
+  }
+
+  // Only pass params config if we have actual parameters to send
+  const config = Object.keys(cleanParams).length > 0 ? { params: cleanParams } : undefined
+  const { data } = await api.get<LimitRequestListResponse>('/admin/llm-budget/limit-requests', config)
   return data
 }
 

@@ -26,6 +26,12 @@ const router = createRouter({
     // Protected routes
     {
       path: '/',
+      name: 'home',
+      component: () => import('@/views/ChatHomeView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/dashboard',
       name: 'dashboard',
       component: () => import('@/views/DashboardView.vue'),
       meta: { requiresAuth: true }
@@ -218,9 +224,9 @@ router.beforeEach(async (
 
   // Public routes (like login)
   if (to.meta.public) {
-    // If already authenticated, redirect to dashboard
+    // If already authenticated, redirect to home
     if (auth.isAuthenticated) {
-      return next({ name: 'dashboard' })
+      return next({ name: 'home' })
     }
     return next()
   }

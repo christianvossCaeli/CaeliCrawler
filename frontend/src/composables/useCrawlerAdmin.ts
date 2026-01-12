@@ -77,6 +77,7 @@ export interface CrawlerStats {
   total_documents: number
   completed_jobs: number
   failed_jobs: number
+  cancelled_jobs: number
 }
 
 // ============================================================================
@@ -115,6 +116,8 @@ export function useCrawlerAdmin() {
   // Bulk selection state
   const selectedJobIds = ref<Set<string>>(new Set())
   const bulkActionLoading = ref(false)
+  const cleanupFailedLoading = ref(false)
+  const cleanupCancelledLoading = ref(false)
 
   let refreshInterval: number | null = null
   let logRefreshInterval: number | null = null
@@ -136,6 +139,7 @@ export function useCrawlerAdmin() {
     total_documents: 0,
     completed_jobs: 0,
     failed_jobs: 0,
+    cancelled_jobs: 0,
   })
 
   // ============================================================================
@@ -443,32 +447,54 @@ export function useCrawlerAdmin() {
   }
 
   async function cleanupFailedJobs() {
-    const failedJobs = jobs.value.filter(j => j.status === 'FAILED')
-    if (failedJobs.length === 0) {
+    if (stats.value.failed_jobs === 0) {
       showError(t('crawler.noFailedJobsToCleanup'))
       return
     }
 
     showConfirm(
       t('crawler.cleanupFailedTitle'),
-      t('crawler.cleanupFailedMessage', { count: failedJobs.length }),
+      t('crawler.cleanupFailedMessage', { count: stats.value.failed_jobs }),
       async () => {
-        bulkActionLoading.value = true
+        cleanupFailedLoading.value = true
 
-        // Execute all deletes in parallel
-        const results = await Promise.allSettled(
-          failedJobs.map(job => adminApi.deleteJob(job.id))
-        )
-
-        const successCount = results.filter(r => r.status === 'fulfilled').length
-
-        if (successCount > 0) {
-          showSuccess(t('crawler.cleanupSuccess', { count: successCount }))
-          // Clear selection as deleted jobs are no longer valid
+        try {
+          const response = await adminApi.deleteFailedJobs()
+          const deletedCount = response.data.data.deleted_count
+          showSuccess(t('crawler.cleanupSuccess', { count: deletedCount }))
           clearSelection()
+        } catch (error) {
+          showError(getErrorMessage(error) || t('crawler.cleanupError'))
         }
 
-        bulkActionLoading.value = false
+        cleanupFailedLoading.value = false
+        await loadData()
+      }
+    )
+  }
+
+  async function cleanupCancelledJobs() {
+    if (stats.value.cancelled_jobs === 0) {
+      showError(t('crawler.noCancelledJobsToCleanup'))
+      return
+    }
+
+    showConfirm(
+      t('crawler.cleanupCancelledTitle'),
+      t('crawler.cleanupCancelledMessage', { count: stats.value.cancelled_jobs }),
+      async () => {
+        cleanupCancelledLoading.value = true
+
+        try {
+          const response = await adminApi.deleteCancelledJobs()
+          const deletedCount = response.data.data.deleted_count
+          showSuccess(t('crawler.cleanupCancelledSuccess', { count: deletedCount }))
+          clearSelection()
+        } catch (error) {
+          showError(getErrorMessage(error) || t('crawler.cleanupError'))
+        }
+
+        cleanupCancelledLoading.value = false
         await loadData()
       }
     )
@@ -642,7 +668,7 @@ export function useCrawlerAdmin() {
     // Check for status filter from dashboard widget
     if (route.query.status) {
       const statusParam = route.query.status as string
-      const validStatuses = ['RUNNING', 'COMPLETED', 'FAILED', 'PENDING']
+      const validStatuses = ['RUNNING', 'COMPLETED', 'FAILED', 'CANCELLED', 'PENDING']
       if (validStatuses.includes(statusParam)) {
         statusFilter.value = statusParam
       }
@@ -740,6 +766,8 @@ export function useCrawlerAdmin() {
     stats,
     selectedJobIds,
     bulkActionLoading,
+    cleanupFailedLoading,
+    cleanupCancelledLoading,
 
     // Computed
     headers,
@@ -778,6 +806,7 @@ export function useCrawlerAdmin() {
     bulkRetryJobs,
     bulkDeleteJobs,
     cleanupFailedJobs,
+    cleanupCancelledJobs,
 
     // Confirmation
     executeConfirmedAction,

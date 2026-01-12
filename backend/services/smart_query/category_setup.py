@@ -21,6 +21,7 @@ from .ai_generation import (
     ai_generate_entity_type_config,
     ai_generate_facet_types,
     ai_generate_seed_entities,
+    ai_recommend_schedule,
 )
 from .crawl_operations import find_matching_data_sources
 from .geographic_utils import expand_search_terms, resolve_geographic_alias
@@ -167,6 +168,7 @@ async def create_category_setup_with_ai(
         "ai_extraction_prompt": "",
         "url_patterns": {},
         "search_terms": [],
+        "schedule_config": {},  # AI-recommended crawl schedule
         "facet_types_created": [],  # FacetTypes created for this EntityType
         "facet_types_count": 0,  # Number of FacetTypes created
         "seed_entities_created": [],  # Seed entities created from AI knowledge
@@ -343,6 +345,30 @@ async def create_category_setup_with_ai(
         url_exclude_patterns = crawl_config.get("url_exclude_patterns", [])
 
         # =========================================================================
+        # AI SCHEDULE RECOMMENDATION - Determine optimal crawl interval
+        # =========================================================================
+        try:
+            schedule_config = await ai_recommend_schedule(
+                user_intent=user_intent,
+                data_type=entity_type.name,
+                session=session,
+            )
+            recommended_schedule = schedule_config.get("schedule_cron", "0 2 * * *")
+            schedule_description = schedule_config.get("schedule_description", "Täglich um 2:00 Uhr")
+            logger.info(
+                "AI recommended crawl schedule",
+                schedule_cron=recommended_schedule,
+                schedule_description=schedule_description,
+                data_volatility=schedule_config.get("data_volatility"),
+                reasoning=schedule_config.get("reasoning"),
+            )
+        except Exception as schedule_error:
+            logger.warning("AI schedule recommendation failed, using default", error=str(schedule_error))
+            recommended_schedule = "0 2 * * *"
+            schedule_description = "Täglich um 2:00 Uhr (Standard)"
+            result["warnings"].append(f"Schedule-Empfehlung übersprungen: {str(schedule_error)}")
+
+        # =========================================================================
         # CREATE CATEGORY (or use existing if duplicate detected)
         # =========================================================================
         from app.utils.similarity import find_similar_categories
@@ -392,7 +418,9 @@ async def create_category_setup_with_ai(
                 languages=["de"],
                 ai_extraction_prompt=ai_prompt,
                 extraction_handler=extraction_handler,
-                schedule_cron="0 2 * * *",
+                schedule_cron=recommended_schedule,
+                schedule_enabled=True,
+                schedule_owner_id=current_user_id,
                 is_active=True,
                 is_public=True,  # Always visible in frontend
                 created_by_id=current_user_id,
@@ -403,6 +431,10 @@ async def create_category_setup_with_ai(
         await session.flush()
 
         result["category_id"] = str(category.id)
+        result["schedule_config"] = {
+            "cron": recommended_schedule,
+            "description": schedule_description,
+        }
         result["category_name"] = category.name
         result["category_slug"] = category.slug
         result["ai_extraction_prompt"] = ai_prompt
@@ -462,6 +494,7 @@ async def create_category_setup_with_ai(
                     serper_key = await get_serper_key(session, current_user_id)
 
                 discovery_service = AISourceDiscoveryService(
+                    session=session,
                     serpapi_key=serpapi_key,
                     serper_key=serper_key,
                 )
@@ -1201,6 +1234,8 @@ async def create_category_setup(
         search_terms = setup_data.get("search_terms", [])
         geographic_filter = setup_data.get("geographic_filter", {})
         extraction_handler = setup_data.get("extraction_handler", "default")
+        schedule_cron = setup_data.get("schedule_cron", "0 2 * * *")
+        schedule_enabled = setup_data.get("schedule_enabled", True)
 
         if not name:
             result["message"] = "Name ist erforderlich"
@@ -1347,7 +1382,9 @@ async def create_category_setup(
                 languages=["de"],
                 ai_extraction_prompt=ai_prompt,
                 extraction_handler=extraction_handler,
-                schedule_cron="0 2 * * *",
+                schedule_cron=schedule_cron,
+                schedule_enabled=schedule_enabled,
+                schedule_owner_id=current_user_id,
                 is_active=True,
                 is_public=True,  # Always visible in frontend
                 created_by_id=current_user_id,
@@ -1361,6 +1398,7 @@ async def create_category_setup(
             "Created Category",
             category_id=str(category.id),
             name=category.name,
+            schedule_cron=schedule_cron,
         )
 
         # 10. Find and link matching DataSources

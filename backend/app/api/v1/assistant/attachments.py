@@ -11,6 +11,11 @@ from app.core.rate_limit import check_rate_limit
 from app.database import get_session
 from app.models.user import User
 from app.schemas.assistant import AttachmentInfo, AttachmentUploadResponse
+from app.utils.file_validation import (
+    FileValidationError,
+    StreamingUploadHandler,
+    validate_file_type,
+)
 from app.utils.validation import AssistantConstants
 
 router = APIRouter(tags=["assistant-attachments"])
@@ -49,44 +54,59 @@ async def upload_attachment(
     user_id = str(current_user.id) if current_user else None
     await check_rate_limit(http_request, "assistant_upload", identifier=user_id)
 
-    # Validate content type
-    if file.content_type not in ALLOWED_ATTACHMENT_TYPES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Nicht unterstützter Dateityp: {file.content_type}. "
-            f"Erlaubt: Bilder (PNG, JPEG, GIF, WebP) und PDF.",
+    # Process upload with streaming (memory-efficient for larger files)
+    # Use 2MB threshold for assistant attachments (smaller than entity attachments)
+    handler = StreamingUploadHandler(threshold_bytes=2 * 1024 * 1024)
+
+    try:
+        await handler.process_upload(file)
+
+        # Validate file size
+        if handler.size > MAX_ATTACHMENT_SIZE:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Datei zu groß. Maximum: {MAX_ATTACHMENT_SIZE // (1024 * 1024)}MB",
+            )
+
+        # Validate actual file type via magic bytes (prevents content_type spoofing)
+        try:
+            validated_type = validate_file_type(
+                handler.get_header(16),
+                claimed_type=file.content_type or "application/octet-stream",
+                allowed_types=ALLOWED_ATTACHMENT_TYPES,
+            )
+        except FileValidationError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from None
+
+        # Get content for cache storage
+        content = handler.get_content()
+
+        # Generate unique ID
+        attachment_id = str(uuid4())
+
+        # Store attachment in cache (TTLCache handles cleanup and size limits automatically)
+        assistant_attachment_cache.set(
+            attachment_id,
+            {
+                "content": content,
+                "filename": file.filename or "unnamed",
+                "content_type": validated_type,
+                "size": handler.size,
+            },
         )
 
-    # Read file content
-    content = await file.read()
+        return AttachmentUploadResponse(
+            success=True,
+            attachment=AttachmentInfo(
+                attachment_id=attachment_id,
+                filename=file.filename or "unnamed",
+                content_type=validated_type,
+                size=handler.size,
+            ),
+        )
 
-    # Validate file size
-    if len(content) > MAX_ATTACHMENT_SIZE:
-        raise HTTPException(status_code=400, detail=f"Datei zu groß. Maximum: {MAX_ATTACHMENT_SIZE // (1024 * 1024)}MB")
-
-    # Generate unique ID
-    attachment_id = str(uuid4())
-
-    # Store attachment in cache (TTLCache handles cleanup and size limits automatically)
-    assistant_attachment_cache.set(
-        attachment_id,
-        {
-            "content": content,
-            "filename": file.filename or "unnamed",
-            "content_type": file.content_type,
-            "size": len(content),
-        },
-    )
-
-    return AttachmentUploadResponse(
-        success=True,
-        attachment=AttachmentInfo(
-            attachment_id=attachment_id,
-            filename=file.filename or "unnamed",
-            content_type=file.content_type,
-            size=len(content),
-        ),
-    )
+    finally:
+        handler.cleanup()
 
 
 @router.delete("/upload/{attachment_id}")

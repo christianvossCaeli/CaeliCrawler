@@ -7,6 +7,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from app.core.exceptions import QueryValidationError, SessionRequiredError
+
 
 class TestInterpretersModuleStructure:
     """Tests for the module structure and imports."""
@@ -217,17 +219,17 @@ class TestValidateAndSanitizeQuery:
         """Test that empty queries are rejected."""
         from services.smart_query.interpreters import validate_and_sanitize_query
 
-        with pytest.raises(ValueError, match="cannot be empty"):
+        with pytest.raises(QueryValidationError, match="cannot be empty"):
             validate_and_sanitize_query("")
 
-        with pytest.raises(ValueError, match="cannot be empty"):
+        with pytest.raises(QueryValidationError, match="cannot be empty"):
             validate_and_sanitize_query("   ")
 
     def test_rejects_too_short_query(self):
         """Test that too short queries are rejected."""
         from services.smart_query.interpreters import validate_and_sanitize_query
 
-        with pytest.raises(ValueError, match="too short"):
+        with pytest.raises(QueryValidationError, match="too short"):
             validate_and_sanitize_query("ab")
 
     def test_truncates_too_long_query(self):
@@ -304,7 +306,7 @@ class TestInterpretQueryFunction:
         """Test that session is required."""
         from services.smart_query.interpreters import interpret_query
 
-        with pytest.raises(ValueError, match="session is required"):
+        with pytest.raises(SessionRequiredError):
             await interpret_query("Test query", session=None)
 
 
@@ -316,7 +318,7 @@ class TestInterpretWriteCommandFunction:
         """Test that session is required."""
         from services.smart_query.interpreters import interpret_write_command
 
-        with pytest.raises(ValueError, match="session is required"):
+        with pytest.raises(SessionRequiredError):
             await interpret_write_command("Create entity", session=None)
 
 
@@ -328,7 +330,7 @@ class TestDetectCompoundQueryFunction:
         """Test that session is required."""
         from services.smart_query.interpreters import detect_compound_query
 
-        with pytest.raises(ValueError, match="session is required"):
+        with pytest.raises(SessionRequiredError):
             await detect_compound_query("Show table and chart", session=None)
 
 
@@ -340,7 +342,7 @@ class TestInterpretPlanQueryFromInterpreters:
         """Test that session is required."""
         from services.smart_query.interpreters import interpret_plan_query
 
-        with pytest.raises(ValueError, match="session is required"):
+        with pytest.raises(SessionRequiredError):
             await interpret_plan_query("Help me", session=None)
 
     @pytest.mark.asyncio
@@ -355,3 +357,88 @@ class TestInterpretPlanQueryFromInterpreters:
 
         assert result["success"] is False
         assert "ungültig" in result["message"].lower() or "leer" in result["message"].lower()
+
+
+class TestDynamicQueryPrompt:
+    """Tests for dynamic query prompt generation with relation types."""
+
+    def test_build_dynamic_query_prompt_includes_relation_types(self):
+        """Test that relation types are dynamically included in the prompt."""
+        from services.smart_query.interpreters.read_interpreter import build_dynamic_query_prompt
+
+        facet_types = [{"slug": "pain_point", "name": "Pain Point", "description": "Problemfeld"}]
+        entity_types = [{"slug": "person", "name": "Person", "description": "Eine Person"}]
+        relation_types = [
+            {"slug": "works_for", "name": "Works For", "description": "Person arbeitet für Organisation"},
+            {"slug": "custom_relation", "name": "Custom", "description": "Eigene Beziehung"},
+        ]
+
+        prompt = build_dynamic_query_prompt(
+            facet_types=facet_types,
+            entity_types=entity_types,
+            relation_types=relation_types,
+            query="Test query",
+        )
+
+        # Check that dynamic relation types are included
+        assert "works_for" in prompt
+        assert "custom_relation" in prompt
+        assert "Eigene Beziehung" in prompt
+
+    def test_build_dynamic_query_prompt_fallback_without_relation_types(self):
+        """Test that fallback relation types are used when none provided."""
+        from services.smart_query.interpreters.read_interpreter import build_dynamic_query_prompt
+
+        facet_types = [{"slug": "pain_point", "name": "Pain Point"}]
+        entity_types = [{"slug": "person", "name": "Person"}]
+
+        # Call without relation_types
+        prompt = build_dynamic_query_prompt(
+            facet_types=facet_types,
+            entity_types=entity_types,
+            query="Test query",
+        )
+
+        # Check that fallback relation types are included
+        assert "works_for" in prompt
+        assert "attends" in prompt
+        assert "located_in" in prompt
+        assert "member_of" in prompt
+
+    def test_build_dynamic_query_prompt_includes_entity_types(self):
+        """Test that entity types are dynamically included."""
+        from services.smart_query.interpreters.read_interpreter import build_dynamic_query_prompt
+
+        entity_types = [
+            {"slug": "territorial_entity", "name": "Gemeinde", "description": "Kommunale Gebietskörperschaft"},
+            {"slug": "custom_type", "name": "Custom", "description": "Eigener Typ"},
+        ]
+
+        prompt = build_dynamic_query_prompt(
+            facet_types=[],
+            entity_types=entity_types,
+            query="Test",
+        )
+
+        assert "territorial_entity" in prompt
+        assert "custom_type" in prompt
+        assert "Kommunale Gebietskörperschaft" in prompt
+
+    def test_build_dynamic_query_prompt_includes_facet_types(self):
+        """Test that facet types are dynamically included."""
+        from services.smart_query.interpreters.read_interpreter import build_dynamic_query_prompt
+
+        facet_types = [
+            {"slug": "pain_point", "name": "Problemfeld", "description": "Ein Problem", "is_time_based": False},
+            {"slug": "event_attendance", "name": "Teilnahme", "description": "Event-Teilnahme", "is_time_based": True},
+        ]
+
+        prompt = build_dynamic_query_prompt(
+            facet_types=facet_types,
+            entity_types=[],
+            query="Test",
+        )
+
+        assert "pain_point" in prompt
+        assert "event_attendance" in prompt
+        assert "(hat time_filter!)" in prompt  # For is_time_based=True

@@ -237,12 +237,10 @@ class DuplicateTypesCleaner:
         """
         self.log("\n=== Scanning Categories for duplicates ===")
 
-        result = await self.session.execute(
-            select(Category).where(Category.is_active.is_(True)).order_by(Category.created_at.asc())
-        )
+        result = await self.session.execute(select(Category).order_by(Category.created_at.asc()))
         categories = result.scalars().all()
 
-        self.log(f"Found {len(categories)} active Categories")
+        self.log(f"Found {len(categories)} Categories")
 
         duplicates: list[tuple[Category, Category, float]] = []
         processed_ids: set[UUID] = set()

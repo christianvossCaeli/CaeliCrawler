@@ -35,6 +35,19 @@
           <v-window v-model="currentTab">
             <!-- General Tab -->
             <v-window-item value="general">
+              <!-- Info Alert for create mode -->
+              <v-alert
+                v-if="!editMode"
+                type="info"
+                variant="tonal"
+                density="compact"
+                class="mb-4"
+                closable
+              >
+                <template #title>{{ $t('sources.dialog.createInfo.title') }}</template>
+                {{ $t('sources.dialog.createInfo.description') }}
+              </v-alert>
+
               <!-- Name & Source Type -->
               <v-row>
                 <v-col cols="12" md="8">
@@ -141,6 +154,16 @@
                       @click="$emit('show-category-info', formData.category_ids[0])"
                     />
                   </div>
+                  <!-- Warning when no categories selected -->
+                  <v-alert
+                    v-if="formData.category_ids.length === 0"
+                    type="warning"
+                    variant="tonal"
+                    density="compact"
+                    class="mt-3"
+                  >
+                    {{ $t('sources.form.noCategoryWarning') }}
+                  </v-alert>
                 </v-card-text>
               </v-card>
 

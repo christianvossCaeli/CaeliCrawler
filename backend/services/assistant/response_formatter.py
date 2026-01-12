@@ -27,9 +27,9 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.config import settings
 from app.models import Entity, FacetType
-from app.models.llm_usage import LLMProvider, LLMTaskType
+from app.models.llm_usage import LLMTaskType
+from app.models.user_api_credentials import LLMPurpose
 from app.schemas.assistant import (
     SLASH_COMMANDS,
     AssistantContext,
@@ -45,7 +45,7 @@ from app.schemas.assistant import (
     SuggestedAction,
     ViewMode,
 )
-from services.assistant.common import get_openai_client
+from services.llm_client_service import LLMClientService
 from services.assistant.context_builder import (
     build_app_summary_context,
     build_entity_context,
@@ -247,11 +247,12 @@ async def handle_summarize(
 
 
 async def handle_image_analysis(
-    message: str, context: AssistantContext, images: list[dict[str, Any]], language: str = "de"
+    db: AsyncSession, message: str, context: AssistantContext, images: list[dict[str, Any]], language: str = "de"
 ) -> dict[str, Any]:
     """Analyze images using the Vision API.
 
     Args:
+        db: Database session
         message: User's message/question about the image
         context: Application context
         images: List of image dicts with 'content', 'content_type', 'filename'
@@ -260,14 +261,18 @@ async def handle_image_analysis(
     Returns:
         Response dict with analysis results
     """
-    client = get_openai_client()
-    if not client:
+    llm_service = LLMClientService(db)
+    client, config = await llm_service.get_system_client(LLMPurpose.ASSISTANT)
+    if not client or not config:
         return {
             "success": False,
             "response": ErrorResponseData(
-                message="KI-Service nicht verfügbar. Bitte Azure OpenAI konfigurieren.", error_code="ai_not_configured"
+                message="KI-Service nicht verfügbar. Bitte LLM in Admin-Einstellungen konfigurieren.", error_code="ai_not_configured"
             ),
         }
+
+    model_name = llm_service.get_model_name(config)
+    provider = llm_service.get_provider(config)
 
     try:
         # Build content array
@@ -311,8 +316,8 @@ async def handle_image_analysis(
 
         # Make API call
         start_time = time.time()
-        response = client.chat.completions.create(
-            model=settings.azure_openai_deployment_name,
+        response = await client.chat.completions.create(
+            model=model_name,
             messages=[{"role": "system", "content": system_instruction}, {"role": "user", "content": content}],
             temperature=0.3,
             max_tokens=2000,
@@ -320,8 +325,8 @@ async def handle_image_analysis(
 
         if response.usage:
             await record_llm_usage(
-                provider=LLMProvider.AZURE_OPENAI,
-                model=settings.azure_openai_deployment_name,
+                provider=provider,
+                model=model_name,
                 task_type=LLMTaskType.CHAT,
                 task_name="handle_image_analysis",
                 prompt_tokens=response.usage.prompt_tokens,
@@ -365,11 +370,12 @@ async def handle_image_analysis(
 
 
 async def handle_discussion(
-    message: str, context: AssistantContext, intent_data: dict[str, Any]
+    db: AsyncSession, message: str, context: AssistantContext, intent_data: dict[str, Any]
 ) -> tuple[AssistantResponseData, list[SuggestedAction]]:
     """Handle discussion, document analysis, or general conversation.
 
     Args:
+        db: Database session
         message: User message
         context: Application context
         intent_data: Extracted intent data
@@ -377,11 +383,15 @@ async def handle_discussion(
     Returns:
         Tuple of (DiscussionResponse, suggested_actions)
     """
-    client = get_openai_client()
-    if not client:
+    llm_service = LLMClientService(db)
+    client, config = await llm_service.get_system_client(LLMPurpose.ASSISTANT)
+    if not client or not config:
         return ErrorResponseData(
             message="KI-Service nicht verfügbar für Diskussionen.", error_code="ai_not_available"
         ), []
+
+    model_name = llm_service.get_model_name(config)
+    provider = llm_service.get_provider(config)
 
     # Build context for AI
     app_context = f"""
@@ -405,8 +415,8 @@ erkläre was bereits existiert und was noch implementiert werden müsste.
 
     try:
         start_time = time.time()
-        response = client.chat.completions.create(
-            model=settings.azure_openai_deployment_name,
+        response = await client.chat.completions.create(
+            model=model_name,
             messages=[{"role": "system", "content": app_context}, {"role": "user", "content": message}],
             temperature=0.7,
             max_tokens=2000,
@@ -414,8 +424,8 @@ erkläre was bereits existiert und was noch implementiert werden müsste.
 
         if response.usage:
             await record_llm_usage(
-                provider=LLMProvider.AZURE_OPENAI,
-                model=settings.azure_openai_deployment_name,
+                provider=provider,
+                model=model_name,
                 task_type=LLMTaskType.CHAT,
                 task_name="handle_discussion",
                 prompt_tokens=response.usage.prompt_tokens,

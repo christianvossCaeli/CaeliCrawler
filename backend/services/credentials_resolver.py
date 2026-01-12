@@ -174,6 +174,61 @@ async def get_anthropic_config(
     return await get_user_credentials(session, user_id, ApiCredentialType.ANTHROPIC)
 
 
+async def ensure_search_credential_from_purpose(
+    session: AsyncSession,
+    user_id: UUID,
+    provider: LLMProvider,
+) -> str | None:
+    """Ensure legacy search credentials exist for WEB_SEARCH purpose config.
+
+    Returns the migrated API key if copied, otherwise None.
+    """
+    if provider not in (LLMProvider.SERPAPI, LLMProvider.SERPER):
+        return None
+
+    result = await session.execute(
+        select(UserApiCredentials).where(
+            UserApiCredentials.user_id == user_id,
+            UserApiCredentials.credential_type == provider,
+        )
+    )
+    existing = result.scalar_one_or_none()
+    if existing and existing.is_active:
+        return None
+
+    config = await get_config_for_purpose(session, user_id, LLMPurpose.WEB_SEARCH)
+    if not config or config["provider"] != provider:
+        return None
+
+    api_key = config.get("credentials", {}).get("api_key")
+    if not api_key:
+        return None
+
+    encrypted = EncryptionService.encrypt({"api_key": api_key})
+
+    if existing:
+        existing.encrypted_data = encrypted
+        existing.is_active = True
+        existing.last_error = None
+    else:
+        session.add(
+            UserApiCredentials(
+                user_id=user_id,
+                credential_type=provider,
+                encrypted_data=encrypted,
+                is_active=True,
+            )
+        )
+
+    await session.commit()
+    logger.info(
+        "search_credentials_migrated",
+        user_id=str(user_id),
+        provider=provider.value,
+    )
+    return api_key
+
+
 async def get_search_api_config(
     session: AsyncSession,
     user_id: UUID,
@@ -187,14 +242,14 @@ async def get_search_api_config(
         or None if no search API is configured
     """
     # Try SerpAPI first (preferred)
-    serpapi = await get_user_credentials(session, user_id, ApiCredentialType.SERPAPI)
-    if serpapi and serpapi.get("api_key"):
-        return ("serpapi", serpapi["api_key"])
+    serpapi_key = await get_serpapi_key(session, user_id)
+    if serpapi_key:
+        return ("serpapi", serpapi_key)
 
     # Fall back to Serper
-    serper = await get_user_credentials(session, user_id, ApiCredentialType.SERPER)
-    if serper and serper.get("api_key"):
-        return ("serper", serper["api_key"])
+    serper_key = await get_serper_key(session, user_id)
+    if serper_key:
+        return ("serper", serper_key)
 
     return None
 
@@ -209,7 +264,14 @@ async def get_serpapi_key(
         API key string or None if not configured
     """
     creds = await get_user_credentials(session, user_id, ApiCredentialType.SERPAPI)
-    return creds.get("api_key") if creds else None
+    if creds and creds.get("api_key"):
+        return creds["api_key"]
+
+    migrated_key = await ensure_search_credential_from_purpose(session, user_id, LLMProvider.SERPAPI)
+    if migrated_key:
+        return migrated_key
+
+    return None
 
 
 async def get_serper_key(
@@ -222,7 +284,14 @@ async def get_serper_key(
         API key string or None if not configured
     """
     creds = await get_user_credentials(session, user_id, ApiCredentialType.SERPER)
-    return creds.get("api_key") if creds else None
+    if creds and creds.get("api_key"):
+        return creds["api_key"]
+
+    migrated_key = await ensure_search_credential_from_purpose(session, user_id, LLMProvider.SERPER)
+    if migrated_key:
+        return migrated_key
+
+    return None
 
 
 async def update_credential_usage(
@@ -619,21 +688,10 @@ async def get_search_config_for_purpose(
 ) -> tuple[str, str] | None:
     """Get search API configuration (for WEB_SEARCH purpose).
 
-    Tries purpose-based config first, then falls back to legacy.
+    Uses SerpAPI as primary and Serper as fallback across both systems.
 
     Returns:
         Tuple of (api_type, api_key) where api_type is "serpapi" or "serper",
         or None if no search API is configured
     """
-    # Try new purpose-based config for WEB_SEARCH
-    config = await get_config_for_purpose(session, user_id, LLMPurpose.WEB_SEARCH)
-    if config:
-        provider = config["provider"]
-        creds = config["credentials"]
-        if provider == LLMProvider.SERPAPI:
-            return ("serpapi", creds.get("api_key"))
-        elif provider == LLMProvider.SERPER:
-            return ("serper", creds.get("api_key"))
-
-    # Fall back to legacy
     return await get_search_api_config(session, user_id)

@@ -23,11 +23,13 @@ import type {
   DataSourcesTabState,
   CrawlerFilter,
   SnackbarState,
+  OperationResult,
 } from '@/types/category'
 import {
   DEFAULT_DATA_SOURCES_TAB_STATE,
   DEFAULT_CRAWLER_FILTER,
   DEFAULT_SNACKBAR_STATE,
+  NO_OP_RESULT,
 } from '@/types/category'
 
 const logger = useLogger('useCategoriesView')
@@ -40,6 +42,7 @@ export type {
   DataSourcesTabState,
   CrawlerFilter,
   SnackbarState,
+  OperationResult,
 }
 
 /**
@@ -380,8 +383,10 @@ export function useCategoryCrawler() {
     updateCrawlerFilteredCount()
   }
 
-  const startFilteredCrawl = async () => {
-    if (!selectedCategoryForCrawler.value) return false
+  const startFilteredCrawl = async (): Promise<OperationResult> => {
+    if (!selectedCategoryForCrawler.value) {
+      return { success: false, message: t('categories.crawler.noCategorySelected') }
+    }
 
     startingCrawler.value = true
     try {
@@ -400,6 +405,7 @@ export function useCategoryCrawler() {
 
       return {
         success: true,
+        count: crawlerFilteredCount.value,
         message: t('categories.crawler.started', { count: crawlerFilteredCount.value }),
       }
     } catch (error) {
@@ -477,8 +483,8 @@ export function useCategoryDataSources() {
     }
   }
 
-  const assignSourcesByTags = async (categoryId: string) => {
-    if (!dataSourcesTab.value.selectedTags.length) return null
+  const assignSourcesByTags = async (categoryId: string): Promise<OperationResult> => {
+    if (!dataSourcesTab.value.selectedTags.length) return NO_OP_RESULT
 
     dataSourcesTab.value.assigning = true
     try {
@@ -507,12 +513,189 @@ export function useCategoryDataSources() {
 
   const resetDataSourcesTab = () => {
     dataSourcesTab.value = {
-      selectedTags: [],
-      matchMode: 'all',
-      foundSources: [],
-      loading: false,
-      assigning: false,
+      ...DEFAULT_DATA_SOURCES_TAB_STATE,
       availableTags: dataSourcesTab.value.availableTags,
+    }
+  }
+
+  // === Pending Sources (for Create mode) ===
+
+  const addPendingSource = (sourceId: string) => {
+    if (!dataSourcesTab.value.pendingSourceIds.includes(sourceId)) {
+      dataSourcesTab.value.pendingSourceIds.push(sourceId)
+    }
+  }
+
+  const removePendingSource = (sourceId: string) => {
+    const index = dataSourcesTab.value.pendingSourceIds.indexOf(sourceId)
+    if (index > -1) {
+      dataSourcesTab.value.pendingSourceIds.splice(index, 1)
+    }
+  }
+
+  const clearPendingSources = () => {
+    dataSourcesTab.value.pendingSourceIds = []
+  }
+
+  const assignPendingSources = async (categoryId: string): Promise<OperationResult> => {
+    const pendingIds = dataSourcesTab.value.pendingSourceIds
+    if (pendingIds.length === 0) return NO_OP_RESULT
+
+    try {
+      const response = await categoryApi.assignSourcesById(categoryId, {
+        source_ids: pendingIds,
+      })
+      clearPendingSources()
+      return {
+        success: true,
+        count: response.data.assigned || pendingIds.length,
+        message: t('categories.dataSourcesTab.assignSuccess', { count: response.data.assigned || pendingIds.length }),
+      }
+    } catch (error) {
+      logger.error('Failed to assign pending sources:', error)
+      return {
+        success: false,
+        message: t('categories.dataSourcesTab.assignError'),
+      }
+    }
+  }
+
+  // === Direct Source Search ===
+
+  const searchSourcesDirect = async (query: string, _excludeCategoryId?: string) => {
+    if (!query || query.length < 2) {
+      dataSourcesTab.value.sourceSearchResults = []
+      return
+    }
+
+    dataSourcesTab.value.searchingDirectSources = true
+    try {
+      const response = await adminApi.getSources({
+        search: query,
+        per_page: 20,
+      })
+      // Mark already assigned sources
+      const assignedIds = new Set(dataSourcesTab.value.assignedSources.map((s) => s.id))
+      const pendingIds = new Set(dataSourcesTab.value.pendingSourceIds)
+      dataSourcesTab.value.sourceSearchResults = response.data.items.map((source: CategorySource) => ({
+        ...source,
+        is_assigned: assignedIds.has(source.id) || pendingIds.has(source.id),
+      }))
+    } catch (error) {
+      logger.error('Failed to search sources:', error)
+      dataSourcesTab.value.sourceSearchResults = []
+    } finally {
+      dataSourcesTab.value.searchingDirectSources = false
+    }
+  }
+
+  const assignDirectSelectedSources = async (categoryId: string, sources: CategorySource[]): Promise<OperationResult> => {
+    const sourceIds = sources.filter((s) => !s.is_assigned).map((s) => s.id)
+    if (sourceIds.length === 0) return NO_OP_RESULT
+
+    dataSourcesTab.value.assigning = true
+    try {
+      const response = await categoryApi.assignSourcesById(categoryId, {
+        source_ids: sourceIds,
+      })
+      dataSourcesTab.value.directSelectedSources = []
+      const count = response.data.assigned || sourceIds.length
+      return {
+        success: true,
+        count,
+        message: t('categories.dataSourcesTab.assignSuccess', { count }),
+      }
+    } catch (error) {
+      logger.error('Failed to assign direct sources:', error)
+      return {
+        success: false,
+        message: t('categories.dataSourcesTab.assignError'),
+      }
+    } finally {
+      dataSourcesTab.value.assigning = false
+    }
+  }
+
+  // === Assigned Sources (for Edit mode) ===
+
+  const loadAssignedSources = async (categoryId: string, options?: {
+    page?: number
+    perPage?: number
+    search?: string
+    tags?: string[]
+  }) => {
+    dataSourcesTab.value.assignedSourcesLoading = true
+    try {
+      const response = await categoryApi.getCategorySources(categoryId, {
+        page: options?.page || dataSourcesTab.value.assignedSourcesPage,
+        per_page: options?.perPage || dataSourcesTab.value.assignedSourcesPerPage,
+        search: options?.search ?? dataSourcesTab.value.assignedSourcesSearch,
+        tags: options?.tags ?? dataSourcesTab.value.assignedSourcesTagFilter,
+      })
+      dataSourcesTab.value.assignedSources = response.data.items || []
+      dataSourcesTab.value.assignedSourcesTotal = response.data.total || 0
+      if (options?.page) dataSourcesTab.value.assignedSourcesPage = options.page
+      if (options?.perPage) dataSourcesTab.value.assignedSourcesPerPage = options.perPage
+      if (options?.search !== undefined) dataSourcesTab.value.assignedSourcesSearch = options.search
+      if (options?.tags) dataSourcesTab.value.assignedSourcesTagFilter = options.tags
+    } catch (error) {
+      logger.error('Failed to load assigned sources:', error)
+      dataSourcesTab.value.assignedSources = []
+      dataSourcesTab.value.assignedSourcesTotal = 0
+    } finally {
+      dataSourcesTab.value.assignedSourcesLoading = false
+    }
+  }
+
+  const loadAvailableTagsInAssigned = async (categoryId: string) => {
+    try {
+      const response = await categoryApi.getCategorySourcesTags(categoryId)
+      dataSourcesTab.value.availableTagsInAssigned = response.data.tags || []
+    } catch (error) {
+      logger.error('Failed to load available tags in assigned:', error)
+      dataSourcesTab.value.availableTagsInAssigned = []
+    }
+  }
+
+  const unassignSource = async (categoryId: string, sourceId: string): Promise<OperationResult> => {
+    try {
+      await categoryApi.unassignSource(categoryId, sourceId)
+      // Reload the list
+      await loadAssignedSources(categoryId)
+      return {
+        success: true,
+        count: 1,
+        message: t('categories.dataSourcesTab.unassignSuccess'),
+      }
+    } catch (error) {
+      logger.error('Failed to unassign source:', error)
+      return {
+        success: false,
+        message: t('categories.dataSourcesTab.unassignError'),
+      }
+    }
+  }
+
+  const unassignSourcesBulk = async (categoryId: string, sourceIds: string[]): Promise<OperationResult> => {
+    if (sourceIds.length === 0) return NO_OP_RESULT
+
+    try {
+      const response = await categoryApi.unassignSourcesBulk(categoryId, {
+        source_ids: sourceIds,
+      })
+      // Reload the list
+      await loadAssignedSources(categoryId)
+      return {
+        success: true,
+        count: response.data.removed,
+        message: t('categories.dataSourcesTab.bulkUnassignSuccess', { count: response.data.removed }),
+      }
+    } catch (error) {
+      logger.error('Failed to bulk unassign sources:', error)
+      return {
+        success: false,
+        message: t('categories.dataSourcesTab.bulkUnassignError'),
+      }
     }
   }
 
@@ -522,5 +705,18 @@ export function useCategoryDataSources() {
     searchSourcesByTags,
     assignSourcesByTags,
     resetDataSourcesTab,
+    // Pending sources
+    addPendingSource,
+    removePendingSource,
+    clearPendingSources,
+    assignPendingSources,
+    // Direct source search
+    searchSourcesDirect,
+    assignDirectSelectedSources,
+    // Assigned sources
+    loadAssignedSources,
+    loadAvailableTagsInAssigned,
+    unassignSource,
+    unassignSourcesBulk,
   }
 }

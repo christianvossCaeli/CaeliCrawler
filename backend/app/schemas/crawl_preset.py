@@ -1,25 +1,26 @@
 """Crawl Preset schemas for API validation."""
 
 from datetime import datetime
-from enum import Enum
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 
-class PresetStatus(str, Enum):
-    """Status of a crawl preset."""
-
-    ACTIVE = "ACTIVE"
-    ARCHIVED = "ARCHIVED"
-
-
 class CrawlPresetFilters(BaseModel):
     """Filter configuration for a crawl preset."""
 
-    # Category filter
-    category_id: UUID | None = Field(None, description="Filter by specific category")
+    # Category filter (required - defines what analysis topic to use)
+    category_id: UUID = Field(..., description="Category/analysis topic for the crawl (required)")
+
+    # Entity-based selection (NEW)
+    entity_ids: list[UUID] | None = Field(
+        None, description="Explicit entity IDs to crawl sources for (fixed selection)"
+    )
+    entity_selection_mode: Literal["fixed", "dynamic"] | None = Field(
+        None,
+        description="Selection mode: 'fixed' stores entity IDs, 'dynamic' uses entity_filters at runtime",
+    )
 
     # Tag-based filters
     tags: list[str] | None = Field(None, description="Filter by tags (e.g., ['nrw', 'bayern'])")
@@ -48,7 +49,7 @@ class CrawlPresetCreate(BaseModel):
 
     name: str = Field(..., min_length=1, max_length=255, description="User-defined name for the preset")
     description: str | None = Field(None, max_length=2000, description="Optional description")
-    filters: CrawlPresetFilters = Field(default_factory=CrawlPresetFilters)
+    filters: CrawlPresetFilters = Field(..., description="Filter configuration (category_id required)")
 
     # Scheduling options
     schedule_cron: str | None = Field(
@@ -68,7 +69,6 @@ class CrawlPresetUpdate(BaseModel):
     schedule_cron: str | None = Field(None, max_length=100)
     schedule_enabled: bool | None = None
     is_favorite: bool | None = None
-    status: PresetStatus | None = None
 
 
 class CrawlPresetResponse(BaseModel):
@@ -93,7 +93,6 @@ class CrawlPresetResponse(BaseModel):
 
     # Meta
     is_favorite: bool
-    status: PresetStatus
 
     # Timestamps
     created_at: datetime
@@ -129,7 +128,7 @@ class CrawlPresetExecuteRequest(BaseModel):
 class CrawlPresetExecuteResponse(BaseModel):
     """Response from executing a crawl preset."""
 
-    preset_id: UUID
+    preset_id: UUID | None = Field(None, description="Preset ID if executed from preset or newly created")
     jobs_created: int
     job_ids: list[UUID]
     sources_matched: int
@@ -141,7 +140,7 @@ class CrawlPresetFromFiltersRequest(BaseModel):
 
     name: str = Field(..., min_length=1, max_length=255)
     description: str | None = Field(None, max_length=2000)
-    filters: CrawlPresetFilters
+    filters: CrawlPresetFilters = Field(..., description="Filter configuration (category_id required)")
     schedule_cron: str | None = None
     schedule_enabled: bool = False
 
@@ -162,3 +161,42 @@ SCHEDULE_PRESETS: list[CrawlPresetSchedulePreset] = [
     CrawlPresetSchedulePreset(label="monthly", cron="0 0 1 * *", description="Monthly on the 1st at midnight"),
     CrawlPresetSchedulePreset(label="every_6_hours", cron="0 */6 * * *", description="Every 6 hours"),
 ]
+
+
+# Entity-based crawl schemas
+class EntitySourcePreviewItem(BaseModel):
+    """Single source item in entity crawl preview."""
+
+    id: str
+    name: str
+    url: str
+
+
+class EntityCrawlRequest(BaseModel):
+    """Request to start a crawl for selected entities."""
+
+    entity_ids: list[UUID] = Field(..., min_length=1, description="List of entity IDs to crawl sources for")
+    category_id: UUID = Field(..., description="Category/analysis topic for the crawl")
+    save_as_preset: bool = Field(default=False, description="Whether to save the selection as a preset")
+    preset_name: str | None = Field(None, max_length=255, description="Name for the preset (required if save_as_preset)")
+    selection_mode: Literal["fixed", "dynamic"] = Field(
+        default="fixed", description="How to store the selection: 'fixed' saves IDs, 'dynamic' saves filters"
+    )
+    force: bool = Field(default=False, description="Force crawl even if recently crawled")
+
+
+class EntityCrawlPreviewRequest(BaseModel):
+    """Request to preview sources for entity selection."""
+
+    entity_ids: list[UUID] = Field(..., min_length=1, description="List of entity IDs")
+    category_id: UUID | None = Field(None, description="Optional category filter")
+
+
+class EntityCrawlPreviewResponse(BaseModel):
+    """Response for entity crawl preview."""
+
+    entity_count: int = Field(description="Number of entities in selection")
+    sources_count: int = Field(description="Number of DataSources found for entities")
+    sources_preview: list[EntitySourcePreviewItem] = Field(description="Preview of matching sources (limited)")
+    entities_without_sources: int = Field(description="Number of entities with no associated sources")
+    has_more: bool = Field(description="Whether there are more sources than shown")

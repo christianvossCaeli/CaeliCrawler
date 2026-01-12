@@ -10,14 +10,13 @@ Das Assistant Service Modul ist ein KI-gestützter Chat-Assistent für die Caeli
 Gemeinsame Utilities und Client-Initialisierung
 
 **Exports:**
-- `get_openai_client()` - Azure OpenAI Client Factory
 - `validate_entity_context()` - Entity ID Validierung
 - `build_suggestions_list()` - Smart Suggestions Builder
 - `format_count_message()` - Count Message Formatter
 - `get_entity_with_context()` - Entity Context Loader
 - Custom Exceptions: `EntityNotFoundException`, `AIServiceNotAvailableException`
 
-**Zweck:** Zentralisiert die Azure OpenAI Client-Verwaltung und bietet wiederverwendbare Utility-Funktionen für Entity-Validierung und Suggestion-Building.
+**Zweck:** Bietet wiederverwendbare Utility-Funktionen für Entity-Validierung und Suggestion-Building. LLM-Clients werden über `LLMClientService` bezogen (zentrale Credentials aus der Datenbank).
 
 ### 2. `context_builder.py` (305 LOC, 8.1K)
 Kontext-Building und Entity-Daten-Sammlung

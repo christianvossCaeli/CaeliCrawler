@@ -10,7 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user
 from app.database import get_session
+from app.models.audit_log import AuditAction
 from app.models.user import User, UserRole
+from app.services.audit_service import create_audit_log
 from app.schemas.llm_budget import (
     LimitIncreaseRequestCreate,
     LimitIncreaseRequestResponse,
@@ -62,6 +64,16 @@ async def request_limit_increase(
 
     try:
         request = await service.create_limit_request(current_user.id, data)
+
+        await create_audit_log(
+            session=session,
+            action=AuditAction.CREATE,
+            entity_type="LimitIncreaseRequest",
+            entity_id=request.id,
+            entity_name=f"limit request by {current_user.email}",
+            user=current_user,
+        )
+
         await session.commit()
         return request
     except ValueError as e:
@@ -119,6 +131,16 @@ async def update_own_limit(
             user_id=current_user.id,
             new_limit_cents=data.new_limit_cents,
         )
+
+        await create_audit_log(
+            session=session,
+            action=AuditAction.CONFIG_UPDATE,
+            entity_type="UserBudget",
+            entity_id=current_user.id,
+            entity_name=f"admin self-limit update to {data.new_limit_cents} cents",
+            user=current_user,
+        )
+
         await session.commit()
         return result
     except ValueError as e:

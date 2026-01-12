@@ -102,6 +102,8 @@ class FacetValueResponse(FacetValueBase):
     target_entity_name: str | None = Field(None, description="Referenced entity name")
     target_entity_slug: str | None = Field(None, description="Referenced entity slug")
     target_entity_type_slug: str | None = Field(None, description="Referenced entity type slug")
+    target_entity_type_icon: str | None = Field(None, description="Referenced entity type icon")
+    target_entity_type_color: str | None = Field(None, description="Referenced entity type color")
 
     model_config = {"from_attributes": True}
 

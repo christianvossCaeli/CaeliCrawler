@@ -210,9 +210,10 @@ def extract_core_entity_name(name: str, country: str = "DE") -> str:
     - Regions: "Oberfranken-West (Region 4), Bayern" -> "Oberfranken-West"
 
     The function removes:
-    1. Parenthetical content at the end: "X (Y)" -> "X"
-    2. Trailing comma-separated qualifiers: "X, Y" -> "X"
-    3. Content after trailing colon with short text: "X: Y" -> "X" (only if Y is short)
+    1. Slash-separated qualifiers: "X / Y" -> "X"
+    2. Parenthetical content at the end: "X (Y)" -> "X"
+    3. Trailing comma-separated qualifiers: "X, Y" -> "X"
+    4. Content after trailing colon with short text: "X: Y" -> "X" (only if Y is short)
 
     It does NOT remove:
     - Important prefixes that are part of the name (FC, The, etc.)
@@ -237,18 +238,34 @@ def extract_core_entity_name(name: str, country: str = "DE") -> str:
         'Apple Inc.'
         >>> extract_core_entity_name("The Witcher 3, Game of the Year Edition")
         'The Witcher 3'
+        >>> extract_core_entity_name("Metropole Ruhr / Nordrhein-Westfalen")
+        'Metropole Ruhr'
+        >>> extract_core_entity_name("Region Ruhr / Regionalverband Ruhr (RVR)")
+        'Region Ruhr'
     """
     result = name.strip()
     original = result
 
-    # 1. Remove parenthetical content at the end (most common pattern)
+    # 1. Remove slash-separated qualifiers (only when surrounded by spaces)
+    # Handles: "X / Y" patterns (common in German administrative names)
+    # E.g., "Metropole Ruhr / Nordrhein-Westfalen" -> "Metropole Ruhr"
+    # E.g., "Region Ruhr / Regionalverband Ruhr (RVR)" -> "Region Ruhr"
+    # Does NOT match: "Fröndenberg/Ruhr" (no spaces around slash = part of name)
+    slash_match = re.match(r"^(.+?)\s+/\s+(.+)$", result)
+    if slash_match:
+        before_slash = slash_match.group(1).strip()
+        # Only strip if the part before slash is substantial (>= 3 chars)
+        if len(before_slash) >= 3:
+            result = before_slash
+
+    # 2. Remove parenthetical content at the end (most common pattern)
     # Handles: "X (Y)" and "X (Y), Z" patterns
     # E.g., "München (Bayern)" -> "München"
     # E.g., "Region 4 (Oberfranken), Bayern" -> "Region 4"
     result = re.sub(r"\s*\([^)]*\)(?:\s*,\s*[^,]+)?$", "", result)
     result = result.strip()
 
-    # 2. Remove trailing comma-separated qualifier (if what remains is substantial)
+    # 3. Remove trailing comma-separated qualifier (if what remains is substantial)
     # Handles: "X, Y" where Y looks like a qualifier (capitalized word(s))
     # E.g., "München, Bayern" -> "München"
     # E.g., "The Witcher 3, Game of the Year Edition" -> "The Witcher 3"
@@ -263,7 +280,7 @@ def extract_core_entity_name(name: str, country: str = "DE") -> str:
         if len(before_comma) >= 3 and (after_comma[0].isupper() or len(after_comma) <= 20):
             result = before_comma
 
-    # 3. If we stripped too much (result too short), restore original
+    # 4. If we stripped too much (result too short), restore original
     if len(result) < 2:
         result = original
 

@@ -30,20 +30,18 @@
       </template>
     </PageHeader>
 
-    <!-- Error Alert -->
+    <!-- Consolidated Status Banner -->
     <v-alert
       v-if="store.error"
       type="error"
       variant="tonal"
+      density="compact"
       class="mb-4"
       closable
       @click:close="store.error = null"
     >
       <div class="d-flex align-center justify-space-between">
-        <div>
-          <v-icon start>mdi-alert-circle</v-icon>
-          {{ store.error }}
-        </div>
+        <span>{{ store.error }}</span>
         <v-btn variant="text" size="small" @click="refresh">
           <v-icon start size="small">mdi-refresh</v-icon>
           {{ t('common.retry') }}
@@ -51,68 +49,67 @@
       </div>
     </v-alert>
 
-    <!-- Budget Warnings -->
-    <v-alert
-      v-if="store.hasCritical"
-      type="error"
-      variant="tonal"
-      class="mb-4"
-      closable
+    <!-- Budget Warning Banner (compact) -->
+    <v-banner
+      v-if="store.hasCritical || store.hasWarnings"
+      :color="store.hasCritical ? 'error' : 'warning'"
+      density="compact"
+      class="mb-4 rounded"
+      lines="one"
     >
-      <v-icon start>mdi-alert-circle</v-icon>
-      {{ t('admin.llmUsage.budget.criticalWarning') }}
-    </v-alert>
-    <v-alert
-      v-else-if="store.hasWarnings"
-      type="warning"
-      variant="tonal"
-      class="mb-4"
-      closable
-    >
-      <v-icon start>mdi-alert</v-icon>
-      {{ t('admin.llmUsage.budget.warningAlert') }}
-    </v-alert>
+      <template #prepend>
+        <v-icon>{{ store.hasCritical ? 'mdi-alert-circle' : 'mdi-alert' }}</v-icon>
+      </template>
+      <span class="text-body-2">
+        {{ store.hasCritical ? t('admin.llmUsage.budget.criticalWarning') : t('admin.llmUsage.budget.warningAlert') }}
+      </span>
+      <template #actions>
+        <v-btn variant="text" size="small" @click="activeTab = 'budgets'">
+          {{ t('admin.llmUsage.budget.viewBudgets') }}
+        </v-btn>
+      </template>
+    </v-banner>
 
     <!-- Summary Cards -->
     <v-row class="mb-4">
-      <v-col cols="12" sm="6" md="3">
-        <v-card>
-          <v-card-text class="text-center">
-            <v-icon size="32" color="primary" class="mb-2">mdi-counter</v-icon>
-            <div class="text-h4">{{ formatNumber(store.totalRequests) }}</div>
+      <v-col cols="6" sm="6" md="3">
+        <v-card variant="outlined">
+          <v-card-text class="text-center pa-3">
+            <v-icon size="28" color="primary" class="mb-1">mdi-counter</v-icon>
+            <div class="text-h5 font-weight-bold">{{ formatNumber(store.totalRequests) }}</div>
             <div class="text-caption text-medium-emphasis">
               {{ t('admin.llmUsage.stats.requests') }}
             </div>
           </v-card-text>
         </v-card>
       </v-col>
-      <v-col cols="12" sm="6" md="3">
-        <v-card>
-          <v-card-text class="text-center">
-            <v-icon size="32" color="info" class="mb-2">mdi-text-box-multiple</v-icon>
-            <div class="text-h4">{{ formatTokens(store.totalTokens) }}</div>
+      <v-col cols="6" sm="6" md="3">
+        <v-card variant="outlined">
+          <v-card-text class="text-center pa-3">
+            <v-icon size="28" color="info" class="mb-1">mdi-text-box-multiple</v-icon>
+            <div class="text-h5 font-weight-bold">{{ formatTokens(store.totalTokens) }}</div>
             <div class="text-caption text-medium-emphasis">
               {{ t('admin.llmUsage.stats.tokens') }}
             </div>
           </v-card-text>
         </v-card>
       </v-col>
-      <v-col cols="12" sm="6" md="3">
-        <v-card>
-          <v-card-text class="text-center">
-            <v-icon size="32" color="success" class="mb-2">mdi-currency-usd</v-icon>
-            <div class="text-h4">{{ formatCost(store.totalCostCents) }}</div>
+      <v-col cols="6" sm="6" md="3">
+        <v-card variant="outlined" :class="{ 'border-error': store.hasCritical }">
+          <v-card-text class="text-center pa-3">
+            <v-icon size="28" color="success" class="mb-1">mdi-currency-usd</v-icon>
+            <div class="text-h5 font-weight-bold">{{ formatCurrency(store.totalCostCents) }}</div>
             <div class="text-caption text-medium-emphasis">
               {{ t('admin.llmUsage.stats.cost') }}
             </div>
           </v-card-text>
         </v-card>
       </v-col>
-      <v-col cols="12" sm="6" md="3">
-        <v-card>
-          <v-card-text class="text-center">
-            <v-icon size="32" color="warning" class="mb-2">mdi-chart-line</v-icon>
-            <div class="text-h4">{{ formatCost(store.projectedCostCents) }}</div>
+      <v-col cols="6" sm="6" md="3">
+        <v-card variant="outlined">
+          <v-card-text class="text-center pa-3">
+            <v-icon size="28" color="warning" class="mb-1">mdi-chart-line</v-icon>
+            <div class="text-h5 font-weight-bold">{{ formatCurrency(store.projectedCostCents) }}</div>
             <div class="text-caption text-medium-emphasis">
               {{ t('admin.llmUsage.stats.projected') }}
             </div>
@@ -121,385 +118,372 @@
       </v-col>
     </v-row>
 
-    <!-- Filters -->
-    <v-card class="mb-4">
-      <v-card-text>
-        <v-row align="center">
-          <v-col cols="12" sm="6" md="3">
-            <v-select
-              v-model="selectedPeriod"
-              :label="t('admin.llmUsage.filters.period')"
-              :items="periodOptions"
-              hide-details
-              @update:model-value="onFilterChange"
-            />
-          </v-col>
-          <v-col cols="12" sm="6" md="3">
-            <v-select
-              v-model="selectedProvider"
-              :label="t('admin.llmUsage.filters.provider')"
-              :items="providerOptions"
-              clearable
-              hide-details
-              @update:model-value="onFilterChange"
-            />
-          </v-col>
-          <v-col cols="12" sm="6" md="3">
-            <v-select
-              v-model="selectedTaskType"
-              :label="t('admin.llmUsage.filters.taskType')"
-              :items="taskTypeOptions"
-              clearable
-              hide-details
-              @update:model-value="onFilterChange"
-            />
-          </v-col>
-          <v-col cols="12" sm="6" md="3">
-            <v-btn
-              variant="text"
-              color="primary"
-              @click="clearFilters"
-            >
-              <v-icon start>mdi-filter-off</v-icon>
-              {{ t('admin.llmUsage.filters.clear') }}
-            </v-btn>
-          </v-col>
-        </v-row>
-      </v-card-text>
-    </v-card>
-
-    <!-- Charts Row -->
-    <v-row class="mb-4">
-      <v-col cols="12" md="8">
-        <v-card>
-          <v-card-title>
-            <v-icon start>mdi-chart-timeline-variant</v-icon>
-            {{ t('admin.llmUsage.charts.trend') }}
-          </v-card-title>
-          <v-card-text>
-            <UsageTrendChart
-              v-if="store.analytics?.daily_trend"
-              :data="store.analytics.daily_trend"
-            />
-            <div v-else class="text-center pa-4 text-medium-emphasis">
-              {{ t('admin.llmUsage.noData') }}
-            </div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-      <v-col cols="12" md="4">
-        <v-card>
-          <v-card-title>
-            <v-icon start>mdi-chart-pie</v-icon>
-            {{ t('admin.llmUsage.charts.byModel') }}
-          </v-card-title>
-          <v-card-text>
-            <ModelDistributionChart
-              v-if="store.analytics?.by_model?.length"
-              :data="store.analytics.by_model"
-            />
-            <div v-else class="text-center pa-4 text-medium-emphasis">
-              {{ t('admin.llmUsage.noData') }}
-            </div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-    </v-row>
-
-    <!-- Usage by User -->
-    <v-card class="mb-4">
-      <v-card-title>
-        <v-icon start>mdi-account-group</v-icon>
-        {{ t('admin.llmUsage.tables.byUser') }}
-      </v-card-title>
-      <v-card-subtitle class="pb-2">
-        {{ t('admin.llmUsage.tables.byUserHint') }}
-      </v-card-subtitle>
-      <v-data-table
-        :headers="userHeaders"
-        :items="store.analytics?.by_user || []"
-        :items-per-page="10"
-        density="compact"
-      >
-        <template #item.user_name="{ item }">
-          <div class="d-flex align-center">
-            <v-avatar size="28" color="primary" class="mr-2">
-              <span class="text-caption">{{ getUserInitials(item) }}</span>
-            </v-avatar>
-            <div>
-              <div class="font-weight-medium">
-                {{ item.user_name || t('admin.llmUsage.systemUser') }}
-              </div>
-              <div class="text-caption text-medium-emphasis">
-                {{ item.user_email || '-' }}
-              </div>
-            </div>
-          </div>
-        </template>
-        <template #item.total_tokens="{ item }">
-          <div>
-            <div>{{ formatTokens(item.total_tokens) }}</div>
-            <div class="text-caption text-medium-emphasis">
-              ↑{{ formatTokens(item.prompt_tokens) }} / ↓{{ formatTokens(item.completion_tokens) }}
-            </div>
-          </div>
-        </template>
-        <template #item.cost_cents="{ item }">
-          <span class="font-weight-medium">{{ formatCost(item.cost_cents) }}</span>
-        </template>
-        <template #item.models_used="{ item }">
-          <div class="d-flex flex-wrap ga-1">
-            <v-chip
-              v-for="model in item.models_used.slice(0, 3)"
-              :key="model"
-              size="x-small"
-              label
-            >
-              {{ model }}
-            </v-chip>
-            <v-chip v-if="item.models_used.length > 3" size="x-small" variant="text">
-              +{{ item.models_used.length - 3 }}
-            </v-chip>
-          </div>
-        </template>
-        <template #item.has_credentials="{ item }">
-          <v-tooltip :text="item.has_credentials ? t('admin.llmUsage.hasCredentials') : t('admin.llmUsage.noCredentials')">
-            <template #activator="{ props: tooltipProps }">
-              <v-icon
-                v-bind="tooltipProps"
-                :color="item.has_credentials ? 'success' : 'warning'"
-                size="small"
-              >
-                {{ item.has_credentials ? 'mdi-key-check' : 'mdi-key-remove' }}
-              </v-icon>
-            </template>
-          </v-tooltip>
-        </template>
-        <template #no-data>
-          <div class="text-center py-8">
-            <v-icon size="48" color="grey-lighten-1" class="mb-3">mdi-account-group</v-icon>
-            <p class="text-body-2 text-medium-emphasis">{{ t('admin.llmUsage.noData') }}</p>
-          </div>
-        </template>
-      </v-data-table>
-    </v-card>
-
-    <!-- Tables Row -->
-    <v-row class="mb-4">
-      <v-col cols="12" md="6">
-        <v-card>
-          <v-card-title>
-            <v-icon start>mdi-format-list-bulleted-type</v-icon>
-            {{ t('admin.llmUsage.tables.byTaskType') }}
-          </v-card-title>
-          <v-data-table
-            :headers="taskTypeHeaders"
-            :items="store.analytics?.by_task || []"
-            :items-per-page="5"
-            density="compact"
-          >
-            <template #item.task_type="{ item }">
-              <v-chip size="small" label>{{ getTaskTypeLabel(item.task_type) }}</v-chip>
-            </template>
-            <template #item.total_tokens="{ item }">
-              {{ formatTokens(item.total_tokens) }}
-            </template>
-            <template #item.cost_cents="{ item }">
-              {{ formatCost(item.cost_cents) }}
-            </template>
-            <template #item.avg_duration_ms="{ item }">
-              {{ item.avg_duration_ms?.toFixed(0) || '-' }} ms
-            </template>
-            <template #no-data>
-              <div class="text-center py-8">
-                <v-icon size="48" color="grey-lighten-1" class="mb-3">mdi-format-list-bulleted-type</v-icon>
-                <p class="text-body-2 text-medium-emphasis">{{ t('admin.llmUsage.noData') }}</p>
-              </div>
-            </template>
-          </v-data-table>
-        </v-card>
-      </v-col>
-      <v-col cols="12" md="6">
-        <v-card>
-          <v-card-title>
-            <v-icon start>mdi-folder-multiple</v-icon>
-            {{ t('admin.llmUsage.tables.byCategory') }}
-          </v-card-title>
-          <v-data-table
-            :headers="categoryHeaders"
-            :items="store.analytics?.by_category || []"
-            :items-per-page="5"
-            density="compact"
-          >
-            <template #item.category_name="{ item }">
-              {{ item.category_name || t('admin.llmUsage.uncategorized') }}
-            </template>
-            <template #item.total_tokens="{ item }">
-              {{ formatTokens(item.total_tokens) }}
-            </template>
-            <template #item.cost_cents="{ item }">
-              {{ formatCost(item.cost_cents) }}
-            </template>
-            <template #no-data>
-              <div class="text-center py-8">
-                <v-icon size="48" color="grey-lighten-1" class="mb-3">mdi-folder-multiple</v-icon>
-                <p class="text-body-2 text-medium-emphasis">{{ t('admin.llmUsage.noData') }}</p>
-              </div>
-            </template>
-          </v-data-table>
-        </v-card>
-      </v-col>
-    </v-row>
-
-    <!-- Top Consumers -->
-    <v-card class="mb-4">
-      <v-card-title>
-        <v-icon start>mdi-podium</v-icon>
-        {{ t('admin.llmUsage.tables.topConsumers') }}
-      </v-card-title>
-      <v-data-table
-        :headers="topConsumersHeaders"
-        :items="store.analytics?.top_consumers || []"
-        :items-per-page="10"
-        density="compact"
-      >
-        <template #item.task_type="{ item }">
-          <v-chip size="small" label>{{ getTaskTypeLabel(item.task_type) }}</v-chip>
-        </template>
-        <template #item.total_tokens="{ item }">
-          {{ formatTokens(item.total_tokens) }}
-        </template>
-        <template #item.cost_cents="{ item }">
-          {{ formatCost(item.cost_cents) }}
-        </template>
-        <template #no-data>
-          <div class="text-center py-8">
-            <v-icon size="48" color="grey-lighten-1" class="mb-3">mdi-podium</v-icon>
-            <p class="text-body-2 text-medium-emphasis">{{ t('admin.llmUsage.noData') }}</p>
-          </div>
-        </template>
-      </v-data-table>
-    </v-card>
-
-    <!-- Budget Configuration Section -->
-    <!-- Info Panel -->
-    <v-alert
-      v-if="!budgetInfoHidden"
-      type="info"
-      variant="tonal"
-      density="compact"
-      class="mb-4"
-      closable
-      @click:close="hideBudgetInfo"
-    >
-      <template #prepend>
-        <v-icon>mdi-information-outline</v-icon>
-      </template>
-      <div>
-        <strong>{{ t('admin.llmUsage.budget.info.title') }}</strong>
-        <div class="text-caption mt-1">{{ t('admin.llmUsage.budget.info.overview') }}</div>
-        <div class="text-caption mt-2">
-          <strong>{{ t('admin.llmUsage.budget.info.typesTitle') }}</strong>
-          <ul class="ml-4 mt-1">
-            <li><strong>GLOBAL:</strong> {{ t('admin.llmUsage.budget.info.typeGlobal') }}</li>
-            <li><strong>USER:</strong> {{ t('admin.llmUsage.budget.info.typeUser') }}</li>
-            <li><strong>CATEGORY:</strong> {{ t('admin.llmUsage.budget.info.typeCategory') }}</li>
-            <li><strong>TASK_TYPE:</strong> {{ t('admin.llmUsage.budget.info.typeTaskType') }}</li>
-            <li><strong>MODEL:</strong> {{ t('admin.llmUsage.budget.info.typeModel') }}</li>
-          </ul>
-        </div>
-        <div class="text-caption mt-2">
-          <strong>{{ t('admin.llmUsage.budget.info.blockingTitle') }}</strong>
-          {{ t('admin.llmUsage.budget.info.blockingDescription') }}
-        </div>
-      </div>
-    </v-alert>
-    <v-btn
-      v-else
-      variant="text"
-      size="x-small"
-      color="info"
-      class="mb-2"
-      prepend-icon="mdi-information-outline"
-      @click="showBudgetInfo"
-    >
-      {{ t('admin.llmUsage.budget.info.show') }}
-    </v-btn>
-
+    <!-- Tabs -->
     <v-card>
-      <v-card-title class="d-flex align-center">
-        <v-icon start>mdi-wallet</v-icon>
-        {{ t('admin.llmUsage.budget.title') }}
-        <v-spacer />
-        <v-btn variant="tonal" color="primary" size="small" @click="openBudgetDialog()">
-          <v-icon start>mdi-plus</v-icon>
-          {{ t('admin.llmUsage.budget.add') }}
-        </v-btn>
-      </v-card-title>
-      <v-data-table
-        :headers="budgetHeaders"
-        :items="store.budgetConfigs"
-        :loading="store.isLoadingBudgets"
-        density="compact"
-      >
-        <template #item.budget_type="{ item }">
-          <v-chip size="small" :color="getBudgetTypeColor(item.budget_type)" label>
-            {{ getBudgetTypeLabel(item.budget_type) }}
-          </v-chip>
-        </template>
-        <template #item.monthly_limit_cents="{ item }">
-          {{ formatCost(item.monthly_limit_cents) }}
-        </template>
-        <template #item.is_active="{ item }">
-          <v-icon :color="item.is_active ? 'success' : 'grey'">
-            {{ item.is_active ? 'mdi-check-circle' : 'mdi-circle-outline' }}
-          </v-icon>
-        </template>
-        <template #item.blocks_on_limit="{ item }">
-          <v-tooltip :text="item.blocks_on_limit ? t('admin.llmUsage.budget.blocksOnLimitTooltip') : t('admin.llmUsage.budget.monitorOnlyTooltip')">
-            <template #activator="{ props: tooltipProps }">
-              <v-icon v-bind="tooltipProps" :color="item.blocks_on_limit ? 'error' : 'grey'">
-                {{ item.blocks_on_limit ? 'mdi-shield-lock' : 'mdi-shield-outline' }}
-              </v-icon>
-            </template>
-          </v-tooltip>
-        </template>
-        <template #item.status="{ item }">
-          <BudgetStatusChip :budget-id="item.id" :status="getBudgetStatusById(item.id)" />
-        </template>
-        <template #item.actions="{ item }">
-          <div class="d-flex justify-end ga-1">
-            <v-btn
-              icon="mdi-pencil"
-              size="small"
-              variant="tonal"
-              @click="openBudgetDialog(item)"
-            />
-            <v-btn
-              icon="mdi-delete"
-              size="small"
-              variant="tonal"
-              color="error"
-              @click="confirmDeleteBudget(item)"
-            />
-          </div>
-        </template>
-        <template #no-data>
-          <div class="text-center py-8">
-            <v-icon size="48" color="grey-lighten-1" class="mb-3">mdi-wallet-outline</v-icon>
-            <h3 class="text-h6 mb-2">{{ t('admin.llmUsage.budget.noBudgets') }}</h3>
-            <p class="text-body-2 text-medium-emphasis mb-4">{{ t('admin.llmUsage.budget.noBudgetsHint') }}</p>
-            <v-btn variant="tonal" color="primary" @click="openBudgetDialog()">
-              <v-icon start>mdi-plus</v-icon>
-              {{ t('admin.llmUsage.budget.add') }}
-            </v-btn>
-          </div>
-        </template>
-      </v-data-table>
-    </v-card>
+      <v-tabs v-model="activeTab" color="primary" grow>
+        <v-tab value="budgets">
+          <v-icon start>mdi-wallet</v-icon>
+          {{ t('admin.llmUsage.tabs.budgets') }}
+          <v-badge
+            v-if="store.hasCritical || store.hasWarnings"
+            :color="store.hasCritical ? 'error' : 'warning'"
+            dot
+            inline
+            class="ml-2"
+          />
+        </v-tab>
+        <v-tab value="analytics">
+          <v-icon start>mdi-chart-bar</v-icon>
+          {{ t('admin.llmUsage.tabs.analytics') }}
+        </v-tab>
+      </v-tabs>
 
-    <!-- Limit Requests Panel -->
-    <LimitRequestsPanel class="mt-4" />
+      <v-divider />
+
+      <v-tabs-window v-model="activeTab">
+        <!-- ==================== BUDGETS TAB ==================== -->
+        <v-tabs-window-item value="budgets">
+          <v-card-text>
+            <!-- Budget Info Box (compact) -->
+            <v-alert
+              type="info"
+              variant="tonal"
+              density="compact"
+              class="mb-4"
+            >
+              <div class="d-flex flex-wrap align-center ga-2">
+                <span class="text-body-2">{{ t('admin.llmUsage.budget.infoCompact') }}</span>
+                <v-chip-group>
+                  <v-tooltip v-for="type in budgetTypeInfo" :key="type.value" :text="type.description" location="top">
+                    <template #activator="{ props: tooltipProps }">
+                      <v-chip v-bind="tooltipProps" size="x-small" :color="type.color" label>
+                        {{ type.label }}
+                      </v-chip>
+                    </template>
+                  </v-tooltip>
+                </v-chip-group>
+              </div>
+            </v-alert>
+
+            <!-- Budget Table -->
+            <div class="d-flex align-center justify-space-between mb-3">
+              <h3 class="text-h6">{{ t('admin.llmUsage.budget.title') }}</h3>
+              <v-btn variant="tonal" color="primary" size="small" @click="openBudgetDialog()">
+                <v-icon start>mdi-plus</v-icon>
+                {{ t('admin.llmUsage.budget.add') }}
+              </v-btn>
+            </div>
+
+            <v-data-table
+              :headers="budgetHeaders"
+              :items="store.budgetConfigs"
+              :loading="store.isLoadingBudgets"
+              density="compact"
+              class="mb-6"
+            >
+              <template #item.budget_type="{ item }">
+                <v-chip size="small" :color="getBudgetTypeColor(item.budget_type)" label>
+                  {{ getBudgetTypeLabel(item.budget_type) }}
+                </v-chip>
+              </template>
+              <template #item.monthly_limit_cents="{ item }">
+                {{ formatCurrency(item.monthly_limit_cents) }}
+              </template>
+              <template #item.is_active="{ item }">
+                <v-icon :color="item.is_active ? 'success' : 'grey'" size="small">
+                  {{ item.is_active ? 'mdi-check-circle' : 'mdi-circle-outline' }}
+                </v-icon>
+              </template>
+              <template #item.blocks_on_limit="{ item }">
+                <v-tooltip :text="item.blocks_on_limit ? t('admin.llmUsage.budget.blocksOnLimitTooltip') : t('admin.llmUsage.budget.monitorOnlyTooltip')">
+                  <template #activator="{ props: tooltipProps }">
+                    <v-icon v-bind="tooltipProps" :color="item.blocks_on_limit ? 'error' : 'grey'" size="small">
+                      {{ item.blocks_on_limit ? 'mdi-shield-lock' : 'mdi-shield-outline' }}
+                    </v-icon>
+                  </template>
+                </v-tooltip>
+              </template>
+              <template #item.status="{ item }">
+                <BudgetStatusChip :budget-id="item.id" :status="getBudgetStatusById(item.id)" />
+              </template>
+              <template #item.actions="{ item }">
+                <div class="d-flex justify-end ga-1">
+                  <v-btn icon="mdi-pencil" size="x-small" variant="text" @click="openBudgetDialog(item)" />
+                  <v-btn icon="mdi-delete" size="x-small" variant="text" color="error" @click="confirmDeleteBudget(item)" />
+                </div>
+              </template>
+              <template #no-data>
+                <div class="text-center py-6">
+                  <v-icon size="40" color="grey-lighten-1" class="mb-2">mdi-wallet-outline</v-icon>
+                  <p class="text-body-2 text-medium-emphasis mb-3">{{ t('admin.llmUsage.budget.noBudgets') }}</p>
+                  <v-btn variant="tonal" color="primary" size="small" @click="openBudgetDialog()">
+                    <v-icon start>mdi-plus</v-icon>
+                    {{ t('admin.llmUsage.budget.add') }}
+                  </v-btn>
+                </div>
+              </template>
+            </v-data-table>
+
+            <!-- Limit Requests Section -->
+            <v-divider class="mb-4" />
+            <LimitRequestsPanel />
+          </v-card-text>
+        </v-tabs-window-item>
+
+        <!-- ==================== ANALYTICS TAB ==================== -->
+        <v-tabs-window-item value="analytics">
+          <v-card-text>
+            <!-- Analytics Info Box -->
+            <v-alert
+              type="info"
+              variant="tonal"
+              density="compact"
+              class="mb-4"
+            >
+              <span class="text-body-2">{{ t('admin.llmUsage.analytics.infoCompact') }}</span>
+            </v-alert>
+
+            <!-- Filters -->
+            <v-row align="center" class="mb-4">
+              <v-col cols="12" sm="4" md="3">
+                <v-select
+                  v-model="selectedPeriod"
+                  :label="t('admin.llmUsage.filters.period')"
+                  :items="periodOptions"
+                  density="compact"
+                  hide-details
+                  @update:model-value="onFilterChange"
+                />
+              </v-col>
+              <v-col cols="12" sm="4" md="3">
+                <v-select
+                  v-model="selectedProvider"
+                  :label="t('admin.llmUsage.filters.provider')"
+                  :items="providerOptions"
+                  density="compact"
+                  clearable
+                  hide-details
+                  @update:model-value="onFilterChange"
+                />
+              </v-col>
+              <v-col cols="12" sm="4" md="3">
+                <v-select
+                  v-model="selectedTaskType"
+                  :label="t('admin.llmUsage.filters.taskType')"
+                  :items="taskTypeOptions"
+                  density="compact"
+                  clearable
+                  hide-details
+                  @update:model-value="onFilterChange"
+                />
+              </v-col>
+              <v-col cols="12" sm="12" md="3">
+                <v-btn variant="text" color="primary" size="small" @click="clearFilters">
+                  <v-icon start>mdi-filter-off</v-icon>
+                  {{ t('admin.llmUsage.filters.clear') }}
+                </v-btn>
+              </v-col>
+            </v-row>
+
+            <!-- Charts Row -->
+            <v-row class="mb-4">
+              <v-col cols="12" md="8">
+                <v-card variant="outlined">
+                  <v-card-title class="text-subtitle-1 py-2">
+                    <v-icon start size="small">mdi-chart-timeline-variant</v-icon>
+                    {{ t('admin.llmUsage.charts.trend') }}
+                  </v-card-title>
+                  <v-divider />
+                  <v-card-text class="pa-2">
+                    <UsageTrendChart
+                      v-if="store.analytics?.daily_trend"
+                      :data="store.analytics.daily_trend"
+                    />
+                    <div v-else class="text-center pa-4 text-medium-emphasis">
+                      {{ t('admin.llmUsage.noData') }}
+                    </div>
+                  </v-card-text>
+                </v-card>
+              </v-col>
+              <v-col cols="12" md="4">
+                <v-card variant="outlined">
+                  <v-card-title class="text-subtitle-1 py-2">
+                    <v-icon start size="small">mdi-chart-pie</v-icon>
+                    {{ t('admin.llmUsage.charts.byModel') }}
+                  </v-card-title>
+                  <v-divider />
+                  <v-card-text class="pa-2">
+                    <ModelDistributionChart
+                      v-if="store.analytics?.by_model?.length"
+                      :data="store.analytics.by_model"
+                    />
+                    <div v-else class="text-center pa-4 text-medium-emphasis">
+                      {{ t('admin.llmUsage.noData') }}
+                    </div>
+                  </v-card-text>
+                </v-card>
+              </v-col>
+            </v-row>
+
+            <!-- Usage by User -->
+            <v-card variant="outlined" class="mb-4">
+              <v-card-title class="text-subtitle-1 py-2">
+                <v-icon start size="small">mdi-account-group</v-icon>
+                {{ t('admin.llmUsage.tables.byUser') }}
+              </v-card-title>
+              <v-divider />
+              <v-data-table
+                :headers="userHeaders"
+                :items="store.analytics?.by_user || []"
+                :items-per-page="5"
+                density="compact"
+              >
+                <template #item.user_name="{ item }">
+                  <div class="d-flex align-center">
+                    <v-avatar size="24" color="primary" class="mr-2">
+                      <span class="text-caption">{{ getUserInitials(item) }}</span>
+                    </v-avatar>
+                    <div>
+                      <span class="font-weight-medium">
+                        {{ item.user_name || t('admin.llmUsage.systemUser') }}
+                      </span>
+                    </div>
+                  </div>
+                </template>
+                <template #item.total_tokens="{ item }">
+                  {{ formatTokens(item.total_tokens) }}
+                </template>
+                <template #item.cost_cents="{ item }">
+                  <span class="font-weight-medium">{{ formatCurrency(item.cost_cents) }}</span>
+                </template>
+                <template #item.models_used="{ item }">
+                  <div class="d-flex flex-wrap ga-1">
+                    <v-chip
+                      v-for="model in item.models_used.slice(0, 2)"
+                      :key="model"
+                      size="x-small"
+                      label
+                    >
+                      {{ model }}
+                    </v-chip>
+                    <v-chip v-if="item.models_used.length > 2" size="x-small" variant="text">
+                      +{{ item.models_used.length - 2 }}
+                    </v-chip>
+                  </div>
+                </template>
+                <template #item.has_credentials="{ item }">
+                  <v-icon :color="item.has_credentials ? 'success' : 'warning'" size="small">
+                    {{ item.has_credentials ? 'mdi-key-check' : 'mdi-key-remove' }}
+                  </v-icon>
+                </template>
+                <template #no-data>
+                  <div class="text-center py-4 text-medium-emphasis">
+                    {{ t('admin.llmUsage.noData') }}
+                  </div>
+                </template>
+              </v-data-table>
+            </v-card>
+
+            <!-- Tables Row -->
+            <v-row class="mb-4">
+              <v-col cols="12" md="6">
+                <v-card variant="outlined">
+                  <v-card-title class="text-subtitle-1 py-2">
+                    <v-icon start size="small">mdi-format-list-bulleted-type</v-icon>
+                    {{ t('admin.llmUsage.tables.byTaskType') }}
+                  </v-card-title>
+                  <v-divider />
+                  <v-data-table
+                    :headers="taskTypeHeaders"
+                    :items="store.analytics?.by_task || []"
+                    :items-per-page="5"
+                    density="compact"
+                  >
+                    <template #item.task_type="{ item }">
+                      <v-chip size="x-small" label>{{ getTaskTypeLabel(item.task_type) }}</v-chip>
+                    </template>
+                    <template #item.total_tokens="{ item }">
+                      {{ formatTokens(item.total_tokens) }}
+                    </template>
+                    <template #item.cost_cents="{ item }">
+                      {{ formatCurrency(item.cost_cents) }}
+                    </template>
+                    <template #item.avg_duration_ms="{ item }">
+                      {{ item.avg_duration_ms?.toFixed(0) || '-' }} ms
+                    </template>
+                    <template #no-data>
+                      <div class="text-center py-4 text-medium-emphasis">
+                        {{ t('admin.llmUsage.noData') }}
+                      </div>
+                    </template>
+                  </v-data-table>
+                </v-card>
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-card variant="outlined">
+                  <v-card-title class="text-subtitle-1 py-2">
+                    <v-icon start size="small">mdi-folder-multiple</v-icon>
+                    {{ t('admin.llmUsage.tables.byCategory') }}
+                  </v-card-title>
+                  <v-divider />
+                  <v-data-table
+                    :headers="categoryHeaders"
+                    :items="store.analytics?.by_category || []"
+                    :items-per-page="5"
+                    density="compact"
+                  >
+                    <template #item.category_name="{ item }">
+                      {{ item.category_name || t('admin.llmUsage.uncategorized') }}
+                    </template>
+                    <template #item.total_tokens="{ item }">
+                      {{ formatTokens(item.total_tokens) }}
+                    </template>
+                    <template #item.cost_cents="{ item }">
+                      {{ formatCurrency(item.cost_cents) }}
+                    </template>
+                    <template #no-data>
+                      <div class="text-center py-4 text-medium-emphasis">
+                        {{ t('admin.llmUsage.noData') }}
+                      </div>
+                    </template>
+                  </v-data-table>
+                </v-card>
+              </v-col>
+            </v-row>
+
+            <!-- Top Consumers -->
+            <v-card variant="outlined">
+              <v-card-title class="text-subtitle-1 py-2">
+                <v-icon start size="small">mdi-podium</v-icon>
+                {{ t('admin.llmUsage.tables.topConsumers') }}
+              </v-card-title>
+              <v-divider />
+              <v-data-table
+                :headers="topConsumersHeaders"
+                :items="store.analytics?.top_consumers || []"
+                :items-per-page="5"
+                density="compact"
+              >
+                <template #item.task_type="{ item }">
+                  <v-chip size="x-small" label>{{ getTaskTypeLabel(item.task_type) }}</v-chip>
+                </template>
+                <template #item.total_tokens="{ item }">
+                  {{ formatTokens(item.total_tokens) }}
+                </template>
+                <template #item.cost_cents="{ item }">
+                  {{ formatCurrency(item.cost_cents) }}
+                </template>
+                <template #no-data>
+                  <div class="text-center py-4 text-medium-emphasis">
+                    {{ t('admin.llmUsage.noData') }}
+                  </div>
+                </template>
+              </v-data-table>
+            </v-card>
+          </v-card-text>
+        </v-tabs-window-item>
+      </v-tabs-window>
+    </v-card>
 
     <!-- Budget Dialog -->
     <v-dialog v-model="budgetDialogOpen" :max-width="DIALOG_SIZES.MD">
@@ -526,7 +510,17 @@
                   :items="budgetTypeOptions"
                   :rules="[required]"
                   variant="outlined"
-                />
+                >
+                  <template #item="{ item, props: itemProps }">
+                    <v-list-item v-bind="itemProps">
+                      <template #prepend>
+                        <v-chip size="x-small" :color="getBudgetTypeColor(item.value as BudgetType)" label class="mr-2">
+                          {{ item.value }}
+                        </v-chip>
+                      </template>
+                    </v-list-item>
+                  </template>
+                </v-select>
               </v-col>
               <v-col cols="12" md="6">
                 <v-text-field
@@ -676,6 +670,7 @@ import {
   type BudgetStatus,
   type LLMUsageByUser,
 } from '@/types/llm-usage'
+import { formatCurrency, formatTokens } from '@/utils/llmFormatting'
 import { useLogger } from '@/composables/useLogger'
 import { useDateFormatter } from '@/composables'
 
@@ -686,6 +681,7 @@ const store = useLLMUsageStore()
 
 // State
 const isLoading = computed(() => store.isLoading)
+const activeTab = ref<'budgets' | 'analytics'>('budgets')
 
 // Filters
 const selectedPeriod = ref<'24h' | '7d' | '30d' | '90d'>('7d')
@@ -700,20 +696,6 @@ const selectedBudget = ref<LLMBudgetConfig | null>(null)
 const savingBudget = ref(false)
 const budgetFormRef = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null)
 
-// Budget info panel visibility
-const BUDGET_INFO_STORAGE_KEY = 'llm-budget-info-hidden'
-const budgetInfoHidden = ref(localStorage.getItem(BUDGET_INFO_STORAGE_KEY) === 'true')
-
-function hideBudgetInfo() {
-  budgetInfoHidden.value = true
-  localStorage.setItem(BUDGET_INFO_STORAGE_KEY, 'true')
-}
-
-function showBudgetInfo() {
-  budgetInfoHidden.value = false
-  localStorage.removeItem(BUDGET_INFO_STORAGE_KEY)
-}
-
 const budgetForm = reactive({
   name: '',
   budget_type: 'GLOBAL' as BudgetType,
@@ -725,6 +707,15 @@ const budgetForm = reactive({
   is_active: true,
   blocks_on_limit: false,
 })
+
+// Budget type info for compact display
+const budgetTypeInfo = computed(() => [
+  { value: 'GLOBAL', label: 'GLOBAL', color: 'primary', description: t('admin.llmUsage.budget.typeDescriptions.global') },
+  { value: 'USER', label: 'USER', color: 'secondary', description: t('admin.llmUsage.budget.typeDescriptions.user') },
+  { value: 'CATEGORY', label: 'CATEGORY', color: 'info', description: t('admin.llmUsage.budget.typeDescriptions.category') },
+  { value: 'TASK_TYPE', label: 'TASK_TYPE', color: 'success', description: t('admin.llmUsage.budget.typeDescriptions.taskType') },
+  { value: 'MODEL', label: 'MODEL', color: 'warning', description: t('admin.llmUsage.budget.typeDescriptions.model') },
+])
 
 // Snackbar state
 const snackbar = reactive({
@@ -805,22 +796,7 @@ const required = (v: unknown) => !!v || t('validation.required')
 const positiveNumber = (v: number) => v > 0 || t('validation.positiveNumber')
 const percentRange = (v: number) => (v >= 0 && v <= 100) || t('validation.percentRange')
 
-// Formatting helpers (formatNumber from useDateFormatter composable)
-
-function formatTokens(tokens: number): string {
-  if (tokens >= 1000000) {
-    return `${(tokens / 1000000).toFixed(1)}M`
-  }
-  if (tokens >= 1000) {
-    return `${(tokens / 1000).toFixed(1)}K`
-  }
-  return tokens.toString()
-}
-
-function formatCost(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`
-}
-
+// Formatting helpers
 function getTaskTypeLabel(taskType: LLMTaskType): string {
   return TASK_TYPE_LABELS[taskType] || taskType
 }
@@ -874,14 +850,23 @@ async function refresh() {
 }
 
 async function exportData(format: 'csv' | 'json') {
+  // Sync period to store before export
+  store.setPeriod(selectedPeriod.value)
+
   const blob = await store.exportData(format)
   if (blob) {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
     a.download = `llm-usage-${selectedPeriod.value}.${format}`
+    a.style.display = 'none'
+    document.body.appendChild(a)
     a.click()
+    document.body.removeChild(a)
     URL.revokeObjectURL(url)
+    showSnackbar(t('common.csvExported'), 'success')
+  } else {
+    showSnackbar(t('common.exportFailed'), 'error')
   }
 }
 
@@ -965,3 +950,9 @@ onMounted(async () => {
   await store.loadBudgets()
 })
 </script>
+
+<style scoped>
+.border-error {
+  border-color: rgb(var(--v-theme-error)) !important;
+}
+</style>

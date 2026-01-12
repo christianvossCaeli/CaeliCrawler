@@ -2,18 +2,22 @@
 
 import json
 import time
+from typing import TYPE_CHECKING
 
 import structlog
 
-from app.config import settings
-from app.models.llm_usage import LLMProvider, LLMTaskType
+from app.models.llm_usage import LLMTaskType
+from app.models.user_api_credentials import LLMPurpose
+from services.llm_client_service import LLMClientService
 from services.llm_usage_tracker import record_llm_usage
-from services.smart_query.query_interpreter import get_openai_client
 from services.smart_query.utils import clean_json_response
 
 from ..models import ExtractedSource, SearchStrategy
 from ..prompts import AI_EXTRACTION_PROMPT
 from .base import BaseExtractor
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = structlog.get_logger()
 
@@ -22,6 +26,14 @@ class AIExtractor(BaseExtractor):
     """Extract data sources using LLM for complex/unstructured content."""
 
     MAX_CONTENT_LENGTH = 15000  # Characters to send to LLM
+
+    def __init__(self, session: "AsyncSession | None" = None):
+        """Initialize AIExtractor with optional database session.
+
+        Args:
+            session: Database session for LLM credentials
+        """
+        self.session = session
 
     async def can_extract(self, url: str, content_type: str = None) -> bool:
         """AI extractor can be used as fallback for any content."""
@@ -34,10 +46,20 @@ class AIExtractor(BaseExtractor):
         strategy: SearchStrategy,
     ) -> list[ExtractedSource]:
         """Extract data using LLM analysis."""
+        if not self.session:
+            logger.warning("No session for LLM, skipping AI extraction")
+            return []
+
         try:
-            client = get_openai_client()
-        except ValueError:
-            logger.warning("OpenAI client not configured, skipping AI extraction")
+            llm_service = LLMClientService(self.session)
+            client, config = await llm_service.get_system_client(LLMPurpose.DOCUMENT_ANALYSIS)
+            if not client or not config:
+                logger.warning("LLM not configured, skipping AI extraction")
+                return []
+            model_name = llm_service.get_model_name(config)
+            provider = llm_service.get_provider(config)
+        except Exception as e:
+            logger.warning("LLM client error, skipping AI extraction", error=str(e))
             return []
 
         # Convert HTML to text
@@ -56,8 +78,8 @@ class AIExtractor(BaseExtractor):
 
         try:
             start_time = time.time()
-            response = client.chat.completions.create(
-                model=settings.azure_openai_deployment_name,
+            response = await client.chat.completions.create(
+                model=model_name,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.3,
                 max_tokens=4000,
@@ -65,8 +87,8 @@ class AIExtractor(BaseExtractor):
 
             if response.usage:
                 await record_llm_usage(
-                    provider=LLMProvider.AZURE_OPENAI,
-                    model=settings.azure_openai_deployment_name,
+                    provider=provider,
+                    model=model_name,
                     task_type=LLMTaskType.DISCOVERY,
                     task_name="AIExtractor.extract",
                     prompt_tokens=response.usage.prompt_tokens,

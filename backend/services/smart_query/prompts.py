@@ -84,22 +84,55 @@ Analysiere die Benutzeranfrage und entscheide selbstständig, welche Operationen
 ## Verfügbare Operationen:
 
 ### Schreib-Operationen:
+
+**Entity-Management:**
 - create_entity_type: Neuen Entity-Typ erstellen
 - create_entity: Einzelne Entity erstellen
+- update_entity: Entity-Daten aktualisieren
+- delete_entity: Entity löschen
+- batch_operation: Mehrere Entities gleichzeitig bearbeiten
+- batch_delete: Mehrere Entities löschen
+
+**Facet-Management:**
 - create_facet: Facet zu Entity hinzufügen
-- create_relation: Relation zwischen Entities erstellen
 - create_facet_type: Neuen Facet-Typ erstellen
 - assign_facet_type: Facet-Typ einem Entity-Typ zuweisen
+- assign_facet_types: Mehrere Facet-Types zuweisen
+- delete_facet: Facet-Wert löschen
 - add_history_point: Datenpunkt zu History-Facet hinzufügen (für Zeitreihen-Daten)
-- fetch_and_create_from_api: Daten aus externen APIs importieren (Wikidata SPARQL, REST APIs)
-- create_category_setup: Neue Kategorie mit DataSources erstellen
+
+**Relations:**
+- create_relation: Relation zwischen Entities erstellen
+- create_relation_type: Neuen Relationstyp erstellen
+
+**Kategorie & Setup:**
+- create_category_setup: KI-gestützte Kategorie mit EntityType, FacetTypes, DataSources erstellen
+- link_category_entity_types: Kategorie mit Entity-Types verknüpfen
+- link_existing_category: Bestehende Kategorie verknüpfen
+- update_crawl_schedule: Crawl-Zeitplan einer Kategorie ändern
+
+**Datenquellen & Crawling:**
 - start_crawl: Crawls starten (unterstützt Filter nach Entity-Type, Region, Tags)
+- discover_sources: Automatisch neue Datenquellen finden
+
+**API & Import:**
+- fetch_and_create_from_api: Daten aus externen APIs importieren (Wikidata SPARQL, REST APIs)
+
+**PySis-Integration:**
 - analyze_pysis: PySis-Daten analysieren und Facets daraus erstellen
 - enrich_facets_from_pysis: Bestehende Facets mit PySis-Daten anreichern
 - push_to_pysis: Facet-Werte zu PySis synchronisieren
-- setup_api_facet_sync: Automatische API-zu-Facet Synchronisation einrichten
-- trigger_api_sync: API-Sync manuell auslösen
-- combined: Mehrere Operationen kombinieren
+
+**Export & History:**
+- export: Daten exportieren (CSV, JSON, Excel)
+- undo: Letzte Operation rückgängig machen
+- get_history: Operationshistorie abrufen
+
+**Custom Summaries (Dashboard-Zusammenfassungen):**
+- create_custom_summary: Eigene Zusammenfassung aus natürlicher Sprache erstellen
+
+**Kombiniert:**
+- combined: Mehrere Operationen nacheinander ausführen
 
 ### Abfrage-Operationen:
 - query_data: Interne Entity/Facet-Daten abfragen (mit Visualisierung)
@@ -197,6 +230,174 @@ Beispiele für PySis-Befehle:
 - "Reichere Facets von Köln mit PySis an" → enrich_facets_from_pysis
 - "Synchronisiere Gummersbach zu PySis" → push_to_pysis
 - "Aktualisiere PySis-Daten für alle Gemeinden in NRW" → combined mit mehreren analyze_pysis
+
+## Entity-Update und -Delete Operationen:
+
+### update_entity - Entity aktualisieren:
+{{
+  "operation": "update_entity",
+  "entity_data": {{
+    "entity_id": "uuid-der-entity",           // ODER entity_name
+    "entity_name": "Gummersbach",             // Alternative zu entity_id
+    "updates": {{
+      "name": "Neuer Name",                   // Optional
+      "core_attributes": {{"population": 50000}},  // Optional
+      "latitude": 51.0,                       // Optional
+      "longitude": 7.5                        // Optional
+    }}
+  }}
+}}
+
+### delete_entity - Entity löschen:
+{{
+  "operation": "delete_entity",
+  "entity_data": {{
+    "entity_id": "uuid-der-entity",           // ODER entity_name
+    "entity_name": "Entity-Name",             // Alternative zu entity_id
+    "cascade": false                          // true = auch verknüpfte Facets/Relations löschen
+  }}
+}}
+
+Beispiele:
+- "Ändere den Namen von Gummersbach zu Gummersbach (Oberberg)" → update_entity
+- "Lösche die Entity Max Müller" → delete_entity
+- "Aktualisiere die Einwohnerzahl von Köln auf 1.1 Millionen" → update_entity
+
+## Export und History Operationen:
+
+### export - Daten exportieren:
+{{
+  "operation": "export",
+  "export_data": {{
+    "entity_type": "territorial-entity",      // Welcher Entity-Type
+    "format": "csv",                          // csv, json, excel
+    "filters": {{
+      "admin_level_1": "Bayern",              // Optional: Region
+      "facet_types": ["pain_point"]           // Optional: Nur mit bestimmten Facets
+    }},
+    "include_facets": true,                   // Facet-Werte mit exportieren
+    "include_relations": false                // Relations mit exportieren
+  }}
+}}
+
+### undo - Letzte Operation rückgängig:
+{{
+  "operation": "undo",
+  "undo_data": {{
+    "operation_id": "uuid-der-operation"      // Optional: Spezifische Operation
+  }}
+}}
+
+### get_history - Operationshistorie:
+{{
+  "operation": "get_history",
+  "history_data": {{
+    "limit": 10,                              // Anzahl Einträge
+    "operation_type": "create_entity"         // Optional: Nur bestimmte Typen
+  }}
+}}
+
+Beispiele:
+- "Exportiere alle Gemeinden in NRW als CSV" → export
+- "Mache die letzte Operation rückgängig" → undo
+- "Zeige meine letzten 10 Operationen" → get_history
+
+## Custom Summary Operationen (Eigene Zusammenfassungen):
+
+### create_custom_summary - Dashboard-Zusammenfassung erstellen:
+{{
+  "operation": "create_custom_summary",
+  "prompt": "Zeige mir eine Übersicht aller Goldkurse der letzten Woche mit Trend",
+  "name": "Goldkurs-Übersicht",  // Optional: Name der Zusammenfassung
+  "schedule": "daily"            // Optional: daily, weekly, hourly, monthly, none
+}}
+
+Die KI analysiert den Prompt und erstellt automatisch passende Widgets:
+- Tabellen für Listen und Ranglisten
+- Diagramme für Trends und Vergleiche
+- Statistik-Cards für Kennzahlen
+
+Schedule-Optionen:
+- "hourly" = Stündlich aktualisieren
+- "daily" = Täglich um 8:00 Uhr
+- "weekly" = Wöchentlich montags
+- "monthly" = Monatlich am 1.
+- "none" = Manuelle Aktualisierung (Standard)
+
+Beispiele:
+- "Erstelle eine Zusammenfassung der Bundesliga-Tabelle, täglich aktualisiert" → create_custom_summary
+- "Speichere eine Goldkurs-Übersicht die stündlich aktualisiert wird" → create_custom_summary
+- "Erstelle ein Dashboard für NRW Gemeinden mit Problemfeldern" → create_custom_summary
+- "Neue Zusammenfassung: Windpark-Statistiken, wöchentlich" → create_custom_summary
+
+## Batch-Operationen:
+
+### batch_operation - Mehrere Entities bearbeiten:
+{{
+  "operation": "batch_operation",
+  "batch_data": {{
+    "entity_ids": ["uuid1", "uuid2", "uuid3"],  // ODER filter
+    "filter": {{
+      "entity_type": "territorial-entity",
+      "admin_level_1": "Bayern"
+    }},
+    "action": "update",                         // update, add_facet, remove_facet
+    "updates": {{
+      "core_attributes": {{"status": "active"}}
+    }}
+  }}
+}}
+
+### batch_delete - Mehrere Entities löschen:
+{{
+  "operation": "batch_delete",
+  "batch_data": {{
+    "entity_ids": ["uuid1", "uuid2", "uuid3"],
+    "cascade": false
+  }}
+}}
+
+Beispiele:
+- "Setze alle Gemeinden in Bayern auf aktiv" → batch_operation
+- "Lösche alle Entities vom Typ Test" → batch_delete
+
+## Crawl-Schedule Operationen:
+
+### update_crawl_schedule - Zeitplan ändern:
+{{
+  "operation": "update_crawl_schedule",
+  "schedule_data": {{
+    "category_name": "Goldkurs-Analyse",      // ODER category_id/category_slug
+    "schedule_cron": "*/15 * * * *",          // Cron-Ausdruck
+    "schedule_enabled": true                   // Aktivieren/Deaktivieren
+  }}
+}}
+
+Cron-Beispiele:
+- "*/15 * * * *" = Alle 15 Minuten
+- "0 * * * *" = Stündlich
+- "0 */2 * * *" = Alle 2 Stunden
+- "0 8 * * *" = Täglich um 8:00
+- "0 2 * * 1" = Jeden Montag um 2:00
+
+Beispiele:
+- "Ändere den Schedule für Goldkurs auf alle 15 Minuten" → update_crawl_schedule
+- "Deaktiviere das Crawling für Bundesliga" → update_crawl_schedule mit schedule_enabled=false
+
+## Source Discovery Operation:
+
+### discover_sources - Automatisch Quellen finden:
+{{
+  "operation": "discover_sources",
+  "discovery_data": {{
+    "prompt": "Finde Webseiten für Goldkurs-Daten",
+    "max_results": 20,
+    "search_depth": "standard"                // standard, deep
+  }}
+}}
+
+Beispiele:
+- "Finde automatisch Quellen für Bundesliga-News" → discover_sources
 
 ## Start Crawl Operation:
 Starte Crawls für DataSources mit flexiblen Filtern:
@@ -528,6 +729,36 @@ VISUALIZATION_SELECTOR_PROMPT = """Analysiere die folgenden Daten und wähle das
 Antworte NUR mit validem JSON."""
 
 
+AI_SCHEDULE_RECOMMENDATION_PROMPT = """Empfehle ein passendes Crawl-Intervall für die Datenaktualisierung.
+
+Benutzeranfrage: {user_intent}
+Datentyp: {data_type}
+
+Analysiere den Use-Case und empfehle ein passendes Crawl-Intervall basierend auf:
+1. Wie schnell ändern sich die Daten typischerweise?
+2. Wie zeitkritisch sind die Informationen?
+3. Welche Kosten/Ressourcen sind angemessen?
+
+Typische Muster:
+- Echtzeit-Finanzdaten (Kurse, Wechselkurse): Alle 5-15 Minuten
+- Sport-Live-Ergebnisse: Alle 2-5 Minuten während Spielen, sonst täglich
+- News/Pressemitteilungen: Alle 1-4 Stunden
+- Behördendokumente (Protokolle, Beschlüsse): Täglich oder wöchentlich
+- Statische Referenzdaten: Wöchentlich oder monatlich
+
+Antworte als JSON:
+{{
+  "schedule_cron": "Cron-Ausdruck (5 Felder: min hour dom month dow)",
+  "schedule_description": "Lesbare Beschreibung (z.B. 'Alle 30 Minuten')",
+  "recommended_interval_minutes": 30,
+  "reasoning": "Begründung für die Empfehlung",
+  "data_volatility": "realtime|hourly|daily|weekly|monthly",
+  "cost_consideration": "low|medium|high"
+}}
+
+Antworte NUR mit validem JSON."""
+
+
 def build_compound_query_prompt(
     entity_types: list[dict[str, Any]],
     facet_types: list[dict[str, Any]],
@@ -659,6 +890,10 @@ def build_plan_mode_prompt(
         category_lines.append(f"• {cat['slug']}: {desc}")
     category_section = "\n".join(category_lines) if category_lines else "• (keine Kategorien definiert)"
 
+    # Generate dynamic operations documentation
+    write_ops_docs = get_operations_documentation()
+    query_ops_docs = get_query_operations_documentation()
+
     return f"""Du bist ein freundlicher, interaktiver Assistent der Benutzern hilft, die richtigen Prompts
 für Smart Query zu formulieren. Du kennst das System in- und auswendig und kannst erklären,
 wie man es optimal nutzt.
@@ -667,12 +902,7 @@ wie man es optimal nutzt.
 
 ### Lese-Modus (Read Mode) - Daten abfragen
 
-Im Lese-Modus kann man Daten suchen, filtern und anzeigen lassen. Hier sind die Möglichkeiten:
-
-**Query-Types:**
-• "list" - Eine Liste von Ergebnissen (Standard)
-• "count" - Nur die Anzahl zählen ("Wie viele...")
-• "aggregate" - Statistische Berechnungen (Durchschnitt, Summe, etc.)
+{query_ops_docs}
 
 **Filter-Möglichkeiten:**
 • Nach Entity-Typ filtern (Personen, Gemeinden, Veranstaltungen, etc.)
@@ -693,33 +923,21 @@ Das System kann mehrere Beziehungen verfolgen, z.B.:
 • "Welche Veranstaltungen finden in den nächsten 30 Tagen statt?"
 • "Zeige Bürgermeister deren Gemeinden Problemfelder zum Thema Windkraft haben"
 
-### Schreib-Modus (Write Mode) - Daten anlegen
+### Schreib-Modus (Write Mode) - Daten anlegen und ändern
 
-Im Schreib-Modus kann man neue Daten erstellen oder bestehende ändern:
+Im Schreib-Modus kann man neue Daten erstellen, ändern oder löschen.
+Die folgenden Operationen werden automatisch aus dem System geladen:
 
-**Verfügbare Operationen:**
-• create_entity: Neue Entity erstellen (Person, Gemeinde, etc.)
-• create_facet: Facet zu Entity hinzufügen (Problemfeld, Kontakt, etc.)
-• create_relation: Verknüpfung zwischen Entities erstellen
-• start_crawl: Datensammlung starten
-• fetch_and_create_from_api: Daten aus externen APIs importieren
-• combined: Mehrere Operationen nacheinander ausführen
+{write_ops_docs}
 
 **Beispiel-Prompts für Schreib-Modus:**
 • "Erstelle eine Person Max Müller, Bürgermeister von Gummersbach"
 • "Füge ein Problemfeld für Attendorn hinzu: Personalmangel in der IT"
+• "Erstelle eine Goldkurs-Analyse die alle 15 Minuten läuft" (nutzt create_category_setup)
+• "Ändere den Crawl-Schedule für Bundesliga auf stündlich"
 • "Starte Datensammlung für alle Gemeinden in NRW"
-
-### Visualisierungen
-
-Das System wählt automatisch die passende Darstellung:
-• table: Für Listen und Ranglisten (Standard)
-• bar_chart: Für Kategorievergleiche (2-15 Kategorien)
-• line_chart: Für Zeitverläufe
-• pie_chart: Für Anteile/Prozente
-• stat_card: Für Einzelwerte ("Wie viele?")
-• map: Für geografische Daten
-• comparison: Für direkten Vergleich von 2-3 Entities
+• "Analysiere PySis-Daten für Gummersbach"
+• "Exportiere alle Gemeinden mit Problemfeldern als CSV"
 
 ## TEIL 2: Verfügbare Daten in diesem System
 
@@ -951,3 +1169,175 @@ Beispiel-Aktionen:
     return """Der Benutzer befindet sich auf einer Seite des Systems.
 Helfe ihm dabei, die gewünschte Aktion zu formulieren oder erkläre ihm,
 was auf dieser Seite möglich ist."""
+
+
+def get_operations_documentation() -> str:
+    """Generate documentation for all registered write operations.
+
+    This function dynamically loads all operations from the OPERATIONS_REGISTRY
+    and extracts their documentation from docstrings. This ensures the Plan Mode
+    prompt is always up-to-date with the actual available operations.
+
+    Returns:
+        Formatted documentation string for all operations
+    """
+    from services.smart_query.operations import OPERATIONS_REGISTRY
+
+    # Define operation categories for better organization
+    operation_categories = {
+        "Entity-Management": [
+            "create_entity",
+            "update_entity",
+            "delete_entity",
+            "batch_operation",
+            "batch_delete",
+        ],
+        "Facet-Management": [
+            "create_facet_type",
+            "assign_facet_type",
+            "assign_facet_types",
+            "delete_facet",
+            "add_history_point",
+        ],
+        "Kategorie & Setup": [
+            "create_category_setup",  # Special: not in registry but in write_executor
+            "link_category_entity_types",
+            "link_existing_category",
+            "create_relation_type",
+            "update_crawl_schedule",
+        ],
+        "Datenquellen & Crawling": [
+            "start_crawl",  # Special: handled in write_executor
+            "discover_sources",
+        ],
+        "API & Import": [
+            "fetch_and_create_from_api",
+        ],
+        "PySis-Integration": [
+            "analyze_pysis",
+            "enrich_facets_from_pysis",
+            "push_to_pysis",
+        ],
+        "Export & History": [
+            "export",
+            "undo",
+            "get_history",
+        ],
+        "Custom Summaries": [
+            "create_custom_summary",
+        ],
+    }
+
+    # Special operations not in registry but available via write_executor
+    special_operations = {
+        "create_category_setup": {
+            "description": "KI-gestützte Erstellung einer kompletten Analyse-Konfiguration",
+            "details": """Erstellt automatisch:
+• EntityType (z.B. "Goldkurs", "Bundesliga-Verein")
+• Category mit AI-Extraktions-Prompt
+• FacetTypes für die relevanten Datenpunkte
+• Crawl-Schedule (KI-empfohlen basierend auf Datentyp)
+• Seed-Entities aus KI-Wissen
+• DataSource-Discovery (findet automatisch relevante Quellen)""",
+            "example": '"Erstelle eine Goldkurs-Analyse die alle 15 Minuten läuft"',
+        },
+        "start_crawl": {
+            "description": "Crawl-Jobs starten für Entities oder Kategorien",
+            "details": """Unterstützt Filter nach:
+• Entity-Type (z.B. nur Gemeinden)
+• Region (admin_level_1, z.B. "NRW")
+• Tags (z.B. ["bundesliga-1"])
+• Einzelne Entity oder DataSource""",
+            "example": '"Starte Crawl für alle Gemeinden in Bayern"',
+        },
+        "create_relation": {
+            "description": "Relation zwischen zwei Entities erstellen",
+            "details": "Verknüpft Entities mit definierten Beziehungstypen (z.B. works_for, located_in)",
+            "example": '"Verknüpfe Max Müller als Bürgermeister mit Gummersbach"',
+        },
+        "create_facet": {
+            "description": "Facet-Wert zu einer Entity hinzufügen",
+            "details": "Fügt strukturierte Daten (Problemfelder, Kontakte, etc.) zu Entities hinzu",
+            "example": '"Füge Problemfeld Personalmangel zu Attendorn hinzu"',
+        },
+    }
+
+    sections = []
+
+    for category_name, operation_names in operation_categories.items():
+        category_docs = []
+
+        for op_name in operation_names:
+            # Check registry first
+            if op_name in OPERATIONS_REGISTRY:
+                op_class = OPERATIONS_REGISTRY[op_name]
+                docstring = op_class.__doc__ or ""
+
+                # Extract first line as description
+                lines = docstring.strip().split("\n")
+                description = lines[0].strip() if lines else op_name
+
+                # Check for Examples section in docstring
+                example = ""
+                if "Examples:" in docstring or "Example:" in docstring:
+                    # Extract example from docstring
+                    example_start = docstring.find("Examples:")
+                    if example_start == -1:
+                        example_start = docstring.find("Example:")
+                    if example_start != -1:
+                        example_section = docstring[example_start:].split("\"\"\"")[0]
+                        # Find first command example
+                        if "command = {" in example_section:
+                            example = "(siehe Beispiele in Dokumentation)"
+
+                category_docs.append(f"• **{op_name}**: {description}")
+
+            # Check special operations
+            elif op_name in special_operations:
+                special = special_operations[op_name]
+                category_docs.append(f"• **{op_name}**: {special['description']}")
+                if special.get("details"):
+                    # Add indented details
+                    for detail_line in special["details"].split("\n"):
+                        if detail_line.strip():
+                            category_docs.append(f"  {detail_line}")
+
+        if category_docs:
+            sections.append(f"**{category_name}:**\n" + "\n".join(category_docs))
+
+    return "\n\n".join(sections)
+
+
+def get_query_operations_documentation() -> str:
+    """Generate documentation for read/query operations.
+
+    Returns:
+        Formatted documentation string for query operations
+    """
+    return """**Abfrage-Operationen (Lese-Modus):**
+
+• **query_data**: Interne Entity/Facet-Daten abfragen
+  - Unterstützt Filter: entity_type, admin_level_1, tags, facet_types
+  - Zeitfilter: time_range mit latest_only, start_date, end_date
+  - Visualisierung wird automatisch gewählt
+
+• **query_facet_history**: Zeitreihen-Daten eines Facet-Typs abfragen
+  - Für History-Facets (z.B. Goldkurs-Verlauf, Tabellenpunkte)
+  - Unterstützt Aggregationen (avg, sum, min, max)
+
+• **query_external**: Externe API live abfragen (ohne Speicherung)
+  - Für Echtzeit-Daten die nicht gespeichert werden sollen
+
+**Query-Types:**
+• "list" - Ergebnisliste (Standard)
+• "count" - Nur Anzahl ("Wie viele...")
+• "aggregate" - Statistiken (Durchschnitt, Summe, etc.)
+
+**Visualisierungen (automatisch gewählt):**
+• table: Listen und Ranglisten
+• bar_chart: Kategorie-Vergleiche (2-15 Kategorien)
+• line_chart: Zeitverläufe
+• pie_chart: Anteile/Prozente
+• stat_card: Einzelwerte
+• map: Geografische Daten
+• comparison: Direktvergleich (2-3 Entities)"""

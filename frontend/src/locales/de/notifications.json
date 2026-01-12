@@ -2,7 +2,13 @@
   "notifications": {
     "title": "Benachrichtigungen",
     "subtitle": "Automatische Benachrichtigungen bei wichtigen Ereignissen verwalten",
+    "info": {
+      "title": "Immer informiert bleiben",
+      "description": "Lassen Sie sich automatisch benachrichtigen - per E-Mail, In-App oder Webhook. Erstellen Sie Regeln für bestimmte Ereignisse (z.B. 'Neues Dokument mit hoher Relevanz') und legen Sie Bedingungen fest (Konfidenz, Schlagwörter). Sammelbenachrichtigungen fassen mehrere Ereignisse zusammen statt einzelner Meldungen. Im Posteingang sehen Sie alle Benachrichtigungen auf einen Blick."
+    },
     "notification": "Benachrichtigung",
+    "read": "Gelesen",
+    "unread": "Ungelesen",
     "inbox": {
       "channel": "Kanal",
       "eventType": "Event-Typ",
@@ -12,7 +18,19 @@
       "statusSent": "Gesendet",
       "statusFailed": "Fehlgeschlagen",
       "statusRead": "Gelesen",
-      "goTo": "Zum {entity}"
+      "goTo": "Zum {entity}",
+      "notificationsList": "Liste der Benachrichtigungen",
+      "sortBy": "Sortieren nach",
+      "sortDate": "Datum",
+      "sortStatus": "Status",
+      "selectAll": "Alle auswählen",
+      "selected": "{count} ausgewählt",
+      "bulkMarkRead": "Als gelesen markieren",
+      "bulkDelete": "Löschen",
+      "deleteConfirm": "Möchten Sie diese Benachrichtigung wirklich löschen?",
+      "deleteSuccess": "Benachrichtigung gelöscht",
+      "bulkDeleteConfirm": "Möchten Sie {count} Benachrichtigungen wirklich löschen?",
+      "bulkDeleteSuccess": "{count} Benachrichtigungen gelöscht"
     },
     "rules": {
       "title": "Benachrichtigungsregeln",
@@ -116,6 +134,22 @@
       "ruleDeleted": "Regel erfolgreich gelöscht",
       "markAllRead": "Alle als gelesen markieren",
       "noNotifications": "Keine Benachrichtigungen"
+    },
+    "errors": {
+      "loadNotifications": "Fehler beim Laden der Benachrichtigungen",
+      "markAsRead": "Fehler beim Markieren als gelesen",
+      "markAllAsRead": "Fehler beim Markieren aller als gelesen",
+      "loadRules": "Fehler beim Laden der Regeln",
+      "createRule": "Fehler beim Erstellen der Regel",
+      "updateRule": "Fehler beim Aktualisieren der Regel",
+      "deleteRule": "Fehler beim Löschen der Regel",
+      "loadEmailAddresses": "Fehler beim Laden der Email-Adressen",
+      "addEmailAddress": "Fehler beim Hinzufügen der Email-Adresse",
+      "deleteEmailAddress": "Fehler beim Löschen der Email-Adresse",
+      "updatePreferences": "Fehler beim Aktualisieren der Einstellungen",
+      "testWebhook": "Fehler beim Testen des Webhooks",
+      "deleteNotification": "Fehler beim Löschen der Benachrichtigung",
+      "resendVerification": "Fehler beim Senden der Verifizierungs-Email"
     }
   },
   "notificationsView": {

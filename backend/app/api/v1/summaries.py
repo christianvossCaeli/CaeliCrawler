@@ -53,7 +53,7 @@ def validate_share_token(token: str) -> bool:
         return False
 
     # Must only contain URL-safe base64 characters
-    return re.match(r"^[A-Za-z0-9_-]+$", token)
+    return bool(re.match(r"^[A-Za-z0-9_-]+$", token))
 
 
 # --- Schemas ---

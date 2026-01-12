@@ -2,6 +2,10 @@
   "dashboard": {
     "title": "Übersicht",
     "subtitle": "Aktuelle Statistiken und Aktivitäten im Überblick",
+    "info": {
+      "title": "Ihr Kontrollzentrum",
+      "description": "Das Dashboard gibt Ihnen einen schnellen Überblick über den aktuellen Stand Ihrer Datensammlung. Sie sehen auf einen Blick: Wie viele Datensätze und Dokumente existieren, welche Crawl-Jobs laufen und ob neue Informationen extrahiert wurden. Klicken Sie auf 'Anpassen', um Widgets hinzuzufügen, zu entfernen oder per Drag & Drop neu anzuordnen. Die Schnellstart-Leiste unten startet häufig genutzte Crawl-Presets mit einem Klick."
+    },
     "loading": "Dashboard wird geladen...",
     "welcome": "Willkommen zurück",
     "customize": "Anpassen",

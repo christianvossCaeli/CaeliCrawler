@@ -13,6 +13,8 @@ Modules:
 - api_import_ops: API fetch and create operations
 - category_ops: Category linking and relation type operations
 - discovery: Source discovery operations
+- schedule_ops: Crawl schedule update operations
+- summary_ops: Custom summary creation operations
 
 Usage:
     # Register operations
@@ -40,6 +42,8 @@ from . import (
     export_ops,  # noqa: F401
     facet_ops,  # noqa: F401
     pysis_ops,  # noqa: F401
+    schedule_ops,  # noqa: F401
+    summary_ops,  # noqa: F401
 )
 from .base import (
     OPERATIONS_REGISTRY,

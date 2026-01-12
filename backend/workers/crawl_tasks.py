@@ -289,10 +289,9 @@ def check_scheduled_crawls():
 
     async def _check():
         async with get_celery_session_context() as session:
-            # Only get categories that are active, schedule_enabled, AND have a schedule_owner
+            # Only get categories that have schedule_enabled AND have a schedule_owner
             result = await session.execute(
                 select(Category).where(
-                    Category.is_active.is_(True),
                     Category.schedule_enabled.is_(True),
                     Category.schedule_owner_id.isnot(None),  # Must have owner for API credentials
                 )

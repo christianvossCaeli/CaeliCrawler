@@ -208,6 +208,11 @@ celery_app.conf.update(
             "task": "workers.maintenance_tasks.sync_azure_model_pricing",
             "schedule": crontab(hour=3, minute=0, day_of_week=0),  # Weekly on Sunday at 3 AM
         },
+        # Facet entity linking maintenance
+        "link-unlinked-facets": {
+            "task": "workers.maintenance_tasks.migrate_facet_value_entity_links",
+            "schedule": crontab(hour=2, minute=0),  # Daily at 2 AM
+        },
     },
 )
 

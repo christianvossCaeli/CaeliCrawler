@@ -64,6 +64,7 @@ class CrawlJobStats(BaseModel):
     running_jobs: int
     completed_jobs: int
     failed_jobs: int
+    cancelled_jobs: int
     total_documents: int
     total_pages_crawled: int
     avg_duration_seconds: float | None

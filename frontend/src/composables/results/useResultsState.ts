@@ -27,6 +27,8 @@ export interface ResultsState {
   loading: Ref<boolean>
   initialLoad: Ref<boolean>
   bulkVerifying: Ref<boolean>
+  bulkRejecting: Ref<boolean>
+  exporting: Ref<boolean>
 
   // Data
   results: Ref<SearchResult[]>
@@ -43,11 +45,13 @@ export interface ResultsState {
 
   // Filters
   searchQuery: Ref<string>
+  documentIdFilter: Ref<string | null>
   locationFilter: Ref<string | null>
   extractionTypeFilter: Ref<string | null>
   categoryFilter: Ref<string | null>
-  minConfidence: Ref<number>
+  confidenceRange: Ref<[number, number]>
   verifiedFilter: Ref<boolean | null>
+  showRejected: Ref<boolean>
   dateFrom: Ref<string | null>
   dateTo: Ref<string | null>
 
@@ -84,6 +88,8 @@ export function useResultsState(): ResultsState {
   const loading = ref(true)
   const initialLoad = ref(true)
   const bulkVerifying = ref(false)
+  const bulkRejecting = ref(false)
+  const exporting = ref(false)
 
   // ===========================================================================
   // Data
@@ -117,11 +123,13 @@ export function useResultsState(): ResultsState {
   // ===========================================================================
 
   const searchQuery = ref('')
+  const documentIdFilter = ref<string | null>(null)
   const locationFilter = ref<string | null>(null)
   const extractionTypeFilter = ref<string | null>(null)
   const categoryFilter = ref<string | null>(null)
-  const minConfidence = ref(0)
+  const confidenceRange = ref<[number, number]>([0, 100])
   const verifiedFilter = ref<boolean | null>(null)
+  const showRejected = ref(false)
   const dateFrom = ref<string | null>(null)
   const dateTo = ref<string | null>(null)
 
@@ -165,11 +173,14 @@ export function useResultsState(): ResultsState {
   const hasActiveFilters = computed(() =>
     Boolean(
       searchQuery.value ||
+        documentIdFilter.value ||
         locationFilter.value ||
         extractionTypeFilter.value ||
         categoryFilter.value ||
-        minConfidence.value > 0 ||
+        confidenceRange.value[0] > 0 ||
+        confidenceRange.value[1] < 100 ||
         verifiedFilter.value !== null ||
+        showRejected.value ||
         dateFrom.value ||
         dateTo.value
     )
@@ -186,6 +197,8 @@ export function useResultsState(): ResultsState {
     loading,
     initialLoad,
     bulkVerifying,
+    bulkRejecting,
+    exporting,
 
     // Data
     results,
@@ -202,11 +215,13 @@ export function useResultsState(): ResultsState {
 
     // Filters
     searchQuery,
+    documentIdFilter,
     locationFilter,
     extractionTypeFilter,
     categoryFilter,
-    minConfidence,
+    confidenceRange,
     verifiedFilter,
+    showRejected,
     dateFrom,
     dateTo,
 

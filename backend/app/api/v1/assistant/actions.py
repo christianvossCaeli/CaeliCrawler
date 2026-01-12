@@ -7,7 +7,9 @@ from app.core.cache import assistant_batch_cache
 from app.core.deps import get_current_user
 from app.core.rate_limit import check_rate_limit
 from app.database import get_session
+from app.models.audit_log import AuditAction
 from app.models.user import User, UserRole
+from app.services.audit_service import create_audit_log
 from app.schemas.assistant import (
     ActionExecuteRequest,
     ActionExecuteResponse,
@@ -52,6 +54,15 @@ async def create_facet_type_via_assistant(
 
     if not result.get("success"):
         raise HTTPException(status_code=400, detail=result.get("message", "Fehler beim Erstellen"))
+
+    await create_audit_log(
+        session=session,
+        action=AuditAction.CREATE,
+        entity_type="FacetType",
+        entity_id=result.get("facet_type_id"),
+        entity_name=name,
+        user=current_user,
+    )
 
     await session.commit()
 
@@ -98,6 +109,17 @@ async def execute_action(
 
     assistant = AssistantService(session)
     result = await assistant.execute_action(action=request.action, context=request.context)
+
+    if result.get("success"):
+        await create_audit_log(
+            session=session,
+            action=AuditAction.UPDATE,
+            entity_type="AssistantAction",
+            entity_id=result.get("affected_entity_id"),
+            entity_name=f"{request.action} - {result.get('affected_entity_name', 'unknown')}",
+            user=current_user,
+        )
+        await session.commit()
 
     return ActionExecuteResponse(
         success=result.get("success", False),
@@ -165,6 +187,16 @@ async def batch_action(
                 "errors": [],
             },
         )
+
+        await create_audit_log(
+            session=session,
+            action=AuditAction.UPDATE,
+            entity_type="AssistantBatchAction",
+            entity_id=None,
+            entity_name=f"{request.action_type} ({result.get('affected_count', 0)} entities)",
+            user=current_user,
+        )
+        await session.commit()
 
     return BatchActionResponse(
         success=result.get("success", True),

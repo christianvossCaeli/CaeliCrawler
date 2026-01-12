@@ -26,6 +26,8 @@ export interface ResolvedDisplayConfig {
   severityField?: string
   severityColors: Record<string, string>
   layout: 'card' | 'inline' | 'list'
+  /** Labels for boolean or enum fields: { fieldName: { true: "Label", false: "Label" } } */
+  labels: Record<string, Record<string, string>>
 }
 
 /**
@@ -78,6 +80,7 @@ export function useFacetTypeRenderer() {
         ...(display?.severity_colors || {}),
       },
       layout: display?.layout || 'card',
+      labels: (display?.labels as Record<string, Record<string, string>>) || {},
     }
   }
 
@@ -140,10 +143,34 @@ export function useFacetTypeRenderer() {
     value: Record<string, unknown>,
     config: ResolvedDisplayConfig
   ): string {
+    // Helper to get label for a boolean/enum value
+    const getLabel = (field: string, val: unknown): string | null => {
+      const fieldLabels = config.labels[field]
+      if (fieldLabels) {
+        const key = String(val)
+        if (fieldLabels[key]) {
+          return fieldLabels[key]
+        }
+      }
+      return null
+    }
+
     // Try primary field first
     const primary = value[config.primaryField]
-    if (primary && typeof primary === 'string') {
-      return primary
+    if (primary !== undefined && primary !== null) {
+      // Check for custom label first
+      const label = getLabel(config.primaryField, primary)
+      if (label) {
+        return label
+      }
+      // Return string value
+      if (typeof primary === 'string' && primary) {
+        return primary
+      }
+      // Return boolean with default labels
+      if (typeof primary === 'boolean') {
+        return primary ? 'Ja' : 'Nein'
+      }
     }
 
     // Fallback to common field names (extended list for various data structures)
@@ -159,9 +186,10 @@ export function useFacetTypeRenderer() {
       if (fallbackValue && typeof fallbackValue === 'string') {
         return fallbackValue
       }
-      // Handle boolean values
+      // Handle boolean values with labels
       if (typeof fallbackValue === 'boolean') {
-        return String(fallbackValue)
+        const label = getLabel(field, fallbackValue)
+        return label || (fallbackValue ? 'Ja' : 'Nein')
       }
     }
 
@@ -174,7 +202,11 @@ export function useFacetTypeRenderer() {
     // For boolean or simple values, try to create a readable string
     if (Object.keys(value).length === 1) {
       const [key, val] = Object.entries(value)[0]
-      if (typeof val === 'boolean' || typeof val === 'number') {
+      if (typeof val === 'boolean') {
+        const label = getLabel(key, val)
+        return label || (val ? 'Ja' : 'Nein')
+      }
+      if (typeof val === 'number') {
         return `${key}: ${val}`
       }
     }

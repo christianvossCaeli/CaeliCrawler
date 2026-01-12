@@ -25,98 +25,141 @@
         </div>
       </v-card-title>
 
-      <v-tabs v-model="activeTab" class="dialog-tabs" role="tablist" :aria-label="$t('categories.tabs.ariaLabel')">
-        <v-tab value="general" role="tab" :aria-selected="activeTab === 'general'">
-          <v-icon start aria-hidden="true">mdi-form-textbox</v-icon>
-          {{ $t('categories.tabs.general') }}
-        </v-tab>
-        <v-tab value="search" role="tab" :aria-selected="activeTab === 'search'">
-          <v-icon start aria-hidden="true">mdi-magnify</v-icon>
-          {{ $t('categories.tabs.search') }}
-        </v-tab>
-        <v-tab value="filters" role="tab" :aria-selected="activeTab === 'filters'">
-          <v-icon start aria-hidden="true">mdi-filter</v-icon>
-          {{ $t('categories.tabs.filters') }}
-          <v-icon
-            v-if="!formData.url_include_patterns?.length && !formData.url_exclude_patterns?.length"
-            color="warning"
-            size="x-small"
-            class="ml-1"
-            :aria-label="$t('categories.tabs.filtersWarning')"
-          >
-            mdi-alert
-          </v-icon>
-        </v-tab>
-        <v-tab value="ai" role="tab" :aria-selected="activeTab === 'ai'">
-          <v-icon start aria-hidden="true">mdi-robot</v-icon>
-          {{ $t('categories.tabs.ai') }}
-        </v-tab>
-        <v-tab v-if="editMode" value="dataSources" role="tab" :aria-selected="activeTab === 'dataSources'">
-          <v-icon start aria-hidden="true">mdi-database</v-icon>
-          {{ $t('categories.tabs.dataSources') }}
-          <v-chip v-if="category?.source_count" size="x-small" color="primary" class="ml-1" aria-hidden="true">
-            {{ category.source_count }}
-          </v-chip>
-          <span v-if="category?.source_count" class="sr-only">
-            {{ $t('categories.tabs.sourceCount', { count: category.source_count }) }}
-          </span>
-        </v-tab>
-      </v-tabs>
+      <v-divider />
 
       <v-card-text class="pa-6 dialog-content-lg">
         <v-form ref="form">
-          <v-window v-model="activeTab">
-            <!-- General Tab -->
-            <v-window-item value="general">
-              <CategoryFormGeneral
-                :form-data="formData"
-                :available-languages="availableLanguages"
-                @update:form-data="updateFormData"
-              />
-            </v-window-item>
+          <v-alert type="info" variant="tonal" class="mb-6">
+            <div class="text-subtitle-2">{{ $t('categories.form.info.title') }}</div>
+            <div class="text-body-2">{{ $t('categories.form.info.description') }}</div>
+          </v-alert>
 
-            <!-- Search Tab -->
-            <v-window-item value="search">
-              <CategoryFormSearch
-                :form-data="formData"
-                @update:form-data="updateFormData"
-              />
-            </v-window-item>
+          <CategoryAiPrefillPanel
+            v-if="!editMode"
+            :prompt="aiPrefillPrompt"
+            :loading="aiPrefillLoading"
+            :error="aiPrefillError"
+            :suggestions="aiPrefillSuggestions"
+            :overwrite="aiPrefillOverwrite"
+            @update:prompt="emit('update:aiPrefillPrompt', $event)"
+            @update:overwrite="emit('update:aiPrefillOverwrite', $event)"
+            @generate="emit('generate-ai-prefill')"
+            @apply="emit('apply-ai-prefill')"
+          />
 
-            <!-- Filters Tab -->
-            <v-window-item value="filters">
-              <CategoryFormFilters
-                :form-data="formData"
-                @update:form-data="updateFormData"
-              />
-            </v-window-item>
+          <v-expansion-panels v-model="expandedPanels" multiple variant="accordion" :aria-label="$t('categories.tabs.ariaLabel')">
+            <v-expansion-panel value="general">
+              <v-expansion-panel-title>
+                <v-icon start aria-hidden="true">mdi-form-textbox</v-icon>
+                <span class="font-weight-medium">1. {{ $t('categories.tabs.general') }}</span>
+              </v-expansion-panel-title>
+              <v-expansion-panel-text>
+                <CategoryFormGeneral
+                  :form-data="formData"
+                  :available-languages="availableLanguages"
+                  @update:form-data="updateFormData"
+                />
+              </v-expansion-panel-text>
+            </v-expansion-panel>
 
-            <!-- AI Tab -->
-            <v-window-item value="ai">
-              <CategoryFormAi
-                :form-data="formData"
-                @update:form-data="updateFormData"
-              />
-            </v-window-item>
+            <v-expansion-panel value="search">
+              <v-expansion-panel-title>
+                <v-icon start aria-hidden="true">mdi-magnify</v-icon>
+                <span class="font-weight-medium">2. {{ $t('categories.tabs.search') }}</span>
+              </v-expansion-panel-title>
+              <v-expansion-panel-text>
+                <CategoryFormSearch
+                  :form-data="formData"
+                  @update:form-data="updateFormData"
+                />
+              </v-expansion-panel-text>
+            </v-expansion-panel>
 
-            <!-- DataSources Tab -->
-            <v-window-item v-if="editMode" value="dataSources">
-              <CategoryDetailsPanel
-                :selected-tags="dataSourcesState.selectedTags"
-                :match-mode="dataSourcesState.matchMode"
-                :available-tags="dataSourcesState.availableTags"
-                :found-sources="dataSourcesState.foundSources"
-                :loading="dataSourcesState.loading"
-                :assigning="dataSourcesState.assigning"
-                :current-source-count="category?.source_count"
-                :get-status-color="getStatusColor"
-                :get-source-type-icon="getSourceTypeIcon"
-                @update:selected-tags="handleTagsUpdate"
-                @update:match-mode="handleMatchModeUpdate"
-                @assign-all="emit('assign-sources')"
-              />
-            </v-window-item>
-          </v-window>
+            <v-expansion-panel value="filters">
+              <v-expansion-panel-title>
+                <v-icon start aria-hidden="true">mdi-filter</v-icon>
+                <span class="font-weight-medium">3. {{ $t('categories.tabs.filters') }}</span>
+                <v-icon
+                  v-if="!formData.url_include_patterns?.length && !formData.url_exclude_patterns?.length"
+                  color="warning"
+                  size="small"
+                  class="ml-2"
+                  :aria-label="$t('categories.tabs.filtersWarning')"
+                >
+                  mdi-alert
+                </v-icon>
+              </v-expansion-panel-title>
+              <v-expansion-panel-text>
+                <CategoryFormFilters
+                  :form-data="formData"
+                  @update:form-data="updateFormData"
+                />
+              </v-expansion-panel-text>
+            </v-expansion-panel>
+
+            <v-expansion-panel value="ai">
+              <v-expansion-panel-title>
+                <v-icon start aria-hidden="true">mdi-robot</v-icon>
+                <span class="font-weight-medium">4. {{ $t('categories.tabs.ai') }}</span>
+              </v-expansion-panel-title>
+              <v-expansion-panel-text>
+                <CategoryFormAi
+                  :form-data="formData"
+                  @update:form-data="updateFormData"
+                />
+              </v-expansion-panel-text>
+            </v-expansion-panel>
+
+            <v-expansion-panel value="dataSources">
+              <v-expansion-panel-title>
+                <v-icon start aria-hidden="true">mdi-database</v-icon>
+                <span class="font-weight-medium">5. {{ $t('categories.tabs.dataSources') }}</span>
+                <v-chip v-if="category?.source_count" size="x-small" color="primary" class="ml-2" aria-hidden="true">
+                  {{ category.source_count }}
+                </v-chip>
+                <span v-if="category?.source_count" class="sr-only">
+                  {{ $t('categories.tabs.sourceCount', { count: category.source_count }) }}
+                </span>
+              </v-expansion-panel-title>
+              <v-expansion-panel-text>
+                <CategoryDetailsPanel
+                  :selected-tags="dataSourcesState.selectedTags"
+                  :match-mode="dataSourcesState.matchMode"
+                  :available-tags="dataSourcesState.availableTags"
+                  :found-sources="dataSourcesState.foundSources"
+                  :loading="dataSourcesState.loading"
+                  :assigning="dataSourcesState.assigning"
+                  :current-source-count="category?.source_count"
+                  :edit-mode="editMode"
+                  :category="category"
+                  :direct-selected-sources="dataSourcesState.directSelectedSources"
+                  :source-search-results="dataSourcesState.sourceSearchResults"
+                  :searching-direct-sources="dataSourcesState.searchingDirectSources"
+                  :assigned-sources="dataSourcesState.assignedSources"
+                  :assigned-sources-total="dataSourcesState.assignedSourcesTotal"
+                  :assigned-sources-loading="dataSourcesState.assignedSourcesLoading"
+                  :assigned-sources-page="dataSourcesState.assignedSourcesPage"
+                  :assigned-sources-per-page="dataSourcesState.assignedSourcesPerPage"
+                  :assigned-sources-search="dataSourcesState.assignedSourcesSearch"
+                  :assigned-sources-tag-filter="dataSourcesState.assignedSourcesTagFilter"
+                  :available-tags-in-assigned="dataSourcesState.availableTagsInAssigned"
+                  :get-status-color="getStatusColor"
+                  :get-source-type-icon="getSourceTypeIcon"
+                  @update:selected-tags="handleTagsUpdate"
+                  @update:match-mode="handleMatchModeUpdate"
+                  @assign-all="emit('assign-sources')"
+                  @search-sources="emit('search-sources', $event)"
+                  @update:direct-selected-sources="emit('update:directSelectedSources', $event)"
+                  @assign-direct="emit('assign-direct', $event)"
+                  @update:assigned-sources-page="emit('update:assignedSourcesPage', $event)"
+                  @update:assigned-sources-per-page="emit('update:assignedSourcesPerPage', $event)"
+                  @update:assigned-sources-search="emit('update:assignedSourcesSearch', $event)"
+                  @update:assigned-sources-tag-filter="emit('update:assignedSourcesTagFilter', $event)"
+                  @unassign-source="emit('unassign-source', $event)"
+                />
+              </v-expansion-panel-text>
+            </v-expansion-panel>
+          </v-expansion-panels>
         </v-form>
       </v-card-text>
 
@@ -149,7 +192,9 @@
 import { ref, watch } from 'vue'
 import { DIALOG_SIZES } from '@/config/ui'
 import { generateAriaId } from '@/utils/dialogAccessibility'
-import type { CategoryFormData, Category, DataSourcesTabState } from '@/composables/useCategoriesView'
+import type { CategoryFormData, Category, DataSourcesTabState, CategorySource } from '@/composables/useCategoriesView'
+import type { CategoryAiPrefillSuggestion } from '@/types/category'
+import CategoryAiPrefillPanel from './CategoryAiPrefillPanel.vue'
 import CategoryFormGeneral from './CategoryFormGeneral.vue'
 import CategoryFormSearch from './CategoryFormSearch.vue'
 import CategoryFormFilters from './CategoryFormFilters.vue'
@@ -168,6 +213,11 @@ export interface CategoryEditFormProps {
   editMode: boolean
   category: Category | null
   formData: CategoryFormData
+  aiPrefillPrompt: string
+  aiPrefillLoading: boolean
+  aiPrefillError: string | null
+  aiPrefillSuggestions: CategoryAiPrefillSuggestion | null
+  aiPrefillOverwrite: boolean
   availableLanguages: Array<{ code: string; name: string; flag: string }>
   dataSourcesState: DataSourcesTabState
   getStatusColor: (status?: string) => string
@@ -178,11 +228,25 @@ export interface CategoryEditFormEmits {
   (e: 'update:modelValue', value: boolean): void
   (e: 'update:formData', data: CategoryFormData): void
   (e: 'update:dataSourcesState', state: DataSourcesTabState): void
+  (e: 'update:aiPrefillPrompt', value: string): void
+  (e: 'update:aiPrefillOverwrite', value: boolean): void
+  (e: 'generate-ai-prefill'): void
+  (e: 'apply-ai-prefill'): void
   (e: 'save'): void
   (e: 'assign-sources'): void
+  // Direct source selection
+  (e: 'search-sources', query: string): void
+  (e: 'update:directSelectedSources', sources: CategorySource[]): void
+  (e: 'assign-direct', sources: CategorySource[]): void
+  // Assigned sources
+  (e: 'update:assignedSourcesPage', page: number): void
+  (e: 'update:assignedSourcesPerPage', perPage: number): void
+  (e: 'update:assignedSourcesSearch', search: string): void
+  (e: 'update:assignedSourcesTagFilter', tags: string[]): void
+  (e: 'unassign-source', sourceId: string): void
 }
 
-const activeTab = ref('general')
+const expandedPanels = ref<string[]>([])
 const form = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null)
 
 const updateFormData = (data: Partial<CategoryFormData>) => {
@@ -216,13 +280,7 @@ const handleSave = async () => {
 
 watch(() => props.modelValue, (newVal) => {
   if (newVal) {
-    activeTab.value = 'general'
+    expandedPanels.value = []
   }
 })
 </script>
-
-<style scoped>
-.dialog-tabs {
-  border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-}
-</style>

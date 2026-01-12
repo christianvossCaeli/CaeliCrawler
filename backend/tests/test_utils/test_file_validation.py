@@ -1,8 +1,6 @@
 """Tests for file validation utilities."""
 
 import io
-import tempfile
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -240,11 +238,11 @@ class TestStreamingUploadHandler:
         with pytest.raises(ValueError, match="No file processed"):
             handler.get_header()
 
-    def test_save_to_before_process_raises(self):
+    def test_save_to_before_process_raises(self, tmp_path):
         """save_to before process_upload should raise."""
         handler = StreamingUploadHandler()
         with pytest.raises(ValueError, match="No file processed"):
-            handler.save_to(Path("/tmp/test"))
+            handler.save_to(tmp_path / "test_file")
 
 
 class TestIntegrationMimeAndStreaming:

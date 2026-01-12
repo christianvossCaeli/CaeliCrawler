@@ -30,6 +30,16 @@ export const startCrawl = (data: CrawlStartRequest) => api.post('/admin/crawler/
 export const cancelJob = (id: string) => api.post(`/admin/crawler/jobs/${id}/cancel`)
 export const retryJob = (id: string) => api.post(`/admin/crawler/jobs/${id}/retry`)
 export const deleteJob = (id: string) => api.delete(`/admin/crawler/jobs/${id}`)
+export const deleteFailedJobs = () => api.delete<{
+  message: string
+  success: boolean
+  data: { deleted_count: number }
+}>('/admin/crawler/jobs/failed')
+export const deleteCancelledJobs = () => api.delete<{
+  message: string
+  success: boolean
+  data: { deleted_count: number }
+}>('/admin/crawler/jobs/cancelled')
 export const getCrawlerStats = () => api.get('/admin/crawler/stats')
 export const getCrawlerStatus = () => api.get('/admin/crawler/status')
 export const reanalyzeDocuments = (params?: { category_id?: string; reanalyze_all?: boolean; limit?: number }) =>
@@ -112,6 +122,12 @@ export const getUnreadCount = () => api.get('/admin/notifications/notifications/
 export const markAsRead = (id: string) =>
   api.post(`/admin/notifications/notifications/${id}/read`)
 export const markAllAsRead = () => api.post('/admin/notifications/notifications/read-all')
+export const deleteNotification = (id: string) =>
+  api.delete(`/admin/notifications/notifications/${id}`)
+export const bulkDeleteNotifications = (ids: string[]) =>
+  api.post('/admin/notifications/notifications/bulk-delete', { ids })
+export const bulkMarkAsRead = (ids: string[]) =>
+  api.post('/admin/notifications/notifications/bulk-read', { ids })
 export const getNotificationPreferences = () => api.get('/admin/notifications/preferences')
 export const updateNotificationPreferences = (data: NotificationPreferences) =>
   api.put('/admin/notifications/preferences', data)
@@ -246,6 +262,43 @@ export const previewCrawlPresetFilters = (filters: Record<string, unknown>) =>
     sources_preview: Array<{ id: string; name: string; url: string }>
     has_more: boolean
   }>('/admin/crawl-presets/preview-filters', filters)
+
+// Entity-based Crawl
+export interface EntityCrawlPreviewRequest {
+  entity_ids: string[]
+  category_id?: string
+}
+
+export interface EntityCrawlPreviewResponse {
+  entity_count: number
+  sources_count: number
+  sources_preview: Array<{ id: string; name: string; url: string }>
+  entities_without_sources: number
+  has_more: boolean
+}
+
+export interface EntityCrawlRequest {
+  entity_ids: string[]
+  category_id: string
+  save_as_preset?: boolean
+  preset_name?: string
+  selection_mode?: 'fixed' | 'dynamic'
+  force?: boolean
+}
+
+export interface EntityCrawlResponse {
+  preset_id: string | null
+  jobs_created: number
+  job_ids: string[]
+  sources_matched: number
+  message: string
+}
+
+export const previewEntitySources = (request: EntityCrawlPreviewRequest) =>
+  api.post<EntityCrawlPreviewResponse>('/admin/crawl-presets/preview-entities', request)
+
+export const startEntityCrawl = (request: EntityCrawlRequest) =>
+  api.post<EntityCrawlResponse>('/admin/crawl-presets/entity-crawl', request)
 
 // Custom Summaries
 export const createSummaryFromPrompt = (data: { prompt: string; name?: string }) =>
@@ -604,6 +657,47 @@ export const getActiveConfig = (purpose: string) =>
   api.get<ActiveConfigInfo>(`/admin/llm-config/active/${purpose}`)
 
 // =============================================================================
+// Embedding Generation API
+// =============================================================================
+
+export interface EmbeddingStats {
+  entities_total: number
+  entities_with_embedding: number
+  entities_missing: number
+  entity_types_total: number
+  entity_types_with_embedding: number
+  facet_types_total: number
+  facet_types_with_embedding: number
+  categories_total: number
+  categories_with_embedding: number
+  relation_types_total: number
+  relation_types_with_embedding: number
+  facet_values_total: number
+  facet_values_with_embedding: number
+  is_configured: boolean
+  task_running: boolean
+  task_id: string | null
+}
+
+export interface GenerateEmbeddingsRequest {
+  target: 'all' | 'entities' | 'types' | 'facet_values'
+  force: boolean
+}
+
+export interface GenerateEmbeddingsResponse {
+  task_id: string
+  message: string
+}
+
+// Get embedding statistics
+export const getEmbeddingStats = () =>
+  api.get<EmbeddingStats>('/admin/llm-config/embeddings/stats')
+
+// Start embedding generation
+export const generateEmbeddings = (data: GenerateEmbeddingsRequest) =>
+  api.post<GenerateEmbeddingsResponse>('/admin/llm-config/embeddings/generate', data)
+
+// =============================================================================
 // Model Pricing API
 // =============================================================================
 
@@ -680,16 +774,7 @@ export const updateModelPricing = (pricingId: string, data: UpdatePricingRequest
 export const deleteModelPricing = (pricingId: string) =>
   api.delete<{ message: string }>(`/admin/model-pricing/${pricingId}`)
 
-// Sync prices from providers
-export const syncAzurePrices = () =>
-  api.post<SyncResultResponse>('/admin/model-pricing/sync-azure')
-
-export const syncOpenAiPrices = () =>
-  api.post<SyncResultResponse>('/admin/model-pricing/sync-openai')
-
-export const syncAnthropicPrices = () =>
-  api.post<SyncResultResponse>('/admin/model-pricing/sync-anthropic')
-
+// Sync all prices (Azure API + LiteLLM for OpenAI/Anthropic)
 export interface SyncAllResultResponse {
   success: boolean
   azure_openai: SyncResultResponse
@@ -703,14 +788,6 @@ export interface SyncAllResultResponse {
 export const syncAllPrices = () =>
   api.post<SyncAllResultResponse>('/admin/model-pricing/sync-all')
 
-// Sync prices from LiteLLM community database
-export const syncLiteLLMPrices = () =>
-  api.post<SyncResultResponse>('/admin/model-pricing/sync-litellm')
-
 // Seed default pricing data
 export const seedModelPricing = () =>
   api.post<SeedResultResponse>('/admin/model-pricing/seed')
-
-// Verify a pricing entry (mark as checked)
-export const verifyModelPricing = (pricingId: string) =>
-  api.post<{ message: string }>(`/admin/model-pricing/${pricingId}/verify`)

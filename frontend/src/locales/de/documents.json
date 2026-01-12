@@ -2,6 +2,10 @@
   "documents": {
     "title": "Dokumente",
     "subtitle": "Gefundene und verarbeitete Dokumente durchsuchen",
+    "info": {
+      "title": "Vom Fund zur Analyse",
+      "description": "Hier sehen Sie alle vom Crawler gefundenen Dokumente (PDFs, Webseiten, etc.). Der Workflow: Neue Dokumente haben Status 'Ausstehend' → werden mit KI analysiert ('Verarbeitung') → extrahierte Informationen landen in 'Ergebnisse'. Filter nach Kategorie oder Zeitraum helfen bei der Übersicht. Tipp: Dokumente mit Status 'Gefiltert' wurden durch URL-Muster ausgeschlossen - prüfen Sie ggf. Ihre Filter-Regeln im Analysethema."
+    },
     "emptyState": {
       "title": "Keine Dokumente",
       "description": "Es wurden noch keine Dokumente gefunden. Starten Sie einen Crawl, um Dokumente zu sammeln."
@@ -88,9 +92,14 @@
       "failed": "Fehler"
     },
     "bulkActions": {
-      "processSelected": "verarbeiten",
-      "analyzeSelected": "analysieren",
-      "deleteSelected": "Ausgewählte löschen"
+      "toolbarLabel": "Massenaktionen für ausgewählte Dokumente",
+      "selected": "{count} ausgewählt",
+      "process": "Verarbeiten",
+      "analyze": "Analysieren",
+      "processSelected": "{count} Dokumente verarbeiten",
+      "analyzeSelected": "{count} Dokumente analysieren",
+      "deleteSelected": "Ausgewählte löschen",
+      "clearSelection": "Auswahl aufheben"
     },
     "messages": {
       "processQueued": "Dokument zur Verarbeitung eingereiht",

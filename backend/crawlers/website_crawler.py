@@ -341,7 +341,7 @@ class WebsiteCrawler(BaseCrawler):
 
             if render_javascript:
                 await self._crawl_with_playwright(
-                    source.base_url, max_depth, max_pages, download_extensions, result, job, category
+                    source.base_url, max_depth, max_pages, download_extensions, result, job, category, config
                 )
             else:
                 await self._crawl_with_httpx(
@@ -582,8 +582,10 @@ class WebsiteCrawler(BaseCrawler):
         result: CrawlResult,
         job,
         category=None,
+        config: dict | None = None,
     ):
         """Crawl using Playwright for JavaScript-rendered pages."""
+        config = config or {}
         try:
             from playwright.async_api import async_playwright
         except ImportError:
@@ -621,6 +623,29 @@ class WebsiteCrawler(BaseCrawler):
 
                 try:
                     await page.goto(url, wait_until="networkidle", timeout=30000)
+
+                    # Wait for specific selector if configured (e.g., for dynamic content)
+                    if wait_for_selector := config.get("wait_for_selector"):
+                        try:
+                            await page.wait_for_selector(
+                                wait_for_selector,
+                                timeout=10000,  # 10 seconds max
+                                state="visible",  # Element must be visible
+                            )
+                            self.logger.debug(
+                                "Selector found",
+                                url=url,
+                                selector=wait_for_selector,
+                            )
+                        except Exception as selector_error:
+                            # Log but continue - page might still be usable
+                            self.logger.warning(
+                                "wait_for_selector timeout",
+                                url=url,
+                                selector=wait_for_selector,
+                                error=str(selector_error),
+                            )
+
                     self.visited_urls.add(url)
                     result.pages_crawled += 1
 

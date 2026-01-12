@@ -60,15 +60,16 @@
           <span class="context-type">{{ currentContext.current_entity_type }}</span>
         </div>
 
-        <!-- Quick Actions -->
-        <ChatQuickActions
-          v-if="localMode !== 'plan'"
-          :current-context="currentContext"
-          @action="handleQuickAction"
-        />
-
-        <!-- Plan Mode Hint -->
-        <div v-if="localMode === 'plan'" class="plan-mode-hint">
+        <!-- Mode Hints -->
+        <div v-if="localMode === 'read'" class="mode-hint mode-hint--read">
+          <v-icon size="small" class="mr-2">mdi-magnify</v-icon>
+          <span>{{ t('assistant.readModeHint') }}</span>
+        </div>
+        <div v-else-if="localMode === 'write'" class="mode-hint mode-hint--write">
+          <v-icon size="small" class="mr-2">mdi-pencil</v-icon>
+          <span>{{ t('assistant.writeModeHint') }}</span>
+        </div>
+        <div v-else-if="localMode === 'plan'" class="mode-hint mode-hint--plan">
           <v-icon size="small" class="mr-2">mdi-lightbulb-on</v-icon>
           <span>{{ t('assistant.planModeHint') }}</span>
         </div>
@@ -87,14 +88,20 @@
 
         <!-- Suggestions -->
         <div v-if="suggestedActions.length > 0" class="suggestions">
-          <button
-            v-for="action in suggestedActions"
-            :key="action.value"
-            class="suggestion-btn"
-            @click="handleSuggestedAction(action)"
-          >
-            {{ action.label }}
-          </button>
+          <div class="suggestions__header">
+            <v-icon size="x-small" class="mr-1">mdi-lightbulb-outline</v-icon>
+            {{ t('assistant.suggestions') }}
+          </div>
+          <div class="suggestions__actions">
+            <button
+              v-for="action in suggestedActions"
+              :key="action.value"
+              class="suggestion-btn"
+              @click="handleSuggestedAction(action)"
+            >
+              {{ action.label }}
+            </button>
+          </div>
         </div>
 
         <!-- Attachment Preview -->
@@ -130,7 +137,6 @@ import { useQueryContextStore } from '@/stores/queryContext'
 import ChatHeader from './ChatHeader.vue'
 import ChatMessages from './ChatMessages.vue'
 import ChatInput from './ChatInput.vue'
-import ChatQuickActions from './ChatQuickActions.vue'
 import ChatAttachments from './ChatAttachments.vue'
 
 const { t, locale } = useI18n()
@@ -169,13 +175,6 @@ const getPlaceholder = computed(() => {
       return t('assistant.placeholderRead')
   }
 })
-
-function handleQuickAction(action: { query: string }) {
-  inputText.value = action.query
-  if (!action.query.endsWith(' ')) {
-    sendMessage()
-  }
-}
 
 function sendMessage() {
   if ((!inputText.value.trim() && pendingAttachments.value.length === 0) || isLoading.value) return

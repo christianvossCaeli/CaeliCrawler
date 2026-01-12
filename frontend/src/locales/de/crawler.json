@@ -1,6 +1,10 @@
 {
   "crawler": {
     "title": "Datensammler Status",
+    "info": {
+      "title": "Live-Status Ihrer Datensammlung",
+      "description": "Der Datensammler zeigt in Echtzeit, welche Websites gerade durchsucht werden. 'Workers' sind parallele Prozesse - mehr Workers bedeuten schnellere Erfassung. 'Laufend' zeigt aktive Jobs, 'Wartend' die Warteschlange. Klicken Sie auf einen Job für Details wie gefundene Dokumente und Fehler. Bei Problemen können Sie einzelne Jobs neu starten. Tipp: Speichern Sie häufig genutzte Crawl-Konfigurationen als 'Preset' für Wiederverwendung mit einem Klick."
+    },
     "emptyState": {
       "title": "Keine aktiven Jobs",
       "description": "Es laufen derzeit keine Datensammlungen. Starten Sie einen neuen Crawl über die Quellenverwaltung."
@@ -86,6 +90,13 @@
     "cleanupFailedTitle": "Fehlgeschlagene Jobs bereinigen?",
     "cleanupFailedMessage": "Möchten Sie alle {count} fehlgeschlagenen Jobs unwiderruflich löschen?",
     "cleanupSuccess": "{count} fehlgeschlagene Jobs wurden bereinigt",
-    "noFailedJobsToCleanup": "Keine fehlgeschlagenen Jobs zum Bereinigen"
+    "cleanupError": "Fehler beim Bereinigen der Jobs",
+    "noFailedJobsToCleanup": "Keine fehlgeschlagenen Jobs zum Bereinigen",
+    "cancelled": "Abgebrochen",
+    "cleanupCancelled": "{count} abgebrochene bereinigen",
+    "cleanupCancelledTitle": "Abgebrochene Jobs bereinigen?",
+    "cleanupCancelledMessage": "Möchten Sie alle {count} abgebrochenen Jobs unwiderruflich löschen?",
+    "cleanupCancelledSuccess": "{count} abgebrochene Jobs wurden bereinigt",
+    "noCancelledJobsToCleanup": "Keine abgebrochenen Jobs zum Bereinigen"
   }
 }

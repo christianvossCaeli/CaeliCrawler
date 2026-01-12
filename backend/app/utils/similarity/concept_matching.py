@@ -3,11 +3,18 @@ Cross-lingual concept matching using AI.
 
 This module provides semantic concept normalization and equivalence checking
 to handle synonyms and translations across languages.
+
+IMPORTANT: This module now uses database-stored credentials via LLMClientService.
+A database session is required for all AI operations.
 """
 
 import time
+from typing import TYPE_CHECKING
 
 import structlog
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.cache import TTLCache
 from app.models.llm_usage import LLMProvider, LLMTaskType
@@ -40,26 +47,44 @@ def invalidate_concept_caches() -> None:
 # =============================================================================
 
 
-async def get_canonical_concept(term: str) -> str | None:
+async def get_canonical_concept(
+    term: str,
+    session: "AsyncSession | None" = None,
+) -> str | None:
     """
     Get a canonical English concept/translation for a term using AI.
 
     This helps match cross-lingual synonyms by normalizing terms
     in any language to a common English concept.
 
+    Args:
+        term: The term to normalize
+        session: Database session for loading LLM credentials
+
     Returns: English canonical form or None if generation fails.
     """
-    from app.config import settings
-    from services.ai_client import AzureOpenAIClientFactory
+    from app.models.user_api_credentials import LLMPurpose
+    from services.llm_client_service import LLMClientService
+
+    if not session:
+        logger.debug("get_canonical_concept: No session provided, skipping AI normalization")
+        return None
 
     start_time = time.time()
     error_message = None
 
     try:
-        client = AzureOpenAIClientFactory.create_client()
+        llm_service = LLMClientService(session)
+        client, config = await llm_service.get_system_client(LLMPurpose.DOCUMENT_ANALYSIS)
+
+        if not client or not config:
+            logger.warning("No LLM credentials configured for canonical concept generation")
+            return None
+
+        model_name = llm_service.get_model_name(config)
 
         response = await client.chat.completions.create(
-            model=settings.azure_openai_deployment_name,
+            model=model_name,
             messages=[
                 {
                     "role": "system",
@@ -87,7 +112,7 @@ OUTPUT FORMAT: Just the English term, nothing else.""",
         if response.usage:
             await record_llm_usage(
                 provider=LLMProvider.AZURE_OPENAI,
-                model=settings.azure_openai_deployment_name,
+                model=model_name,
                 task_type=LLMTaskType.CLASSIFY,
                 task_name="get_canonical_concept",
                 prompt_tokens=response.usage.prompt_tokens,
@@ -111,7 +136,7 @@ OUTPUT FORMAT: Just the English term, nothing else.""",
         # Track error
         await record_llm_usage(
             provider=LLMProvider.AZURE_OPENAI,
-            model=settings.azure_openai_deployment_name,
+            model="unknown",
             task_type=LLMTaskType.CLASSIFY,
             task_name="get_canonical_concept",
             prompt_tokens=0,
@@ -124,15 +149,23 @@ OUTPUT FORMAT: Just the English term, nothing else.""",
         return None
 
 
-async def get_cached_canonical_concept(term: str) -> str | None:
-    """Get canonical concept with caching."""
+async def get_cached_canonical_concept(
+    term: str,
+    session: "AsyncSession | None" = None,
+) -> str | None:
+    """Get canonical concept with caching.
+
+    Args:
+        term: The term to normalize
+        session: Database session for loading LLM credentials
+    """
     term_lower = term.lower().strip()
 
     cached = _canonical_concept_cache.get(term_lower)
     if cached is not None:
         return cached
 
-    canonical = await get_canonical_concept(term)
+    canonical = await get_canonical_concept(term, session)
     if canonical:
         _canonical_concept_cache.set(term_lower, canonical)
 
@@ -144,17 +177,26 @@ async def get_cached_canonical_concept(term: str) -> str | None:
 # =============================================================================
 
 
-async def are_concepts_equivalent(term1: str, term2: str) -> bool:
+async def are_concepts_equivalent(
+    term1: str,
+    term2: str,
+    session: "AsyncSession | None" = None,
+) -> bool:
     """
     Check if two terms represent the same concept using AI.
 
     This is more reliable than comparing canonical translations because
     it directly evaluates semantic equivalence.
 
+    Args:
+        term1: First term to compare
+        term2: Second term to compare
+        session: Database session for loading LLM credentials
+
     Returns: True if the terms represent the same concept, False otherwise.
     """
-    from app.config import settings
-    from services.ai_client import AzureOpenAIClientFactory
+    from app.models.user_api_credentials import LLMPurpose
+    from services.llm_client_service import LLMClientService
 
     # Normalize and create cache key (sorted to make symmetric)
     t1, t2 = term1.lower().strip(), term2.lower().strip()
@@ -166,13 +208,24 @@ async def are_concepts_equivalent(term1: str, term2: str) -> bool:
     if cached is not None:
         return cached
 
+    if not session:
+        logger.debug("are_concepts_equivalent: No session provided, skipping AI comparison")
+        return False
+
     start_time = time.time()
 
     try:
-        client = AzureOpenAIClientFactory.create_client()
+        llm_service = LLMClientService(session)
+        client, config = await llm_service.get_system_client(LLMPurpose.DOCUMENT_ANALYSIS)
+
+        if not client or not config:
+            logger.warning("No LLM credentials configured for concept equivalence check")
+            return False
+
+        model_name = llm_service.get_model_name(config)
 
         response = await client.chat.completions.create(
-            model=settings.azure_openai_deployment_name,
+            model=model_name,
             messages=[
                 {
                     "role": "system",
@@ -202,7 +255,7 @@ Consider terms NOT equivalent if they:
         if response.usage:
             await record_llm_usage(
                 provider=LLMProvider.AZURE_OPENAI,
-                model=settings.azure_openai_deployment_name,
+                model=model_name,
                 task_type=LLMTaskType.CLASSIFY,
                 task_name="are_concepts_equivalent",
                 prompt_tokens=response.usage.prompt_tokens,
@@ -230,7 +283,7 @@ Consider terms NOT equivalent if they:
         # Track error
         await record_llm_usage(
             provider=LLMProvider.AZURE_OPENAI,
-            model=settings.azure_openai_deployment_name,
+            model="unknown",
             task_type=LLMTaskType.CLASSIFY,
             task_name="are_concepts_equivalent",
             prompt_tokens=0,

@@ -15,7 +15,7 @@
       v-if="entity"
       :entity="entity"
       :entity-type="entityType"
-      :facet-groups="facetsSummary?.facets_by_type || []"
+      :facet-groups="sortedFacetGroups"
       :notes-count="notes.length"
       :verified-count="facetsSummary?.verified_count || 0"
       :data-sources-count="dataSources.length"
@@ -46,7 +46,7 @@
         <EntityFacetsTab
           :entity="entity"
           :entity-type="entityType"
-          :facets-summary="facetsSummary"
+          :facets-summary="sortedFacetsSummary"
           :can-edit="canEdit"
           @facets-updated="refreshFacetsSummary"
           @add-facet="openAddFacetDialog"
@@ -364,6 +364,33 @@ const documents = ref<EntityDocument[]>([])
 const externalData = ref<ExternalData | null>(null)
 const attachmentCount = ref(0)
 const referencedByCount = ref(0)
+
+const sortedFacetGroups = computed(() => {
+  const groups = facetsSummary.value?.facets_by_type || []
+  if (groups.length <= 1) return groups
+
+  const withValues = []
+  const empty = []
+  for (const group of groups) {
+    const valueCount = group.value_count ?? group.sample_values?.length ?? 0
+    if (valueCount > 0) {
+      withValues.push(group)
+    } else {
+      empty.push(group)
+    }
+  }
+
+  return withValues.concat(empty)
+})
+
+const sortedFacetsSummary = computed(() => {
+  if (!facetsSummary.value) return null
+  if (!facetsSummary.value.facets_by_type) return facetsSummary.value
+  return {
+    ...facetsSummary.value,
+    facets_by_type: sortedFacetGroups.value,
+  }
+})
 
 // Async function for facet summary refresh
 async function refreshFacetsSummary() {

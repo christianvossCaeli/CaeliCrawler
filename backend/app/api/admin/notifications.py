@@ -230,7 +230,11 @@ async def add_email_address(
     Add a new email address for the current user.
 
     The email address will need to be verified before it can be used.
+    A verification email will be sent automatically.
     """
+    from app.config import settings
+    from services.notifications.channels.email import send_verification_email
+
     # Check for duplicate
     existing = await session.execute(
         select(UserEmailAddress).where(
@@ -261,7 +265,16 @@ async def add_email_address(
     await session.commit()
     await session.refresh(email_address)
 
-    # TODO: Send verification email via notification service
+    # Send verification email
+    verification_url = (
+        f"{settings.frontend_url}/verify-email"
+        f"?id={email_address.id}&token={email_address.verification_token}"
+    )
+    await send_verification_email(
+        email=data.email,
+        verification_url=verification_url,
+        email_id=str(email_address.id),
+    )
 
     return UserEmailAddressResponse.model_validate(email_address)
 
@@ -326,6 +339,9 @@ async def resend_verification(
     """
     Resend verification email.
     """
+    from app.config import settings
+    from services.notifications.channels.email import send_verification_email
+
     email_address = await session.get(UserEmailAddress, email_id)
 
     if not email_address or email_address.user_id != current_user.id:
@@ -338,7 +354,16 @@ async def resend_verification(
     email_address.verification_token = secrets.token_urlsafe(32)
     await session.commit()
 
-    # TODO: Send verification email via notification service
+    # Send verification email
+    verification_url = (
+        f"{settings.frontend_url}/verify-email"
+        f"?id={email_address.id}&token={email_address.verification_token}"
+    )
+    await send_verification_email(
+        email=email_address.email,
+        verification_url=verification_url,
+        email_id=str(email_address.id),
+    )
 
     return MessageResponse(message="Verification email sent")
 
@@ -774,6 +799,104 @@ async def mark_all_read(
     return MessageResponse(message=f"{count} notifications marked as read")
 
 
+
+class BulkDeleteRequest(BaseModel):
+    """Request to delete multiple notifications."""
+
+    ids: list[UUID]
+
+
+@router.delete("/notifications/{notification_id}", response_model=MessageResponse)
+async def delete_notification(
+    notification_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Delete a single notification.
+    """
+    notification = await session.get(Notification, notification_id)
+
+    if not notification or notification.user_id != current_user.id:
+        raise NotFoundError("Notification", str(notification_id))
+
+    await session.delete(notification)
+    await session.commit()
+
+    return MessageResponse(message="Notification deleted")
+
+
+@router.post("/notifications/bulk-delete", response_model=MessageResponse)
+async def bulk_delete_notifications(
+    data: BulkDeleteRequest,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Delete multiple notifications at once.
+    """
+    if not data.ids:
+        return MessageResponse(message="No notifications to delete")
+
+    # Verify all notifications belong to user
+    result = await session.execute(
+        select(Notification).where(
+            Notification.id.in_(data.ids),
+            Notification.user_id == current_user.id,
+        )
+    )
+    notifications = list(result.scalars().all())
+
+    if len(notifications) != len(data.ids):
+        raise NotFoundError("Notification", "Some notifications not found")
+
+    for notification in notifications:
+        await session.delete(notification)
+
+    await session.commit()
+
+    return MessageResponse(message=f"{len(notifications)} notifications deleted")
+
+
+
+class BulkReadRequest(BaseModel):
+    """Request to mark multiple notifications as read."""
+
+    ids: list[UUID]
+
+
+@router.post("/notifications/bulk-read", response_model=MessageResponse)
+async def bulk_mark_as_read(
+    data: BulkReadRequest,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Mark multiple notifications as read at once.
+    """
+    if not data.ids:
+        return MessageResponse(message="No notifications to mark as read")
+
+    # Update all notifications belonging to user
+    result = await session.execute(
+        select(Notification).where(
+            Notification.id.in_(data.ids),
+            Notification.user_id == current_user.id,
+            Notification.read_at.is_(None),
+        )
+    )
+    notifications = list(result.scalars().all())
+
+    now = datetime.now(UTC)
+    for notification in notifications:
+        notification.read_at = now
+        notification.status = NotificationStatus.READ
+
+    await session.commit()
+
+    return MessageResponse(message=f"{len(notifications)} notifications marked as read")
+
+
 # =============================================================================
 # Webhook Testing
 # =============================================================================
@@ -789,6 +912,22 @@ async def test_webhook(
     """
     import httpx
 
+    from services.notifications.channels.webhook import (
+        create_pinned_url,
+        is_safe_webhook_url,
+    )
+
+    # SSRF Protection: Validate URL before sending
+    is_safe, error_msg, resolved_ip = is_safe_webhook_url(data.url)
+    if not is_safe or not resolved_ip:
+        return WebhookTestResponse(
+            success=False,
+            error=f"URL nicht erlaubt: {error_msg}",
+        )
+
+    # Create pinned URL to prevent DNS rebinding
+    pinned_url, original_hostname = create_pinned_url(data.url, resolved_ip)
+
     test_payload = {
         "event_type": "TEST",
         "notification_id": "test-notification-id",
@@ -798,7 +937,11 @@ async def test_webhook(
         "data": {"test": True},
     }
 
-    headers = {"Content-Type": "application/json", "User-Agent": "CaeliCrawler-Webhook/1.0"}
+    headers = {
+        "Content-Type": "application/json",
+        "User-Agent": "CaeliCrawler-Webhook/1.0",
+        "Host": original_hostname,  # Required for server routing
+    }
 
     # Handle authentication
     if data.auth:
@@ -814,9 +957,9 @@ async def test_webhook(
             headers["Authorization"] = f"Basic {creds}"
 
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(verify=True) as client:
             response = await client.post(
-                data.url,
+                pinned_url,
                 json=test_payload,
                 headers=headers,
                 timeout=10,

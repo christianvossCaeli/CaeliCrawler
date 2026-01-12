@@ -164,8 +164,8 @@ class LinkCategoryEntityTypesOperation(WriteOperation):
 
         try:
             if auto_detect:
-                # Get all active categories
-                cat_result = await session.execute(select(Category).where(Category.is_active))
+                # Get all categories
+                cat_result = await session.execute(select(Category))
                 categories = list(cat_result.scalars().all())
             else:
                 cat_result = await session.execute(select(Category).where(Category.slug == category_slug))

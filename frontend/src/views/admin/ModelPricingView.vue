@@ -7,10 +7,6 @@
       icon="mdi-currency-usd"
     >
       <template #actions>
-        <v-btn variant="tonal" :loading="loading" @click="loadPricing">
-          <v-icon start>mdi-refresh</v-icon>
-          {{ t('common.refresh') }}
-        </v-btn>
         <v-btn
           variant="tonal"
           color="info"
@@ -18,18 +14,9 @@
           @click="syncPrices"
         >
           <v-icon start>mdi-cloud-sync</v-icon>
-          {{ t('admin.modelPricing.actions.syncAll') }}
-        </v-btn>
-        <v-btn
-          variant="tonal"
-          color="purple"
-          :loading="syncingLiteLLM"
-          @click="syncLiteLLM"
-        >
-          <v-icon start>mdi-database-sync</v-icon>
-          {{ t('admin.modelPricing.actions.syncLiteLLM') }}
+          {{ t('admin.modelPricing.actions.sync') }}
           <v-tooltip activator="parent" location="bottom">
-            {{ t('admin.modelPricing.actions.syncLiteLLMTooltip') }}
+            {{ t('admin.modelPricing.actions.syncTooltip') }}
           </v-tooltip>
         </v-btn>
         <v-btn
@@ -43,17 +30,10 @@
       </template>
     </PageHeader>
 
-    <!-- Info Alert -->
-    <v-alert type="info" variant="tonal" class="mb-4">
-      <div class="d-flex align-center">
-        <v-icon start>mdi-information-outline</v-icon>
-        <div>
-          <strong>{{ t('admin.modelPricing.info.title') }}</strong>
-          <br>
-          {{ t('admin.modelPricing.info.description') }}
-        </div>
-      </div>
-    </v-alert>
+    <!-- Info Box -->
+    <PageInfoBox :storage-key="INFO_BOX_STORAGE_KEYS.MODEL_PRICING" :title="t('admin.modelPricing.info.title')">
+      {{ t('admin.modelPricing.info.description') }}
+    </PageInfoBox>
 
     <!-- Stale Warning -->
     <v-alert
@@ -136,6 +116,7 @@
       :loading="loading"
       @edit="openEditDialog"
       @delete="confirmDelete"
+      @sync="syncPrices"
     />
 
     <!-- Add/Edit Dialog -->
@@ -150,18 +131,24 @@
     <!-- Delete Confirmation Dialog -->
     <v-dialog v-model="deleteDialogOpen" :max-width="DIALOG_SIZES.XS">
       <v-card>
-        <v-card-title>{{ t('admin.modelPricing.dialog.deleteTitle') }}</v-card-title>
-        <v-card-text>
-          {{ t('admin.modelPricing.dialog.deleteConfirm') }}
+        <v-card-title class="d-flex align-center pa-4 bg-error">
+          <v-icon class="mr-3">mdi-alert</v-icon>
+          {{ t('admin.modelPricing.dialog.deleteTitle') }}
+        </v-card-title>
+        <v-card-text class="pa-6">
+          <v-alert type="warning" variant="tonal" class="mb-0">
+            {{ t('admin.modelPricing.dialog.deleteConfirm', { model: deletingEntry?.model_name }) }}
+          </v-alert>
         </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="deleteDialogOpen = false">
+        <v-divider />
+        <v-card-actions class="pa-4">
+          <v-btn variant="tonal" @click="deleteDialogOpen = false">
             {{ t('common.cancel') }}
           </v-btn>
+          <v-spacer />
           <v-btn
             color="error"
-            variant="flat"
+            variant="tonal"
             :loading="deleting"
             @click="deleteEntry"
           >
@@ -179,6 +166,8 @@ import { useI18n } from 'vue-i18n'
 import { useSnackbar } from '@/composables/useSnackbar'
 import { useLogger } from '@/composables/useLogger'
 import PageHeader from '@/components/common/PageHeader.vue'
+import PageInfoBox from '@/components/common/PageInfoBox.vue'
+import { INFO_BOX_STORAGE_KEYS } from '@/config/infoBox'
 import {
   ModelPricingStatsCards,
   ModelPricingFilters,
@@ -192,12 +181,10 @@ import {
   updateModelPricing,
   deleteModelPricing,
   syncAllPrices,
-  syncLiteLLMPrices,
   seedModelPricing,
   type PricingEntry,
   type PricingListResponse,
   type SyncAllResultResponse,
-  type SyncResultResponse,
 } from '@/services/api/admin'
 import {
   getProviderIcon,
@@ -212,7 +199,6 @@ const logger = useLogger('ModelPricingView')
 // State
 const loading = ref(false)
 const syncing = ref(false)
-const syncingLiteLLM = ref(false)
 const seeding = ref(false)
 const saving = ref(false)
 const deleting = ref(false)
@@ -313,35 +299,6 @@ async function syncPrices() {
     logger.error('Sync failed', { error: err })
   } finally {
     syncing.value = false
-  }
-}
-
-async function syncLiteLLM() {
-  syncingLiteLLM.value = true
-
-  try {
-    const response = await syncLiteLLMPrices()
-    const result = response.data as SyncResultResponse
-
-    if (result.success) {
-      showSuccess(t('admin.modelPricing.messages.litellmSuccess', {
-        updated: result.updated,
-        added: result.added,
-      }))
-      await loadPricing()
-    } else if (result.errors.length > 0) {
-      showError(t('admin.modelPricing.messages.litellmPartialFailed', {
-        errors: result.errors.length,
-      }))
-      await loadPricing()
-    } else {
-      showError(t('admin.modelPricing.messages.litellmFailed'))
-    }
-  } catch (err) {
-    showError(t('admin.modelPricing.messages.litellmFailed'))
-    logger.error('LiteLLM sync failed', { error: err })
-  } finally {
-    syncingLiteLLM.value = false
   }
 }
 

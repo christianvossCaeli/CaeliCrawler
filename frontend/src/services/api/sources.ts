@@ -122,11 +122,14 @@ export const saveApiFromDiscovery = (data: {
 
 // Extracted Data & Documents (Public API)
 export interface ExtractedDataParams {
+  document_id?: string
   category_id?: string
   source_id?: string
   extraction_type?: string
   min_confidence?: number
+  max_confidence?: number
   human_verified?: boolean
+  include_rejected?: boolean
   created_from?: string
   created_to?: string
   search?: string
@@ -137,10 +140,12 @@ export interface ExtractedDataParams {
 }
 
 export interface ExtractionStatsParams {
+  document_id?: string
   category_id?: string | null
   source_id?: string
   extraction_type?: string
   min_confidence?: number
+  max_confidence?: number
   human_verified?: boolean | null
   created_from?: string
   created_to?: string
@@ -169,6 +174,32 @@ export const analyzeMorePages = (documentId: string) =>
 export const verifyExtraction = (id: string, data: { verified: boolean; corrections?: Record<string, unknown> }) =>
   api.put(`/v1/data/extracted/${id}/verify`, data)
 
+export interface RejectExtractionParams {
+  rejected?: boolean
+  reason?: string
+  cascade_to_facets?: boolean
+}
+
+export interface RejectExtractionResponse {
+  extraction: {
+    id: string
+    is_rejected: boolean
+    rejected_by: string | null
+    rejected_at: string | null
+    rejection_reason: string | null
+    human_verified: boolean
+    [key: string]: unknown
+  }
+  deactivated_facets_count: number
+  protected_facets_count: number
+}
+
+export const rejectExtraction = (id: string, data: RejectExtractionParams = {}) =>
+  api.put<RejectExtractionResponse>(`/v1/data/extracted/${id}/reject`, data)
+
+export const getExtractionFacets = (id: string, params?: { include_inactive?: boolean }) =>
+  api.get<import('@/types/entity').FacetValue[]>(`/v1/data/extracted/${id}/facets`, { params })
+
 export interface BulkVerifyResponse {
   verified_ids: string[]
   failed_ids: string[]
@@ -178,6 +209,23 @@ export interface BulkVerifyResponse {
 
 export const bulkVerifyExtractions = (data: { ids: string[] }) =>
   api.put<BulkVerifyResponse>('/v1/data/extracted/bulk-verify', data)
+
+export interface BulkRejectParams {
+  ids: string[]
+  cascade_to_facets?: boolean
+}
+
+export interface BulkRejectResponse {
+  rejected_ids: string[]
+  failed_ids: string[]
+  rejected_count: number
+  failed_count: number
+  total_deactivated_facets: number
+  total_protected_facets: number
+}
+
+export const bulkRejectExtractions = (data: BulkRejectParams) =>
+  api.put<BulkRejectResponse>('/v1/data/extracted/bulk-reject', data)
 
 // Municipalities (Gemeinden)
 export const getMunicipalities = (params?: { country?: string; admin_level_1?: string; search?: string; page?: number; per_page?: number }) =>

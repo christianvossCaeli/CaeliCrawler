@@ -8,6 +8,11 @@
       avatar-color="amber-darken-2"
     />
 
+    <!-- Info Box -->
+    <PageInfoBox :storage-key="INFO_BOX_STORAGE_KEYS.FAVORITES" :title="t('favorites.info.title')">
+      {{ t('favorites.info.description') }}
+    </PageInfoBox>
+
     <!-- Filters -->
     <v-card class="mb-4">
       <v-card-text>
@@ -190,6 +195,8 @@ import { useSnackbar } from '@/composables/useSnackbar'
 import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
 import { useDateFormatter } from '@/composables'
 import PageHeader from '@/components/common/PageHeader.vue'
+import PageInfoBox from '@/components/common/PageInfoBox.vue'
+import { INFO_BOX_STORAGE_KEYS } from '@/config/infoBox'
 import FavoritesSkeleton from '@/components/common/FavoritesSkeleton.vue'
 import { useLogger } from '@/composables/useLogger'
 import { usePageContextProvider, PAGE_ACTIONS } from '@/composables/usePageContext'

@@ -857,14 +857,22 @@ def migrate_facet_value_entity_links(self, batch_size: int = 100, dry_run: bool 
                             stats["skipped_no_name"] += 1
                             continue
 
-                        # Determine target entity type
+                        # Determine target entity type using intelligent classification
                         target_types = facet_type.target_entity_type_slugs or []
                         if not target_types:
                             stats["skipped_no_type"] += 1
                             continue
 
-                        # Use first target type (typically "person" for contacts)
-                        target_entity_type = target_types[0]
+                        # Use EntityMatchingService to classify and resolve entity
+                        from services.entity_matching_service import EntityMatchingService
+
+                        matching_service = EntityMatchingService(session)
+                        target_entity_type = matching_service._classify_entity_type(
+                            name, value, target_types
+                        )
+                        if not target_entity_type:
+                            # Fall back to first type if classification fails
+                            target_entity_type = target_types[0]
 
                         # Find or create entity using _resolve_entity
                         entity_id = await _resolve_entity(session, target_entity_type, name)

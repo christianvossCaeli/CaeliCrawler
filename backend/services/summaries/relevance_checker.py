@@ -12,13 +12,11 @@ from typing import Any
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
-from app.models.llm_usage import LLMProvider, LLMTaskType
+from app.models.llm_usage import LLMTaskType
+from app.models.user_api_credentials import LLMPurpose
+from services.llm_client_service import LLMClientService
 from services.llm_usage_tracker import record_llm_usage
-from services.smart_query.query_interpreter import (
-    AI_TEMPERATURE_LOW,
-    get_openai_client,
-)
+from services.smart_query.query_interpreter import AI_TEMPERATURE_LOW
 from services.smart_query.utils import clean_json_response
 
 logger = structlog.get_logger(__name__)
@@ -248,6 +246,7 @@ async def check_relevance(
     if use_ai and significance_score >= threshold * 0.5:
         try:
             ai_result = await _check_relevance_with_ai(
+                db=session,
                 summary_context=summary_context,
                 old_data=old_data,
                 new_data=new_data,
@@ -278,6 +277,7 @@ async def check_relevance(
 
 
 async def _check_relevance_with_ai(
+    db: AsyncSession,
     summary_context: dict[str, Any],
     old_data: dict[str, Any],
     new_data: dict[str, Any],
@@ -286,6 +286,7 @@ async def _check_relevance_with_ai(
     """Use AI to analyze the semantic relevance of changes.
 
     Args:
+        db: Database session
         summary_context: Summary name, prompt, theme
         old_data: Previous data
         new_data: New data
@@ -333,11 +334,17 @@ Antworte mit JSON:
 Antworte NUR mit validem JSON."""
 
     try:
-        client = get_openai_client()
+        llm_service = LLMClientService(db)
+        client, config = await llm_service.get_system_client(LLMPurpose.DOCUMENT_ANALYSIS)
+        if not client or not config:
+            raise ValueError("LLM nicht konfiguriert")
+
+        model_name = llm_service.get_model_name(config)
+        provider = llm_service.get_provider(config)
 
         start_time = time.time()
-        response = client.chat.completions.create(
-            model=settings.azure_openai_deployment_name,
+        response = await client.chat.completions.create(
+            model=model_name,
             messages=[
                 {
                     "role": "system",
@@ -354,8 +361,8 @@ Antworte NUR mit validem JSON."""
 
         if response.usage:
             await record_llm_usage(
-                provider=LLMProvider.AZURE_OPENAI,
-                model=settings.azure_openai_deployment_name,
+                provider=provider,
+                model=model_name,
                 task_type=LLMTaskType.RELEVANCE_CHECK,
                 task_name="_check_relevance_with_ai",
                 prompt_tokens=response.usage.prompt_tokens,

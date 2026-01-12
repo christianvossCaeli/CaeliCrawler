@@ -9,8 +9,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import require_admin
 from app.database import get_session
+from app.models.audit_log import AuditAction
 from app.models.llm_budget import LimitIncreaseRequestStatus
 from app.models.user import User
+from app.services.audit_service import create_audit_log
 from app.schemas.llm_budget import (
     AdminLimitRequestAction,
     BudgetStatusListResponse,
@@ -26,6 +28,9 @@ router = APIRouter(
     prefix="/llm-budget",
     tags=["Admin - LLM Budget"],
 )
+
+
+# === List and Status Endpoints (static paths first) ===
 
 
 @router.get("", response_model=list[LLMBudgetConfigResponse])
@@ -73,76 +78,6 @@ async def get_alert_history(
     return await service.get_alert_history(budget_id=budget_id, limit=limit)
 
 
-@router.get("/{budget_id}", response_model=LLMBudgetConfigResponse)
-async def get_budget(
-    budget_id: UUID,
-    _: User = Depends(require_admin),
-    db: AsyncSession = Depends(get_session),
-):
-    """
-    Get a specific budget configuration.
-    """
-    service = LLMBudgetService(db)
-    budget = await service.get_budget(budget_id)
-
-    if not budget:
-        raise HTTPException(status_code=404, detail="Budget not found")
-
-    return budget
-
-
-@router.post("", response_model=LLMBudgetConfigResponse, status_code=201)
-async def create_budget(
-    data: LLMBudgetConfigCreate,
-    _: User = Depends(require_admin),
-    db: AsyncSession = Depends(get_session),
-):
-    """
-    Create a new budget configuration.
-
-    Configure monthly limits, warning thresholds, and email alerts.
-    """
-    service = LLMBudgetService(db)
-    return await service.create_budget(data)
-
-
-@router.put("/{budget_id}", response_model=LLMBudgetConfigResponse)
-async def update_budget(
-    budget_id: UUID,
-    data: LLMBudgetConfigUpdate,
-    _: User = Depends(require_admin),
-    db: AsyncSession = Depends(get_session),
-):
-    """
-    Update an existing budget configuration.
-    """
-    service = LLMBudgetService(db)
-    budget = await service.update_budget(budget_id, data)
-
-    if not budget:
-        raise HTTPException(status_code=404, detail="Budget not found")
-
-    return budget
-
-
-@router.delete("/{budget_id}", status_code=204)
-async def delete_budget(
-    budget_id: UUID,
-    _: User = Depends(require_admin),
-    db: AsyncSession = Depends(get_session),
-):
-    """
-    Delete a budget configuration.
-
-    This will also delete all associated alert history.
-    """
-    service = LLMBudgetService(db)
-    success = await service.delete_budget(budget_id)
-
-    if not success:
-        raise HTTPException(status_code=404, detail="Budget not found")
-
-
 @router.post("/check-alerts")
 async def trigger_budget_check(
     _: User = Depends(require_admin),
@@ -164,7 +99,7 @@ async def trigger_budget_check(
     }
 
 
-# === Limit Increase Request Endpoints ===
+# === Limit Increase Request Endpoints (must come before /{budget_id}) ===
 
 
 @router.get(
@@ -233,6 +168,17 @@ async def approve_limit_request(
             admin_id=admin.id,
             action=action,
         )
+
+        # Create audit log entry
+        await create_audit_log(
+            session=db,
+            action=AuditAction.UPDATE,
+            entity_type="LimitIncreaseRequest",
+            entity_id=request_id,
+            entity_name="approved",
+            user=admin,
+        )
+
         await db.commit()
         return result
     except ValueError as e:
@@ -266,6 +212,17 @@ async def deny_limit_request(
             admin_id=admin.id,
             action=action,
         )
+
+        # Create audit log entry
+        await create_audit_log(
+            session=db,
+            action=AuditAction.UPDATE,
+            entity_type="LimitIncreaseRequest",
+            entity_id=request_id,
+            entity_name="denied",
+            user=admin,
+        )
+
         await db.commit()
         return result
     except ValueError as e:
@@ -273,3 +230,118 @@ async def deny_limit_request(
             status_code=400,
             detail=str(e),
         ) from None
+
+
+# === Single Budget CRUD Endpoints (dynamic path must come last) ===
+
+
+@router.post("", response_model=LLMBudgetConfigResponse, status_code=201)
+async def create_budget(
+    data: LLMBudgetConfigCreate,
+    current_user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_session),
+):
+    """
+    Create a new budget configuration.
+
+    Configure monthly limits, warning thresholds, and email alerts.
+    """
+    service = LLMBudgetService(db)
+    result = await service.create_budget(data)
+
+    # Create audit log entry
+    await create_audit_log(
+        session=db,
+        action=AuditAction.CREATE,
+        entity_type="LLMBudget",
+        entity_id=result.id,
+        entity_name=data.name,
+        user=current_user,
+    )
+    await db.commit()
+
+    return result
+
+
+@router.get("/{budget_id}", response_model=LLMBudgetConfigResponse)
+async def get_budget(
+    budget_id: UUID,
+    _: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_session),
+):
+    """
+    Get a specific budget configuration.
+    """
+    service = LLMBudgetService(db)
+    budget = await service.get_budget(budget_id)
+
+    if not budget:
+        raise HTTPException(status_code=404, detail="Budget not found")
+
+    return budget
+
+
+@router.put("/{budget_id}", response_model=LLMBudgetConfigResponse)
+async def update_budget(
+    budget_id: UUID,
+    data: LLMBudgetConfigUpdate,
+    current_user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_session),
+):
+    """
+    Update an existing budget configuration.
+    """
+    service = LLMBudgetService(db)
+    budget = await service.update_budget(budget_id, data)
+
+    if not budget:
+        raise HTTPException(status_code=404, detail="Budget not found")
+
+    # Create audit log entry
+    await create_audit_log(
+        session=db,
+        action=AuditAction.UPDATE,
+        entity_type="LLMBudget",
+        entity_id=budget_id,
+        entity_name=budget.name,
+        user=current_user,
+    )
+    await db.commit()
+
+    return budget
+
+
+@router.delete("/{budget_id}", status_code=204)
+async def delete_budget(
+    budget_id: UUID,
+    current_user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_session),
+):
+    """
+    Delete a budget configuration.
+
+    This will also delete all associated alert history.
+    """
+    service = LLMBudgetService(db)
+
+    # Get budget name before deletion for audit log
+    budget = await service.get_budget(budget_id)
+    if not budget:
+        raise HTTPException(status_code=404, detail="Budget not found")
+
+    budget_name = budget.name
+
+    # Create audit log entry
+    await create_audit_log(
+        session=db,
+        action=AuditAction.DELETE,
+        entity_type="LLMBudget",
+        entity_id=budget_id,
+        entity_name=budget_name,
+        user=current_user,
+    )
+
+    success = await service.delete_budget(budget_id)
+
+    if not success:
+        raise HTTPException(status_code=404, detail="Budget not found")

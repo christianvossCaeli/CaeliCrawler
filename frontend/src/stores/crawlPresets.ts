@@ -26,6 +26,8 @@ export interface CrawlPresetFilters {
   status?: string
   search?: string
   limit?: number
+  entity_ids?: string[]  // Fixed entity IDs for entity-based presets
+  entity_selection_mode?: 'fixed' | 'dynamic'  // How entities are selected
   [key: string]: unknown
 }
 

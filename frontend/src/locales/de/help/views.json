@@ -549,7 +549,42 @@
         "oparlApi": "OPARL_API",
         "oparlApiDesc": "OParl-Schnittstelle für Ratsinformationssysteme",
         "rss": "RSS",
-        "rssDesc": "RSS-Feed für News-Aggregation"
+        "rssDesc": "RSS-Feed für News-Aggregation",
+        "sharepoint": "SHAREPOINT",
+        "sharepointDesc": "Microsoft SharePoint Online - Dokumentbibliotheken via Microsoft Graph API"
+      },
+      "sharepoint": {
+        "title": "SharePoint-Quellen",
+        "description": "SharePoint-Quellen ermöglichen das Crawlen von Dokumenten aus Microsoft SharePoint Online.",
+        "prerequisites": {
+          "title": "Voraussetzungen",
+          "items": [
+            "Azure AD App-Registrierung mit Sites.Read.All und Files.Read.All Berechtigungen",
+            "Admin Consent für die App erteilt",
+            "Environment Variables: SHAREPOINT_TENANT_ID, SHAREPOINT_CLIENT_ID, SHAREPOINT_CLIENT_SECRET"
+          ]
+        },
+        "configuration": {
+          "title": "Konfiguration",
+          "siteUrl": "Site-URL - z.B. contoso.sharepoint.com:/sites/Documents",
+          "driveName": "Dokumentbibliothek - Name der Library (z.B. 'Shared Documents')",
+          "folderPath": "Ordnerpfad - Unterordner innerhalb der Library (z.B. '/Verträge')",
+          "recursive": "Rekursiv - Unterordner einschließen (Standard: Ja)",
+          "fileExtensions": "Dateitypen - .pdf, .docx, .xlsx, etc.",
+          "maxFiles": "Max. Dateien - Limit pro Crawl (Standard: 1000)"
+        },
+        "workflow": {
+          "title": "Workflow",
+          "steps": [
+            "SharePoint-Quelle anlegen und Verbindung testen",
+            "Kategorie mit Suchbegriffen (search_terms) konfigurieren",
+            "Crawl starten - Dokumente werden heruntergeladen",
+            "Dokumente ohne Keywords werden gefiltert (kein KI-Aufruf)",
+            "Relevante Dokumente werden von KI analysiert",
+            "Entities und Facets werden automatisch erstellt"
+          ]
+        },
+        "supportedFiles": "Unterstützte Dateitypen: PDF, Word (.doc/.docx), Excel (.xls/.xlsx), PowerPoint (.ppt/.pptx), Text, RTF, HTML"
       },
       "availableFilters": "Verfügbare Filter",
       "filterDescription": "Land (mit Anzahl), Gemeinde (Autocomplete), Kategorie, Status, Suche (Name/URL)",

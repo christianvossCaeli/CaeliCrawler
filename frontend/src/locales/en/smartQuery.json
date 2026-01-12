@@ -2,6 +2,10 @@
   "smartQuery": {
     "title": "Smart Query",
     "subtitle": "Ask questions in natural language",
+    "info": {
+      "title": "Ask Instead of Click",
+      "description": "Ask questions in natural language like 'Which municipalities have wind power issues?' or 'Show all events next week'. The AI understands your request and automatically searches all entities, documents, and results. Three modes: 'Read' for queries, 'Write' for changes (with preview), 'Plan' for complex tasks. The examples below show typical requests - click to try them."
+    },
     "input": {
       "placeholder": "e.g. 'Show me all municipalities with wind power discussions'",
       "submit": "Query"

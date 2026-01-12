@@ -228,9 +228,16 @@ def _infer_value_schema_from_data(data: Any) -> dict[str, Any]:
 
     This creates a basic schema that can be used for the FacetType's value_schema.
     The schema includes display hints for the frontend.
+
+    Display configuration elements:
+    - primary_field: Main text to show (description, text, name, etc.)
+    - chip_fields: Small badges for type, status, dates, etc.
+    - quote_field: Longer text to show in a quote block (quote, statement, etc.)
+    - severity_field: Field for color-coded severity indicators
+    - layout: 'card' (default), 'inline' (for simple values), or 'list'
     """
     if data is None:
-        return {"type": "object", "properties": {}}
+        return {"type": "object", "properties": {}, "display": {"primary_field": "text", "layout": "card"}}
 
     if isinstance(data, str):
         return {
@@ -256,26 +263,52 @@ def _infer_value_schema_from_data(data: Any) -> dict[str, Any]:
         properties = {}
         chip_fields = []
         primary_field = None
+        quote_field = None
+        severity_field = None
+
+        # Field name patterns for different display elements
+        PRIMARY_CANDIDATES = ("description", "text", "name", "title", "aenderungen", "beschreibung", "inhalt", "content")
+        CHIP_CANDIDATES = (
+            "typ", "type", "ausweisung_typ", "status", "severity", "role", "rolle",
+            "organisation", "format", "shape_format", "planungsregion", "behoerde",
+            "event_date", "event_location", "datum", "start_datum", "ende_datum",
+            "einwendungsfrist", "effective_date", "authority"
+        )
+        QUOTE_CANDIDATES = ("quote", "statement", "aussage", "naechste_schritte", "next_milestone", "ansprechpartner")
+        SEVERITY_CANDIDATES = ("severity", "schweregrad", "priority", "prioritaet")
 
         for key, value in data.items():
+            key_lower = key.lower()
+
             if value is None:
                 properties[key] = {"type": "string", "nullable": True}
             elif isinstance(value, str):
                 properties[key] = {"type": "string"}
-                # Heuristics for display
-                if key in ("description", "text", "aenderungen", "beschreibung"):
-                    primary_field = key
-                elif key in ("typ", "type", "ausweisung_typ", "status", "severity"):
+                # Detect primary field
+                if key_lower in PRIMARY_CANDIDATES:
+                    if not primary_field:
+                        primary_field = key
+                # Detect chip fields
+                if key_lower in CHIP_CANDIDATES:
                     chip_fields.append(key)
+                # Detect quote field
+                if key_lower in QUOTE_CANDIDATES:
+                    quote_field = key
+                # Detect severity field
+                if key_lower in SEVERITY_CANDIDATES:
+                    severity_field = key
+                    if key not in chip_fields:
+                        chip_fields.append(key)
             elif isinstance(value, bool):
                 properties[key] = {"type": "boolean"}
             elif isinstance(value, int):
                 properties[key] = {"type": "integer"}
-                if key.endswith("_ha") or key.endswith("_km2") or "flaeche" in key or "anzahl" in key:
+                # Numeric fields that should be chips
+                if key_lower.endswith("_ha") or key_lower.endswith("_km2") or "flaeche" in key_lower or "anzahl" in key_lower or "count" in key_lower:
                     chip_fields.append(key)
             elif isinstance(value, float):
                 properties[key] = {"type": "number"}
-                if key.endswith("_ha") or key.endswith("_km2") or "flaeche" in key:
+                if key_lower.endswith("_ha") or key_lower.endswith("_km2") or "flaeche" in key_lower or "area" in key_lower:
                     chip_fields.append(key)
             elif isinstance(value, list):
                 properties[key] = {"type": "array", "items": {"type": "string"}}
@@ -284,24 +317,41 @@ def _infer_value_schema_from_data(data: Any) -> dict[str, Any]:
 
         # Auto-detect primary field if not found
         if not primary_field:
-            for candidate in ["description", "text", "name", "title", "aenderungen", "beschreibung", "inhalt"]:
+            for candidate in PRIMARY_CANDIDATES:
                 if candidate in properties:
                     primary_field = candidate
                     break
             if not primary_field and properties:
-                primary_field = list(properties.keys())[0]
+                # Use first string field
+                for key, prop in properties.items():
+                    if prop.get("type") == "string" and key not in chip_fields and key != quote_field:
+                        primary_field = key
+                        break
+                if not primary_field:
+                    primary_field = list(properties.keys())[0]
+
+        # Build display configuration
+        # Exclude primary_field from chip_fields to avoid duplication
+        final_chips = [f for f in chip_fields if f != primary_field][:4]
+        display_config = {
+            "primary_field": primary_field or "description",
+            "chip_fields": final_chips,  # Max 4 chips, excluding primary
+            "layout": "card",
+        }
+
+        # Only add optional fields if present
+        if quote_field:
+            display_config["quote_field"] = quote_field
+        if severity_field:
+            display_config["severity_field"] = severity_field
 
         return {
             "type": "object",
             "properties": properties,
-            "display": {
-                "primary_field": primary_field or "description",
-                "chip_fields": chip_fields[:4],  # Max 4 chips
-                "layout": "card",
-            },
+            "display": display_config,
         }
 
-    return {"type": "object", "properties": {}}
+    return {"type": "object", "properties": {}, "display": {"primary_field": "text", "layout": "card"}}
 
 
 def _humanize_field_name(field_name: str) -> str:
@@ -879,40 +929,33 @@ async def convert_extraction_to_facets(
                 counts[facet_type.slug] += 1
 
         elif isinstance(field_value, str):
-            # Simple text value
-            text = field_value.strip()
-            if len(text) >= 10:
-                # Check for duplicates
-                is_dupe = await check_duplicate_facet(session, entity.id, facet_type.id, text)
-                if not is_dupe:
-                    await create_facet_value(
-                        session,
-                        entity_id=entity.id,
-                        facet_type_id=facet_type.id,
-                        value={"text": text},
-                        text_representation=text[:500],
-                        confidence_score=base_confidence,
-                        source_document_id=extracted_data.document_id,
-                        facet_type=facet_type,
-                    )
-                    counts[facet_type.slug] += 1
+            # Simple text value - route through quality-checked processor
+            created = await _process_single_facet_value(
+                session=session,
+                entity=entity,
+                facet_type=facet_type,
+                value=field_value,
+                primary_field=primary_field,
+                base_confidence=base_confidence,
+                source_document_id=extracted_data.document_id,
+            )
+            if created:
+                counts[facet_type.slug] += 1
 
         elif isinstance(field_value, (int, float)):
-            # Numeric value - wrap in object
-            value_obj = {"value": field_value}
-            text_repr = f"{field_name}: {field_value}"
-
-            await create_facet_value(
-                session,
-                entity_id=entity.id,
-                facet_type_id=facet_type.id,
-                value=value_obj,
-                text_representation=text_repr,
-                confidence_score=base_confidence,
-                source_document_id=extracted_data.document_id,
+            # Numeric value - wrap in object and route through processor
+            value_obj = {"value": field_value, "description": f"{field_name}: {field_value}"}
+            created = await _process_single_facet_value(
+                session=session,
+                entity=entity,
                 facet_type=facet_type,
+                value=value_obj,
+                primary_field=primary_field,
+                base_confidence=base_confidence,
+                source_document_id=extracted_data.document_id,
             )
-            counts[facet_type.slug] += 1
+            if created:
+                counts[facet_type.slug] += 1
 
     logger.info(
         "Created facet values from extraction",
@@ -938,10 +981,29 @@ async def _process_single_facet_value(
     Process a single facet value (from array or single object).
 
     Returns True if value was created, False if skipped (duplicate, invalid, etc.)
+
+    Data quality checks are applied to:
+    - Reject negative findings ("Keine Angaben", "Nicht vorhanden", etc.)
+    - Reject empty/mostly-null structured data
+    - Reduce confidence for sparse data
     """
+    # Quality check BEFORE processing
+    quality = check_facet_value_quality(value, facet_type.slug, base_confidence)
+    if not quality.is_valid:
+        logger.debug(
+            "Facet value rejected by quality check",
+            facet_type=facet_type.slug,
+            reason=quality.rejection_reason,
+        )
+        return False
+
+    # Use adjusted confidence from quality check
+    confidence = quality.adjusted_confidence
+
     # Handle string values
     if isinstance(value, str):
         text = value.strip()
+        # Already checked in quality validation, but double-check
         if len(text) < 10:
             return False
 
@@ -955,7 +1017,7 @@ async def _process_single_facet_value(
             facet_type_id=facet_type.id,
             value={"text": text, "description": text},
             text_representation=text[:500],
-            confidence_score=base_confidence,
+            confidence_score=confidence,
             source_document_id=source_document_id,
             facet_type=facet_type,
             resolve_entity_reference=True,
@@ -964,8 +1026,12 @@ async def _process_single_facet_value(
 
     # Handle dict values
     if isinstance(value, dict):
-        # Extract text representation from common fields
-        text_repr = _extract_text_representation(value, primary_field)
+        # Normalize field names for consistency
+        # AI prompts may use 'text' but schema expects 'description'
+        value = _normalize_facet_value_fields(value)
+
+        # Extract text representation from common fields, using labels from schema
+        text_repr = _extract_text_representation(value, primary_field, facet_type.value_schema)
 
         if not text_repr or len(text_repr) < 3:
             # Try to create a representation from all non-null values
@@ -983,13 +1049,16 @@ async def _process_single_facet_value(
         if is_dupe:
             return False
 
+        # Apply small bonus for structured data, but cap at 0.95 and use adjusted confidence
+        final_confidence = min(0.95, confidence + 0.05)
+
         await create_facet_value(
             session,
             entity_id=entity.id,
             facet_type_id=facet_type.id,
             value=value,
             text_representation=text_repr[:500],
-            confidence_score=min(0.95, base_confidence + 0.05),
+            confidence_score=final_confidence,
             source_document_id=source_document_id,
             facet_type=facet_type,
             resolve_entity_reference=True,
@@ -999,17 +1068,301 @@ async def _process_single_facet_value(
     return False
 
 
-def _extract_text_representation(value: dict[str, Any], primary_field: str) -> str:
+
+
+# =============================================================================
+# Data Quality Validation for Facet Values
+# =============================================================================
+
+# Patterns that indicate negative/empty findings - these should not be stored
+# NOTE: "Keine negativen Auswirkungen..." is VALID content (a positive statement)
+# Only filter pure placeholders like "Keine Angaben zu..."
+NEGATIVE_FINDING_PATTERNS = [
+    # German negative patterns - pure placeholders only
+    r"^keine\s+angaben?\s+(zu|über|bezüglich|im|vorhanden)",
+    r"^keine\s+(informationen?|daten|hinweise?)\s+(zu|über|vorhanden|verfügbar)",
+    r"^keine\s+konkreten?\s+(angaben?|informationen?|daten)",
+    r"^keine\s+\w+\s+(angegeben|genannt|vorhanden|verfügbar)",
+    r"^nicht\s+(vorhanden|verfügbar|bekannt|angegeben|genannt|erwähnt|relevant)",
+    r"^ohne\s+(angaben?|daten|informationen?)",
+    r"^liegt\s+nicht\s+vor",
+    r"^wurde\s+nicht\s+(angegeben|genannt)",
+    r"^es\s+(gibt|liegen)\s+(keine|nicht)",
+    r"^bisher\s+(keine|nicht)",
+    r"^noch\s+(keine|nicht)",
+    r"^derzeit\s+(keine|nicht)",
+    r"^aktuell\s+(keine|nicht)",
+    # Short/empty indicators
+    r"^n/?a\.?$",  # N/A, NA, n.a.
+    r"^n\.?\s*a\.?$",  # n.a., n. a.
+    r"^-+$",
+    r"^unbekannt$",
+    r"^null$",
+    r"^none$",
+    r"^\?+$",
+    r"^k\.?\s*a\.?$",  # k.A., k. A.
+    r"^o\.?\s*a\.?$",  # o.A., o. A. (ohne Angabe)
+    # Reference patterns (non-substantive)
+    r"^siehe\s+(oben|unten|anhang)",
+    r"^s\.?\s*o\.?$",  # s.o. (siehe oben)
+    r"^entfällt",
+    r"^nicht\s+zutreffend",
+    r"^nicht\s+anwendbar",
+    r"^nicht\s+relevant",
+    # English patterns
+    r"^not\s+(available|applicable|provided|specified)",
+    r"^unknown$",
+    r"^no\s+(data|information|details)",
+    r"^to\s+be\s+(determined|announced)",
+    r"^tbd$",
+    r"^tba$",
+]
+
+# Compiled regex for efficiency (re is imported at module level)
+_NEGATIVE_PATTERN = re.compile(
+    "|".join(NEGATIVE_FINDING_PATTERNS),
+    re.IGNORECASE | re.UNICODE
+)
+
+
+class FacetQualityResult:
+    """Result of facet value quality check."""
+    
+    def __init__(
+        self,
+        is_valid: bool,
+        adjusted_confidence: float,
+        rejection_reason: str | None = None,
+    ):
+        self.is_valid = is_valid
+        self.adjusted_confidence = adjusted_confidence
+        self.rejection_reason = rejection_reason
+
+
+def check_facet_value_quality(
+    value: Any,
+    facet_type_slug: str,
+    base_confidence: float,
+) -> FacetQualityResult:
+    """
+    Check quality of a facet value and adjust confidence accordingly.
+    
+    Returns a FacetQualityResult with:
+    - is_valid: Whether the value should be stored at all
+    - adjusted_confidence: Modified confidence based on data quality
+    - rejection_reason: Why the value was rejected (if is_valid=False)
+    
+    Quality checks:
+    1. Reject negative findings ("Keine Angaben", "Nicht vorhanden", etc.)
+    2. Reject mostly-empty structured data (all null except booleans)
+    3. Reduce confidence for sparse data
+    4. Reject boolean-only values without meaningful context
+    """
+    # Handle string values
+    if isinstance(value, str):
+        text = value.strip()
+        
+        # Too short
+        if len(text) < 10:
+            return FacetQualityResult(False, 0.0, "Text too short")
+        
+        # Check for negative finding patterns
+        if _NEGATIVE_PATTERN.search(text):
+            return FacetQualityResult(False, 0.0, f"Negative finding: '{text[:50]}'")
+        
+        return FacetQualityResult(True, base_confidence, None)
+    
+    # Handle dict/structured values
+    if isinstance(value, dict):
+        return _check_structured_value_quality(value, facet_type_slug, base_confidence)
+    
+    # Handle simple types (numbers, booleans)
+    if isinstance(value, (int, float)):
+        return FacetQualityResult(True, base_confidence, None)
+    
+    if isinstance(value, bool):
+        # Standalone booleans have low value without context
+        return FacetQualityResult(True, min(base_confidence, 0.3), None)
+    
+    return FacetQualityResult(True, base_confidence, None)
+
+
+def _check_structured_value_quality(
+    value: dict,
+    facet_type_slug: str,
+    base_confidence: float,
+) -> FacetQualityResult:
+    """
+    Check quality of structured (dict) facet values.
+    
+    Structured values should have meaningful content beyond just booleans or nulls.
+    """
+    if not value:
+        return FacetQualityResult(False, 0.0, "Empty dict")
+    
+    # Count field types
+    null_count = 0
+    bool_count = 0
+    string_count = 0
+    number_count = 0
+    meaningful_strings = []
+    
+    for key, val in value.items():
+        if val is None:
+            null_count += 1
+        elif isinstance(val, bool):
+            bool_count += 1
+        elif isinstance(val, str):
+            text = val.strip()
+            if text:
+                string_count += 1
+                # Check if string is a negative finding
+                if _NEGATIVE_PATTERN.search(text):
+                    # Skip this field, treat as null
+                    null_count += 1
+                    string_count -= 1
+                elif len(text) >= 5:
+                    meaningful_strings.append(text)
+        elif isinstance(val, (int, float)):
+            number_count += 1
+    
+    total_fields = len(value)
+    meaningful_fields = string_count + number_count
+    
+    # Special handling for specific facet types
+    if facet_type_slug in ("geodaten", "offenlage", "is_relevant"):
+        # These can have mostly booleans - that's OK if at least one is true
+        has_positive_bool = any(
+            isinstance(v, bool) and v is True 
+            for v in value.values()
+        )
+        if has_positive_bool:
+            # Reduce confidence if no other meaningful data
+            if meaningful_fields == 0:
+                return FacetQualityResult(True, min(base_confidence, 0.5), None)
+            return FacetQualityResult(True, base_confidence, None)
+        else:
+            # All booleans are False and no meaningful content
+            if meaningful_fields == 0:
+                return FacetQualityResult(
+                    False, 0.0, 
+                    f"All booleans false, no meaningful content"
+                )
+    
+    # Reject if all fields are null or empty
+    if null_count == total_fields:
+        return FacetQualityResult(False, 0.0, "All fields are null")
+    
+    # Reject if only boolean fields with no strings/numbers
+    if meaningful_fields == 0 and bool_count > 0:
+        # Check if any boolean is True
+        has_true = any(isinstance(v, bool) and v for v in value.values())
+        if not has_true:
+            return FacetQualityResult(
+                False, 0.0,
+                "Only false booleans, no meaningful content"
+            )
+        # Has true booleans but no other data - low confidence
+        return FacetQualityResult(True, min(base_confidence, 0.3), None)
+    
+    # Check if all strings are negative findings
+    if string_count == 0 and len(meaningful_strings) == 0 and null_count > 0:
+        # All strings were negative findings
+        if bool_count > 0:
+            has_true = any(isinstance(v, bool) and v for v in value.values())
+            if has_true:
+                return FacetQualityResult(True, min(base_confidence, 0.4), None)
+        return FacetQualityResult(False, 0.0, "All text fields are negative findings")
+    
+    # Calculate quality score based on data completeness
+    if total_fields > 0:
+        completeness = meaningful_fields / total_fields
+        if completeness < 0.2:
+            # Very sparse data - reduce confidence significantly
+            return FacetQualityResult(
+                True, 
+                base_confidence * 0.5,
+                None
+            )
+        elif completeness < 0.5:
+            # Moderately sparse - slight reduction
+            return FacetQualityResult(
+                True,
+                base_confidence * 0.8,
+                None
+            )
+    
+    return FacetQualityResult(True, base_confidence, None)
+
+def _normalize_facet_value_fields(value: dict[str, Any]) -> dict[str, Any]:
+    """
+    Normalize field names in facet values for consistency.
+
+    AI prompts may use different field names than the FacetType schema expects.
+    This function maps common aliases to their canonical names.
+
+    Examples:
+    - 'text' -> 'description' (if 'description' not present)
+    - 'organisation' stays as is (already valid)
+    """
+    # Don't modify original
+    normalized = dict(value)
+
+    # Map 'text' to 'description' if description not present
+    # This handles AI prompts that use 'text' instead of 'description'
+    if "text" in normalized and "description" not in normalized:
+        normalized["description"] = normalized["text"]
+        # Keep 'text' as well for backwards compatibility
+
+    return normalized
+
+def _extract_text_representation(
+    value: dict[str, Any],
+    primary_field: str,
+    value_schema: dict[str, Any] | None = None,
+) -> str:
     """
     Extract the best text representation from a value dict.
 
     Tries primary_field first, then common field names.
+    For boolean values, uses labels from value_schema if available.
     """
-    # Try primary field
+    # Get labels from display config if available
+    labels = {}
+    if value_schema:
+        display = value_schema.get("display", {})
+        labels = display.get("labels", {})
+
+    def get_label_for_value(field: str, val: Any) -> str | None:
+        """Get label for a field value if configured."""
+        if field in labels:
+            field_labels = labels[field]
+            # Handle boolean values
+            if isinstance(val, bool):
+                key = str(val).lower()
+                if key in field_labels:
+                    return field_labels[key]
+            # Handle string values
+            elif isinstance(val, str) and val in field_labels:
+                return field_labels[val]
+        return None
+
+    # Try primary field first
     if primary_field and primary_field in value:
-        text = value[primary_field]
-        if isinstance(text, str) and text:
-            return text.strip()
+        pval = value[primary_field]
+        
+        # Check for label first
+        label = get_label_for_value(primary_field, pval)
+        if label:
+            return label
+        
+        # Handle string value
+        if isinstance(pval, str) and pval:
+            return pval.strip()
+        
+        # Handle boolean without label - use German defaults
+        if isinstance(pval, bool):
+            return "Ja" if pval else "Nein"
 
     # Try common field names in order of preference
     candidates = [
@@ -1018,6 +1371,7 @@ def _extract_text_representation(value: dict[str, Any], primary_field: str) -> s
         "name",
         "title",
         "content",
+        "status",  # Added for planungsstand
         "beschreibung",
         "bezeichnung",
         "aenderungen",
@@ -1030,9 +1384,17 @@ def _extract_text_representation(value: dict[str, Any], primary_field: str) -> s
 
     for field in candidates:
         if field in value:
-            text = value[field]
-            if isinstance(text, str) and text:
-                return text.strip()
+            fval = value[field]
+            
+            # Check for label
+            label = get_label_for_value(field, fval)
+            if label:
+                return label
+            
+            if isinstance(fval, str) and fval:
+                return fval.strip()
+            if isinstance(fval, bool):
+                return "Ja" if fval else "Nein"
 
     # Try first non-null string field
     for _k, v in value.items():

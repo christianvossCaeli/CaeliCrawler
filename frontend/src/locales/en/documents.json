@@ -2,6 +2,10 @@
   "documents": {
     "title": "Documents",
     "subtitle": "Browse found and processed documents",
+    "info": {
+      "title": "From Discovery to Analysis",
+      "description": "Here you see all documents discovered by the crawler (PDFs, web pages, etc.). The workflow: New documents have status 'Pending' → get analyzed with AI ('Processing') → extracted information lands in 'Results'. Filter by category or time range for better overview. Tip: Documents with status 'Filtered' were excluded by URL patterns - check your filter rules in the analysis topic if needed."
+    },
     "emptyState": {
       "title": "No documents",
       "description": "No documents have been found yet. Start a crawl to collect documents."
@@ -88,9 +92,14 @@
       "failed": "Failed"
     },
     "bulkActions": {
-      "processSelected": "process",
-      "analyzeSelected": "analyze",
-      "deleteSelected": "Delete selected"
+      "toolbarLabel": "Bulk actions for selected documents",
+      "selected": "{count} selected",
+      "process": "Process",
+      "analyze": "Analyze",
+      "processSelected": "Process {count} documents",
+      "analyzeSelected": "Analyze {count} documents",
+      "deleteSelected": "Delete selected",
+      "clearSelection": "Clear selection"
     },
     "messages": {
       "processQueued": "Document queued for processing",

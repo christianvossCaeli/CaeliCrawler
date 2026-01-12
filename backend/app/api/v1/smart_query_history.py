@@ -11,6 +11,8 @@ from app.core.deps import get_current_user
 from app.core.exceptions import NotFoundError
 from app.database import get_session
 from app.models import User
+from app.models.audit_log import AuditAction
+from app.services.audit_service import create_audit_log
 from app.models.smart_query_operation import OperationType, SmartQueryOperation
 from app.schemas.common import MessageResponse
 from app.schemas.smart_query_operation import (
@@ -200,6 +202,17 @@ async def toggle_favorite(
         raise NotFoundError("Operation", str(operation_id))
 
     operation.is_favorite = not operation.is_favorite
+
+    # Create audit log entry
+    await create_audit_log(
+        session=session,
+        action=AuditAction.FAVORITE_ADD if operation.is_favorite else AuditAction.FAVORITE_REMOVE,
+        entity_type="SmartQueryOperation",
+        entity_id=operation.id,
+        entity_name=operation.display_name or operation.command_text[:50],
+        user=current_user,
+    )
+
     await session.commit()
 
     return SmartQueryFavoriteToggleResponse(
@@ -251,6 +264,17 @@ async def execute_from_history(
             "created_items": exec_result.get("created_items", []),
         }
 
+        # Create audit log entry
+        await create_audit_log(
+            session=session,
+            action=AuditAction.SMART_QUERY,
+            entity_type="SmartQueryOperation",
+            entity_id=operation.id,
+            entity_name=operation.display_name or operation.command_text[:50],
+            user=current_user,
+            changes={"success": exec_result.get("success", False)},
+        )
+
         await session.commit()
 
         return SmartQueryExecuteResponse(
@@ -290,6 +314,18 @@ async def delete_operation(
 
     if not operation:
         raise NotFoundError("Operation", str(operation_id))
+
+    operation_name = operation.display_name or operation.command_text[:50]
+
+    # Create audit log entry
+    await create_audit_log(
+        session=session,
+        action=AuditAction.DELETE,
+        entity_type="SmartQueryOperation",
+        entity_id=operation_id,
+        entity_name=operation_name,
+        user=current_user,
+    )
 
     await session.delete(operation)
     await session.commit()

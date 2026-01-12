@@ -307,6 +307,71 @@ async def cancel_job(
     return MessageResponse(message="Job cancelled")
 
 
+async def _bulk_delete_jobs_by_status(
+    status: JobStatus,
+    request: Request,
+    session: AsyncSession,
+    current_user: User,
+) -> MessageResponse:
+    """Shared helper for bulk deleting jobs by status."""
+    from sqlalchemy import delete
+
+    status_label = status.value.lower()
+
+    # Count jobs first for audit and response
+    count_result = await session.execute(
+        select(func.count(CrawlJob.id)).where(CrawlJob.status == status)
+    )
+    deleted_count = count_result.scalar() or 0
+
+    if deleted_count == 0:
+        return MessageResponse(
+            message=f"No {status_label} jobs to delete",
+            data={"deleted_count": 0}
+        )
+
+    async with AuditContext(session, current_user, request) as audit:
+        audit.track_action(
+            action=AuditAction.DELETE,
+            entity_type="CrawlJob",
+            entity_name=f"{deleted_count} {status_label} jobs",
+            changes={
+                "bulk_delete": True,
+                "deleted_count": deleted_count,
+                "status": status.value,
+            },
+        )
+
+        # Efficient bulk delete with single SQL statement
+        await session.execute(delete(CrawlJob).where(CrawlJob.status == status))
+        await session.commit()
+
+    return MessageResponse(
+        message=f"Deleted {deleted_count} {status_label} jobs",
+        data={"deleted_count": deleted_count}
+    )
+
+
+@router.delete("/jobs/failed", response_model=MessageResponse)
+async def delete_failed_jobs(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_editor),
+):
+    """Delete all failed crawl jobs at once."""
+    return await _bulk_delete_jobs_by_status(JobStatus.FAILED, request, session, current_user)
+
+
+@router.delete("/jobs/cancelled", response_model=MessageResponse)
+async def delete_cancelled_jobs(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_editor),
+):
+    """Delete all cancelled crawl jobs at once."""
+    return await _bulk_delete_jobs_by_status(JobStatus.CANCELLED, request, session, current_user)
+
+
 @router.delete("/jobs/{job_id}", response_model=MessageResponse)
 async def delete_job(
     job_id: UUID,
@@ -364,6 +429,7 @@ async def get_crawler_stats(
                 func.count().filter(CrawlJob.status == JobStatus.RUNNING).label("running"),
                 func.count().filter(CrawlJob.status == JobStatus.COMPLETED).label("completed"),
                 func.count().filter(CrawlJob.status == JobStatus.FAILED).label("failed"),
+                func.count().filter(CrawlJob.status == JobStatus.CANCELLED).label("cancelled"),
                 func.sum(CrawlJob.pages_crawled).label("total_pages"),
                 func.avg(func.extract("epoch", CrawlJob.completed_at) - func.extract("epoch", CrawlJob.started_at))
                 .filter(
@@ -384,6 +450,7 @@ async def get_crawler_stats(
         running_jobs=job_stats.running or 0,
         completed_jobs=job_stats.completed or 0,
         failed_jobs=job_stats.failed or 0,
+        cancelled_jobs=job_stats.cancelled or 0,
         total_documents=total_documents or 0,
         total_pages_crawled=job_stats.total_pages or 0,
         avg_duration_seconds=float(job_stats.avg_duration) if job_stats.avg_duration else None,

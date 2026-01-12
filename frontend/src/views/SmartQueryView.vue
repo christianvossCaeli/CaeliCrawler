@@ -9,6 +9,11 @@
       :disabled="previewData !== null"
     />
 
+    <!-- Info Box -->
+    <PageInfoBox :storage-key="INFO_BOX_STORAGE_KEYS.SMART_QUERY" :title="t('smartQuery.info.title')">
+      {{ t('smartQuery.info.description') }}
+    </PageInfoBox>
+
     <!-- Input Section -->
     <SmartQueryInput
       v-model="question"
@@ -82,6 +87,8 @@ import SmartQueryInput from '@/components/smartquery/SmartQueryInput.vue'
 import SmartQueryResults from '@/components/smartquery/SmartQueryResults.vue'
 import SmartQuerySidebar from '@/components/smartquery/SmartQuerySidebar.vue'
 import SummaryCreateDialog from '@/components/summaries/SummaryCreateDialog.vue'
+import PageInfoBox from '@/components/common/PageInfoBox.vue'
+import { INFO_BOX_STORAGE_KEYS } from '@/config/infoBox'
 
 const { t } = useI18n()
 const router = useRouter()

@@ -9,40 +9,50 @@
       <v-divider></v-divider>
 
       <v-list density="compact" nav>
-        <v-list-item
-          v-for="item in mainNavItems"
-          :key="item.to"
-          :to="item.to"
-          :prepend-icon="item.icon"
-          :title="item.title"
-        >
-          <template #append>
-            <v-badge
-              v-if="item.to === '/documents' && pendingDocsCount > 0"
-              :content="pendingDocsCount > 99 ? '99+' : pendingDocsCount"
-              color="warning"
-              inline
-            ></v-badge>
-            <v-badge
-              v-if="item.to === '/results' && unverifiedResultsCount > 0"
-              :content="unverifiedResultsCount > 99 ? '99+' : unverifiedResultsCount"
-              color="info"
-              inline
-            ></v-badge>
-          </template>
-        </v-list-item>
-      </v-list>
+        <template v-for="(group, groupIndex) in navGroups" :key="group.title">
+          <!-- Group Header -->
+          <v-list-subheader class="text-caption font-weight-bold text-uppercase nav-group-header">
+            {{ group.title }}
+          </v-list-subheader>
 
-      <v-divider class="my-2"></v-divider>
+          <!-- Group Items -->
+          <v-list-item
+            v-for="item in group.items"
+            :key="item.to"
+            :to="item.to"
+            class="nav-item-with-step"
+          >
+            <template #prepend>
+              <span v-if="item.step" class="workflow-step">{{ item.step }}</span>
+              <v-icon v-else class="nav-icon-spacer">{{ item.icon }}</v-icon>
+              <v-icon v-if="item.step">{{ item.icon }}</v-icon>
+            </template>
+            <v-list-item-title>{{ item.title }}</v-list-item-title>
+            <template #append>
+              <v-chip
+                v-if="item.badge === 'pending' && pendingDocsCount > 0"
+                size="x-small"
+                color="warning"
+                variant="flat"
+                class="nav-badge"
+              >
+                {{ pendingDocsCount > 99 ? '99+' : pendingDocsCount }}
+              </v-chip>
+              <v-chip
+                v-if="item.badge === 'unverified' && unverifiedResultsCount > 0"
+                size="x-small"
+                color="info"
+                variant="flat"
+                class="nav-badge"
+              >
+                {{ unverifiedResultsCount > 99 ? '99+' : unverifiedResultsCount }}
+              </v-chip>
+            </template>
+          </v-list-item>
 
-      <v-list density="compact" nav>
-        <v-list-item
-          v-for="item in secondaryNavItems"
-          :key="item.to"
-          :to="item.to"
-          :prepend-icon="item.icon"
-          :title="item.title"
-        ></v-list-item>
+          <!-- Divider after group -->
+          <v-divider v-if="group.showDivider" class="my-2"></v-divider>
+        </template>
       </v-list>
 
       <!-- Admin Section -->
@@ -50,16 +60,20 @@
         <v-divider class="my-2"></v-divider>
 
         <v-list density="compact" nav>
-          <v-list-subheader class="text-caption font-weight-bold">
+          <v-list-subheader class="text-caption font-weight-bold text-uppercase nav-group-header">
             {{ $t('nav.admin.title') }}
           </v-list-subheader>
           <v-list-item
             v-for="item in adminNavItems"
             :key="item.to"
             :to="item.to"
-            :prepend-icon="item.icon"
-            :title="item.title"
-          ></v-list-item>
+            class="nav-item-with-step"
+          >
+            <template #prepend>
+              <v-icon class="nav-icon-spacer">{{ item.icon }}</v-icon>
+            </template>
+            <v-list-item-title>{{ item.title }}</v-list-item-title>
+          </v-list-item>
         </v-list>
       </template>
 
@@ -250,8 +264,9 @@ import AriaLiveRegion from './components/AriaLiveRegion.vue'
 import { ErrorBoundary } from './components/common'
 import LLMUsageStatusBar from './components/common/LLMUsageStatusBar.vue'
 import { useSnackbar } from './composables/useSnackbar'
+import { storeToRefs } from 'pinia'
 import { useAuthStore } from './stores/auth'
-import { useNotifications } from './composables/useNotifications'
+import { useNotificationsStore } from './stores/notifications'
 import { useFeatureFlags } from './composables/useFeatureFlags'
 import { dataApi } from './services/api'
 import { setLocale, type SupportedLocale } from './locales'
@@ -267,7 +282,9 @@ const vuetifyLocale = useLocale()
 // Badge counts for navigation
 const pendingDocsCount = ref(0)
 const unverifiedResultsCount = ref(0)
-const { unreadCount, initRealtime, cleanupRealtime } = useNotifications()
+const notificationsStore = useNotificationsStore()
+const { unreadCount } = storeToRefs(notificationsStore)
+const { initRealtime, cleanupRealtime } = notificationsStore
 const { loadFeatureFlags } = useFeatureFlags()
 
 const drawer = ref(true)
@@ -288,31 +305,70 @@ const isPasswordValid = computed(() =>
   newPassword.value === confirmPassword.value
 )
 
-// Navigation items (computed for reactivity with locale changes)
-const mainNavItems = computed(() => {
-  const items = [
-    { title: t('nav.dashboard'), icon: 'mdi-view-dashboard', to: '/' },
-    { title: t('nav.entities'), icon: 'mdi-database', to: '/entities' },
-    { title: t('nav.entityTypes'), icon: 'mdi-shape', to: '/admin/entity-types' },
-    { title: t('nav.facetTypes'), icon: 'mdi-tag-multiple', to: '/admin/facet-types' },
-    { title: t('nav.categories'), icon: 'mdi-folder-multiple', to: '/categories', requiresEditor: true },
-    { title: t('nav.dataSources'), icon: 'mdi-web', to: '/sources', requiresEditor: true },
-    { title: t('nav.crawlerStatus'), icon: 'mdi-robot', to: '/crawler', requiresEditor: true },
-    { title: t('nav.documents'), icon: 'mdi-file-document-multiple', to: '/documents' },
-    { title: t('nav.results'), icon: 'mdi-chart-box', to: '/results' },
-    { title: t('nav.smartQuery'), icon: 'mdi-head-question', to: '/smart-query' },
-    { title: t('nav.export'), icon: 'mdi-export', to: '/export' },
+// Navigation item interface
+interface NavItem {
+  title: string
+  icon: string
+  to: string
+  step?: number
+  requiresEditor?: boolean
+  badge?: 'pending' | 'unverified'
+}
+
+interface NavGroup {
+  title: string
+  items: NavItem[]
+  showDivider?: boolean
+}
+
+// Navigation groups (computed for reactivity with locale changes)
+const navGroups = computed<NavGroup[]>(() => {
+  const groups: NavGroup[] = [
+    {
+      title: t('nav.groups.workflow'),
+      items: [
+        { step: 1, title: t('nav.chatHome'), icon: 'mdi-chat-processing-outline', to: '/' },
+        { step: 2, title: t('nav.dashboard'), icon: 'mdi-view-dashboard', to: '/dashboard' },
+        { step: 3, title: t('nav.entities'), icon: 'mdi-database', to: '/entities' },
+        { step: 4, title: t('nav.entityTypes'), icon: 'mdi-shape', to: '/admin/entity-types' },
+        { step: 5, title: t('nav.facetTypes'), icon: 'mdi-tag-multiple', to: '/admin/facet-types' },
+      ],
+    },
+    {
+      title: t('nav.groups.dataCapture'),
+      items: [
+        { step: 6, title: t('nav.categories'), icon: 'mdi-folder-multiple', to: '/categories', requiresEditor: true },
+        { step: 7, title: t('nav.dataSources'), icon: 'mdi-web', to: '/sources', requiresEditor: true },
+        { step: 8, title: t('nav.crawlerStatus'), icon: 'mdi-robot', to: '/crawler', requiresEditor: true },
+        { step: 9, title: t('nav.documents'), icon: 'mdi-file-document-multiple', to: '/documents', badge: 'pending' },
+      ],
+    },
+    {
+      title: t('nav.groups.analysis'),
+      items: [
+        { step: 10, title: t('nav.results'), icon: 'mdi-chart-box', to: '/results', badge: 'unverified' },
+        { step: 11, title: t('nav.smartQuery'), icon: 'mdi-head-question', to: '/smart-query' },
+        { step: 12, title: t('nav.export'), icon: 'mdi-export', to: '/export' },
+      ],
+      showDivider: true,
+    },
+    {
+      title: t('nav.groups.tools'),
+      items: [
+        { title: t('nav.favorites'), icon: 'mdi-star', to: '/favorites' },
+        { title: t('nav.summaries'), icon: 'mdi-view-dashboard-variant', to: '/summaries' },
+        { title: t('nav.notifications'), icon: 'mdi-bell-outline', to: '/notifications' },
+        { title: t('nav.help'), icon: 'mdi-help-circle-outline', to: '/help' },
+      ],
+    },
   ]
 
-  return items.filter((item) => !item.requiresEditor || auth.isEditor)
+  // Filter items based on permissions
+  return groups.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => !item.requiresEditor || auth.isEditor),
+  })).filter((group) => group.items.length > 0)
 })
-
-const secondaryNavItems = computed(() => [
-  { title: t('nav.favorites'), icon: 'mdi-star', to: '/favorites' },
-  { title: t('nav.summaries'), icon: 'mdi-view-dashboard-variant', to: '/summaries' },
-  { title: t('nav.notifications'), icon: 'mdi-bell-outline', to: '/notifications' },
-  { title: t('nav.help'), icon: 'mdi-help-circle-outline', to: '/help' },
-])
 
 const adminNavItems = computed(() => [
   { title: t('nav.admin.users'), icon: 'mdi-account-group', to: '/admin/users' },
@@ -464,3 +520,72 @@ onUnmounted(() => {
   }
 })
 </script>
+
+<style scoped>
+/* Navigation Group Styling */
+.nav-group-header {
+  margin-top: 8px;
+  padding-left: 16px;
+}
+
+/* Workflow Step Number */
+.workflow-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(var(--v-theme-primary), 0.15);
+  color: rgb(var(--v-theme-primary));
+  font-size: 11px;
+  font-weight: 600;
+  margin-right: 4px;
+  flex-shrink: 0;
+}
+
+/* Reduce spacing between prepend icon and text - override Vuetify defaults */
+.nav-item-with-step :deep(.v-list-item__prepend) {
+  margin-inline-end: 8px !important;
+}
+
+/* Hide the spacer that Vuetify adds automatically */
+.nav-item-with-step :deep(.v-list-item__spacer) {
+  display: none !important;
+}
+
+/* Spacer for items without step number to align icons */
+.nav-icon-spacer {
+  margin-right: 0 !important;
+  margin-inline-end: 0 !important;
+}
+
+/* Active state styling for workflow steps - use contrast colors */
+.v-list-item--active .workflow-step {
+  background: rgba(var(--v-theme-on-surface), 0.9);
+  color: rgb(var(--v-theme-surface));
+}
+
+/* Ensure title doesn't get cut off */
+.nav-item-with-step :deep(.v-list-item-title) {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Compact chip badge styling */
+.nav-badge {
+  flex-shrink: 0;
+  font-size: 10px !important;
+  height: 16px !important;
+  padding: 0 5px !important;
+  margin-left: 4px;
+}
+
+.nav-badge :deep(.v-chip__content) {
+  padding: 0;
+}
+</style>

@@ -1,6 +1,10 @@
 {
   "crawler": {
     "title": "Crawler Status",
+    "info": {
+      "title": "Live Data Collection Status",
+      "description": "The crawler shows in real-time which websites are being searched. 'Workers' are parallel processes - more workers mean faster collection. 'Running' shows active jobs, 'Pending' the queue. Click on a job for details like discovered documents and errors. If problems occur, you can restart individual jobs. Tip: Save frequently used crawl configurations as 'Presets' for one-click reuse."
+    },
     "emptyState": {
       "title": "No active jobs",
       "description": "There are no crawl jobs running. Start a new crawl from the sources management."
@@ -86,6 +90,13 @@
     "cleanupFailedTitle": "Cleanup failed jobs?",
     "cleanupFailedMessage": "Do you want to permanently delete all {count} failed jobs?",
     "cleanupSuccess": "{count} failed jobs cleaned up",
-    "noFailedJobsToCleanup": "No failed jobs to cleanup"
+    "cleanupError": "Error cleaning up jobs",
+    "noFailedJobsToCleanup": "No failed jobs to cleanup",
+    "cancelled": "Cancelled",
+    "cleanupCancelled": "Cleanup {count} cancelled",
+    "cleanupCancelledTitle": "Cleanup cancelled jobs?",
+    "cleanupCancelledMessage": "Do you want to permanently delete all {count} cancelled jobs?",
+    "cleanupCancelledSuccess": "{count} cancelled jobs cleaned up",
+    "noCancelledJobsToCleanup": "No cancelled jobs to cleanup"
   }
 }

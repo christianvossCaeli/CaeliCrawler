@@ -50,6 +50,14 @@ class AuditAction(str, enum.Enum):
     USER_DELETE = "USER_DELETE"
     ROLE_CHANGE = "ROLE_CHANGE"
 
+    # User Actions
+    FAVORITE_ADD = "FAVORITE_ADD"
+    FAVORITE_REMOVE = "FAVORITE_REMOVE"
+    SMART_QUERY = "SMART_QUERY"
+
+    # Configuration
+    CONFIG_UPDATE = "CONFIG_UPDATE"
+
     # Security Events
     SECURITY_ALERT = "SECURITY_ALERT"
     RATE_LIMIT_EXCEEDED = "RATE_LIMIT_EXCEEDED"

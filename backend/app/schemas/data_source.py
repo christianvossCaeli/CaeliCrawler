@@ -45,7 +45,14 @@ class CrawlConfig(BaseModel):
 
     # JavaScript rendering
     render_javascript: bool = Field(default=False, description="Use Playwright for JS rendering")
-    wait_for_selector: str | None = Field(None, description="Wait for selector before scraping")
+    wait_for_selector: str | None = Field(
+        None,
+        description="CSS selector to wait for before extracting content. "
+        "Useful for pages that load content dynamically after initial page load. "
+        "Only effective when render_javascript=True. "
+        "Examples: '.price-container', '#main-content', '[data-loaded=true]', 'table.results'. "
+        "Timeout: 10 seconds (continues on timeout).",
+    )
 
     # News/RSS Crawler settings
     crawl_type: str | None = Field(None, description="Crawl type: auto, rss, html, news")

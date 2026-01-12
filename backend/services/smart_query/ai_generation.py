@@ -2,14 +2,18 @@
 
 import json
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
-from app.config import settings
 from app.core.exceptions import AIInterpretationError
 from app.models.llm_usage import LLMProvider, LLMTaskType
+from app.models.user_api_credentials import LLMPurpose
+from services.llm_client_service import LLMClientService
 from services.llm_usage_tracker import record_llm_usage
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 from .prompts import (
     AI_API_RESPONSE_ANALYSIS_PROMPT,
@@ -17,9 +21,9 @@ from .prompts import (
     AI_CRAWL_CONFIG_PROMPT,
     AI_ENTITY_TYPE_PROMPT,
     AI_FACET_TYPES_PROMPT,
+    AI_SCHEDULE_RECOMMENDATION_PROMPT,
     AI_SEED_ENTITIES_PROMPT,
 )
-from .query_interpreter import get_openai_client
 from .utils import clean_json_response
 
 logger = structlog.get_logger()
@@ -28,17 +32,32 @@ logger = structlog.get_logger()
 async def ai_generate_entity_type_config(
     user_intent: str,
     geographic_context: str,
+    session: "AsyncSession | None" = None,
 ) -> dict[str, Any]:
     """
     Step 1/3: Generate EntityType configuration using LLM.
 
     Returns dict with: name, name_plural, description, icon, color, attribute_schema, search_focus
 
+    Args:
+        user_intent: User's intent description
+        geographic_context: Geographic context
+        session: Database session for loading LLM credentials
+
     Raises:
-        ValueError: If Azure OpenAI is not configured
+        ValueError: If LLM is not configured
         RuntimeError: If AI generation fails
     """
-    client = get_openai_client()  # Raises ValueError if not configured
+    if not session:
+        raise ValueError("Database session required for LLM access")
+
+    llm_service = LLMClientService(session)
+    client, config = await llm_service.get_system_client(LLMPurpose.DOCUMENT_ANALYSIS)
+    if not client or not config:
+        raise ValueError("No LLM credentials configured")
+
+    model_name = llm_service.get_model_name(config)
+    provider = llm_service.get_provider(config)
 
     prompt = AI_ENTITY_TYPE_PROMPT.format(
         user_intent=user_intent,
@@ -47,8 +66,8 @@ async def ai_generate_entity_type_config(
 
     try:
         start_time = time.time()
-        response = client.chat.completions.create(
-            model=settings.azure_openai_deployment_name,
+        response = await client.chat.completions.create(
+            model=model_name,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7,
             max_tokens=1000,
@@ -56,8 +75,8 @@ async def ai_generate_entity_type_config(
 
         if response.usage:
             await record_llm_usage(
-                provider=LLMProvider.AZURE_OPENAI,
-                model=settings.azure_openai_deployment_name,
+                provider=provider,
+                model=model_name,
                 task_type=LLMTaskType.CHAT,
                 task_name="ai_generate_entity_type_config",
                 prompt_tokens=response.usage.prompt_tokens,
@@ -86,17 +105,30 @@ async def ai_generate_category_config(
     entity_type_name: str,
     entity_type_description: str,
     geographic_context: str = None,
+    session: "AsyncSession | None" = None,
 ) -> dict[str, Any]:
     """
     Step 2/3: Generate Category configuration with AI extraction prompt.
 
     Returns dict with: purpose, search_terms, extraction_handler, ai_extraction_prompt, suggested_tags
 
+    Args:
+        session: Database session for loading LLM credentials
+
     Raises:
-        ValueError: If Azure OpenAI is not configured
+        ValueError: If LLM is not configured
         RuntimeError: If AI generation fails
     """
-    client = get_openai_client()  # Raises ValueError if not configured
+    if not session:
+        raise ValueError("Database session required for LLM access")
+
+    llm_service = LLMClientService(session)
+    client, config = await llm_service.get_system_client(LLMPurpose.DOCUMENT_ANALYSIS)
+    if not client or not config:
+        raise ValueError("No LLM credentials configured")
+
+    model_name = llm_service.get_model_name(config)
+    provider = llm_service.get_provider(config)
 
     prompt = AI_CATEGORY_PROMPT.format(
         user_intent=user_intent,
@@ -107,8 +139,8 @@ async def ai_generate_category_config(
 
     try:
         start_time = time.time()
-        response = client.chat.completions.create(
-            model=settings.azure_openai_deployment_name,
+        response = await client.chat.completions.create(
+            model=model_name,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7,
             max_tokens=2000,
@@ -116,8 +148,8 @@ async def ai_generate_category_config(
 
         if response.usage:
             await record_llm_usage(
-                provider=LLMProvider.AZURE_OPENAI,
-                model=settings.azure_openai_deployment_name,
+                provider=provider,
+                model=model_name,
                 task_type=LLMTaskType.CHAT,
                 task_name="ai_generate_category_config",
                 prompt_tokens=response.usage.prompt_tokens,
@@ -148,17 +180,30 @@ async def ai_generate_crawl_config(
     user_intent: str,
     search_focus: str,
     search_terms: list[str],
+    session: "AsyncSession | None" = None,
 ) -> dict[str, Any]:
     """
     Step 3/3: Generate URL patterns for crawling using AI.
 
     Returns dict with: url_include_patterns, url_exclude_patterns, reasoning
 
+    Args:
+        session: Database session for loading LLM credentials
+
     Raises:
-        ValueError: If Azure OpenAI is not configured
+        ValueError: If LLM is not configured
         RuntimeError: If AI generation fails
     """
-    client = get_openai_client()  # Raises ValueError if not configured
+    if not session:
+        raise ValueError("Database session required for LLM access")
+
+    llm_service = LLMClientService(session)
+    client, config = await llm_service.get_system_client(LLMPurpose.DOCUMENT_ANALYSIS)
+    if not client or not config:
+        raise ValueError("No LLM credentials configured")
+
+    model_name = llm_service.get_model_name(config)
+    provider = llm_service.get_provider(config)
 
     prompt = AI_CRAWL_CONFIG_PROMPT.format(
         user_intent=user_intent,
@@ -168,8 +213,8 @@ async def ai_generate_crawl_config(
 
     try:
         start_time = time.time()
-        response = client.chat.completions.create(
-            model=settings.azure_openai_deployment_name,
+        response = await client.chat.completions.create(
+            model=model_name,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.5,
             max_tokens=1000,
@@ -177,8 +222,8 @@ async def ai_generate_crawl_config(
 
         if response.usage:
             await record_llm_usage(
-                provider=LLMProvider.AZURE_OPENAI,
-                model=settings.azure_openai_deployment_name,
+                provider=provider,
+                model=model_name,
                 task_type=LLMTaskType.CHAT,
                 task_name="ai_generate_crawl_config",
                 prompt_tokens=response.usage.prompt_tokens,
@@ -206,21 +251,128 @@ async def ai_generate_crawl_config(
         raise AIInterpretationError("Crawl-Config-Generierung", detail=str(e)) from None
 
 
+async def ai_recommend_schedule(
+    user_intent: str,
+    data_type: str | None = None,
+    session: "AsyncSession | None" = None,
+) -> dict[str, Any]:
+    """
+    AI-powered recommendation for crawl schedule based on use case.
+
+    Analyzes the user intent and recommends an appropriate crawl interval
+    based on data volatility, time-criticality, and resource considerations.
+
+    Args:
+        user_intent: User's intent description
+        data_type: Optional data type hint (e.g., "financial", "news", "documents")
+        session: Database session for loading LLM credentials
+
+    Returns:
+        dict with:
+            - schedule_cron: Cron expression (e.g., "*/30 * * * *")
+            - schedule_description: Human-readable description
+            - recommended_interval_minutes: Interval in minutes
+            - reasoning: Explanation for the recommendation
+            - data_volatility: realtime|hourly|daily|weekly|monthly
+            - cost_consideration: low|medium|high
+
+    Raises:
+        ValueError: If LLM is not configured
+        RuntimeError: If AI generation fails
+    """
+    if not session:
+        raise ValueError("Database session required for LLM access")
+
+    llm_service = LLMClientService(session)
+    client, config = await llm_service.get_system_client(LLMPurpose.DOCUMENT_ANALYSIS)
+    if not client or not config:
+        raise ValueError("No LLM credentials configured")
+
+    model_name = llm_service.get_model_name(config)
+    provider = llm_service.get_provider(config)
+
+    prompt = AI_SCHEDULE_RECOMMENDATION_PROMPT.format(
+        user_intent=user_intent,
+        data_type=data_type or "Nicht spezifiziert",
+    )
+
+    try:
+        start_time = time.time()
+        response = await client.chat.completions.create(
+            model=model_name,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,  # Lower temperature for more consistent recommendations
+            max_tokens=500,
+        )
+
+        if response.usage:
+            await record_llm_usage(
+                provider=provider,
+                model=model_name,
+                task_type=LLMTaskType.CHAT,
+                task_name="ai_recommend_schedule",
+                prompt_tokens=response.usage.prompt_tokens,
+                completion_tokens=response.usage.completion_tokens,
+                total_tokens=response.usage.total_tokens,
+                duration_ms=int((time.time() - start_time) * 1000),
+                is_error=False,
+            )
+
+        content = response.choices[0].message.content.strip()
+        content = clean_json_response(content)
+
+        result = json.loads(content)
+        logger.info(
+            "AI recommended schedule",
+            schedule_cron=result.get("schedule_cron"),
+            interval_minutes=result.get("recommended_interval_minutes"),
+            volatility=result.get("data_volatility"),
+        )
+        return result
+
+    except (ValueError, AIInterpretationError):
+        raise
+    except Exception as e:
+        logger.error("Failed to recommend schedule via AI", error=str(e))
+        # Fallback to sensible default
+        return {
+            "schedule_cron": "0 2 * * *",
+            "schedule_description": "Täglich um 2:00 Uhr",
+            "recommended_interval_minutes": 1440,
+            "reasoning": f"Fallback auf täglichen Schedule wegen Fehler: {str(e)}",
+            "data_volatility": "daily",
+            "cost_consideration": "low",
+        }
+
+
 async def ai_generate_facet_types(
     user_intent: str,
     entity_type_name: str,
     entity_type_description: str,
+    session: "AsyncSession | None" = None,
 ) -> dict[str, Any]:
     """
     Generate FacetType suggestions based on user intent and EntityType.
 
     Returns dict with: facet_types (list), reasoning
 
+    Args:
+        session: Database session for loading LLM credentials
+
     Raises:
-        ValueError: If Azure OpenAI is not configured
+        ValueError: If LLM is not configured
         RuntimeError: If AI generation fails
     """
-    client = get_openai_client()  # Raises ValueError if not configured
+    if not session:
+        raise ValueError("Database session required for LLM access")
+
+    llm_service = LLMClientService(session)
+    client, config = await llm_service.get_system_client(LLMPurpose.DOCUMENT_ANALYSIS)
+    if not client or not config:
+        raise ValueError("No LLM credentials configured")
+
+    model_name = llm_service.get_model_name(config)
+    provider = llm_service.get_provider(config)
 
     prompt = AI_FACET_TYPES_PROMPT.format(
         user_intent=user_intent,
@@ -230,8 +382,8 @@ async def ai_generate_facet_types(
 
     try:
         start_time = time.time()
-        response = client.chat.completions.create(
-            model=settings.azure_openai_deployment_name,
+        response = await client.chat.completions.create(
+            model=model_name,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7,
             max_tokens=1500,
@@ -239,8 +391,8 @@ async def ai_generate_facet_types(
 
         if response.usage:
             await record_llm_usage(
-                provider=LLMProvider.AZURE_OPENAI,
-                model=settings.azure_openai_deployment_name,
+                provider=provider,
+                model=model_name,
                 task_type=LLMTaskType.CHAT,
                 task_name="ai_generate_facet_types",
                 prompt_tokens=response.usage.prompt_tokens,
@@ -276,6 +428,7 @@ async def ai_generate_seed_entities(
     entity_type_description: str,
     attribute_schema: dict[str, Any],
     geographic_context: str = "Deutschland",
+    session: "AsyncSession | None" = None,
 ) -> dict[str, Any]:
     """
     Generate seed entities based on AI knowledge.
@@ -285,11 +438,23 @@ async def ai_generate_seed_entities(
 
     Returns dict with: entities (list), total_known, is_complete_list, reasoning
 
+    Args:
+        session: Database session for loading LLM credentials
+
     Raises:
-        ValueError: If Azure OpenAI is not configured
+        ValueError: If LLM is not configured
         RuntimeError: If AI generation fails
     """
-    client = get_openai_client()  # Raises ValueError if not configured
+    if not session:
+        raise ValueError("Database session required for LLM access")
+
+    llm_service = LLMClientService(session)
+    client, config = await llm_service.get_system_client(LLMPurpose.DOCUMENT_ANALYSIS)
+    if not client or not config:
+        raise ValueError("No LLM credentials configured")
+
+    model_name = llm_service.get_model_name(config)
+    provider = llm_service.get_provider(config)
 
     # Format attribute schema for the prompt
     schema_str = json.dumps(attribute_schema, indent=2, ensure_ascii=False)
@@ -304,8 +469,8 @@ async def ai_generate_seed_entities(
 
     try:
         start_time = time.time()
-        response = client.chat.completions.create(
-            model=settings.azure_openai_deployment_name,
+        response = await client.chat.completions.create(
+            model=model_name,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,  # Lower temperature for factual accuracy
             max_tokens=4000,  # More tokens for longer lists
@@ -313,8 +478,8 @@ async def ai_generate_seed_entities(
 
         if response.usage:
             await record_llm_usage(
-                provider=LLMProvider.AZURE_OPENAI,
-                model=settings.azure_openai_deployment_name,
+                provider=provider,
+                model=model_name,
                 task_type=LLMTaskType.CHAT,
                 task_name="ai_generate_seed_entities",
                 prompt_tokens=response.usage.prompt_tokens,
@@ -361,6 +526,7 @@ async def ai_analyze_api_response(
     api_type: str = "unknown",
     target_entity_type: str = "",
     sample_size: int = 3,
+    session: "AsyncSession | None" = None,
 ) -> dict[str, Any]:
     """
     Analyze API response and generate intelligent field mappings.
@@ -377,6 +543,7 @@ async def ai_analyze_api_response(
         api_type: Type of API (sparql, rest, etc.)
         target_entity_type: Target entity type if known
         sample_size: Number of items to include in sample (default 3)
+        session: Database session for loading LLM credentials
 
     Returns:
         Dict with:
@@ -390,10 +557,19 @@ async def ai_analyze_api_response(
         - reasoning: Explanation of decisions
 
     Raises:
-        ValueError: If Azure OpenAI is not configured
+        ValueError: If LLM is not configured
         RuntimeError: If AI analysis fails
     """
-    client = get_openai_client()  # Raises ValueError if not configured
+    if not session:
+        raise ValueError("Database session required for LLM access")
+
+    llm_service = LLMClientService(session)
+    client, config = await llm_service.get_system_client(LLMPurpose.DOCUMENT_ANALYSIS)
+    if not client or not config:
+        raise ValueError("No LLM credentials configured")
+
+    model_name = llm_service.get_model_name(config)
+    provider = llm_service.get_provider(config)
 
     # Take sample of items for analysis
     sample_items = api_items[:sample_size] if len(api_items) >= sample_size else api_items
@@ -409,8 +585,8 @@ async def ai_analyze_api_response(
 
     try:
         start_time = time.time()
-        response = client.chat.completions.create(
-            model=settings.azure_openai_deployment_name,
+        response = await client.chat.completions.create(
+            model=model_name,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,  # Lower temperature for accurate analysis
             max_tokens=2000,
@@ -418,8 +594,8 @@ async def ai_analyze_api_response(
 
         if response.usage:
             await record_llm_usage(
-                provider=LLMProvider.AZURE_OPENAI,
-                model=settings.azure_openai_deployment_name,
+                provider=provider,
+                model=model_name,
                 task_type=LLMTaskType.CHAT,
                 task_name="ai_analyze_api_response",
                 prompt_tokens=response.usage.prompt_tokens,

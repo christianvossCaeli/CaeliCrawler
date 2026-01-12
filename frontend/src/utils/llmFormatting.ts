@@ -36,6 +36,21 @@ export function formatCurrency(cents: number): string {
 }
 
 /**
+ * Format token counts with K/M suffix for readability
+ * @param tokens - Number of tokens
+ * @returns Formatted string like "1.5M" or "150K"
+ */
+export function formatTokens(tokens: number): string {
+  if (tokens >= 1000000) {
+    return `${(tokens / 1000000).toFixed(1)}M`
+  }
+  if (tokens >= 1000) {
+    return `${(tokens / 1000).toFixed(1)}K`
+  }
+  return tokens.toString()
+}
+
+/**
  * Format a percentage value
  * @param value - Percentage value
  * @param decimals - Number of decimal places (default: 0)

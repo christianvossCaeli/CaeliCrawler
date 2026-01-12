@@ -1,5 +1,9 @@
 {
   "llm": {
+    "info": {
+      "title": "Track AI Costs",
+      "description": "CaeliCrawler uses AI models for document analysis, Smart Query, and the assistant. Each request consumes tokens that incur costs. Your budget shows current usage. When the limit is reached, AI functions are blocked - request an increase in time or contact your administrator."
+    },
     "budgetStatus": "LLM Budget Status",
     "loading": "Loading budget status...",
     "used": "Used",

@@ -81,7 +81,7 @@
           variant="tonal"
           role="status"
         >
-          {{ t(`summaries.status${capitalize(summary.status)}`) }}
+          {{ t(`summaries.status${summary.status.charAt(0)}${summary.status.slice(1).toLowerCase()}`) }}
         </v-chip>
 
         <v-btn
@@ -333,7 +333,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useCustomSummariesStore, type SummaryWidget } from '@/stores/customSummaries'
 import { useSnackbar } from '@/composables/useSnackbar'
-import { capitalize } from '@/composables/useStringUtils'
 import SummaryEditDialog from '@/components/summaries/SummaryEditDialog.vue'
 import SummaryShareDialog from '@/components/summaries/SummaryShareDialog.vue'
 import SummaryAddWidgetDialog from '@/components/summaries/SummaryAddWidgetDialog.vue'

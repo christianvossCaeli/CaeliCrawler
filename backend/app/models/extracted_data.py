@@ -110,6 +110,30 @@ class ExtractedData(Base):
         nullable=True,
     )
 
+    # Human rejection
+    is_rejected: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+        index=True,
+        comment="Whether this extraction was rejected by human review",
+    )
+    rejected_by: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+        comment="Name/email of user who rejected",
+    )
+    rejected_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Timestamp when rejection occurred",
+    )
+    rejection_reason: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Optional reason for rejection",
+    )
+
     # Relevance score for this category's purpose
     relevance_score: Mapped[float | None] = mapped_column(
         Float,

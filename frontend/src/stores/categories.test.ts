@@ -39,7 +39,6 @@ const mockCategory: CategoryResponse = {
   slug: 'test-category',
   purpose: 'Testing purposes',
   description: 'A test category',
-  is_active: true,
   is_public: false,
   languages: ['de', 'en'],
   search_terms: ['test'],
@@ -63,7 +62,7 @@ const mockCategory2: CategoryResponse = {
   id: 'cat-456',
   name: 'Second Category',
   slug: 'second-category',
-  is_active: false,
+  schedule_enabled: true,
 }
 
 const mockListResponse: CategoryListResponse = {
@@ -131,11 +130,11 @@ describe('Categories Store', () => {
       })
     })
 
-    describe('activeCategories', () => {
-      it('should return only active categories', () => {
+    describe('scheduledCategories', () => {
+      it('should return only scheduled categories', () => {
         store.categories = [mockCategory, mockCategory2]
-        expect(store.activeCategories).toHaveLength(1)
-        expect(store.activeCategories[0].id).toBe('cat-123')
+        expect(store.scheduledCategories).toHaveLength(1)
+        expect(store.scheduledCategories[0].id).toBe('cat-456')
       })
     })
 
@@ -204,7 +203,7 @@ describe('Categories Store', () => {
 
     it('should use filter params', async () => {
       store.filters.search = 'test'
-      store.filters.status = 'active'
+      store.filters.scheduled = 'scheduled'
 
       vi.mocked(categoryApi.list).mockResolvedValue(
         mockAxiosResponse(mockListResponse)
@@ -215,7 +214,7 @@ describe('Categories Store', () => {
       expect(categoryApi.list).toHaveBeenCalledWith(
         expect.objectContaining({
           search: 'test',
-          is_active: true,
+          scheduled_only: true,
         })
       )
     })

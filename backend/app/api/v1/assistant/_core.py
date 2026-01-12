@@ -3,7 +3,7 @@
 import json
 from collections.abc import AsyncGenerator
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,6 +13,7 @@ from app.database import get_session
 from app.models.user import User
 from app.schemas.assistant import AssistantChatRequest, AssistantChatResponse
 from services.assistant_service import AssistantService
+from services.llm_budget_service import LLMBudgetService
 
 from .attachments import get_attachment
 
@@ -66,6 +67,13 @@ async def chat(
     # Rate limiting
     user_id = str(current_user.id) if current_user else None
     await check_rate_limit(http_request, "assistant_chat", identifier=user_id)
+
+    # Budget check for logged-in users
+    if current_user:
+        budget_service = LLMBudgetService(session)
+        can_use, reason = await budget_service.check_user_can_use_llm(current_user.id)
+        if not can_use:
+            raise HTTPException(status_code=429, detail=reason)
 
     # Load attachments if provided
     attachments = []
@@ -129,6 +137,13 @@ async def chat_stream(
     # Rate limiting
     user_id = str(current_user.id) if current_user else None
     await check_rate_limit(http_request, "assistant_stream", identifier=user_id)
+
+    # Budget check for logged-in users
+    if current_user:
+        budget_service = LLMBudgetService(session)
+        can_use, reason = await budget_service.check_user_can_use_llm(current_user.id)
+        if not can_use:
+            raise HTTPException(status_code=429, detail=reason)
 
     # Load attachments if provided
     attachments = []

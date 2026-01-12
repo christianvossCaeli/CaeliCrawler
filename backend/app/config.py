@@ -98,6 +98,8 @@ class Settings(BaseSettings):
     attachment_storage_path: str = "./storage/attachments"
     attachment_max_size_mb: int = 20
     attachment_allowed_types: str = "image/png,image/jpeg,image/gif,image/webp,application/pdf"
+    attachment_stream_threshold_mb: int = 5  # Stream to disk if file > 5MB
+    attachment_temp_dir: str | None = None  # None = system temp directory
 
     # PySis Integration
     pysis_api_base_url: str = "https://pisys.caeli-wind.de/api/pisys/v1"

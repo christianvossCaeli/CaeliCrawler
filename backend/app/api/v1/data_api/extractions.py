@@ -11,17 +11,24 @@ from app.core.deps import require_editor
 from app.core.exceptions import NotFoundError
 from app.database import get_session
 from app.models import Category, Document, ExtractedData
+from app.models.audit_log import AuditAction
 from app.models.user import User
+from app.services.audit_service import create_audit_log
 from app.schemas.extracted_data import (
     DisplayColumn,
     DisplayFieldsConfig,
+    ExtractedDataBulkReject,
+    ExtractedDataBulkRejectResponse,
     ExtractedDataBulkVerify,
     ExtractedDataBulkVerifyResponse,
     ExtractedDataListResponse,
+    ExtractedDataReject,
+    ExtractedDataRejectResponse,
     ExtractedDataResponse,
     ExtractedDataVerify,
     ExtractionStats,
 )
+from app.schemas.facet_value import FacetValueResponse
 
 from .loaders import bulk_load_documents_with_sources
 
@@ -31,11 +38,13 @@ router = APIRouter()
 def apply_extraction_filters(
     query,
     *,
+    document_id: UUID | None = None,
     category_id: UUID | None = None,
     source_id: UUID | None = None,
     extraction_type: str | None = None,
     min_confidence: float | None = None,
     human_verified: bool | None = None,
+    include_rejected: bool = False,
     created_from: date | None = None,
     created_to: date | None = None,
     search: str | None = None,
@@ -44,6 +53,8 @@ def apply_extraction_filters(
     if source_id is not None or search:
         query = query.join(Document, ExtractedData.document_id == Document.id)
 
+    if document_id:
+        query = query.where(ExtractedData.document_id == document_id)
     if category_id:
         query = query.where(ExtractedData.category_id == category_id)
     if source_id:
@@ -54,6 +65,9 @@ def apply_extraction_filters(
         query = query.where(ExtractedData.confidence_score >= min_confidence)
     if human_verified is not None:
         query = query.where(ExtractedData.human_verified == human_verified)
+    # Filter out rejected extractions unless explicitly included
+    if not include_rejected:
+        query = query.where(ExtractedData.is_rejected.is_(False))
     if created_from:
         query = query.where(func.date(ExtractedData.created_at) >= created_from)
     if created_to:
@@ -80,11 +94,13 @@ def apply_extraction_filters(
 async def list_extracted_data(
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=100),
+    document_id: UUID | None = Query(default=None),
     category_id: UUID | None = Query(default=None),
     source_id: UUID | None = Query(default=None),
     extraction_type: str | None = Query(default=None),
     min_confidence: float | None = Query(default=None, ge=0, le=1, description="Minimum confidence score filter"),
     human_verified: bool | None = Query(default=None),
+    include_rejected: bool = Query(default=False, description="Include rejected extractions in the list"),
     created_from: date | None = Query(default=None, description="Filter by created date from (YYYY-MM-DD)"),
     created_to: date | None = Query(default=None, description="Filter by created date to (YYYY-MM-DD)"),
     search: str | None = Query(
@@ -98,11 +114,13 @@ async def list_extracted_data(
     """List extracted data with filters."""
     query = apply_extraction_filters(
         select(ExtractedData),
+        document_id=document_id,
         category_id=category_id,
         source_id=source_id,
         extraction_type=extraction_type,
         min_confidence=min_confidence,
         human_verified=human_verified,
+        include_rejected=include_rejected,
         created_from=created_from,
         created_to=created_to,
         search=search,
@@ -159,6 +177,11 @@ async def list_extracted_data(
             "human_corrections": ext.human_corrections,
             "verified_by": ext.verified_by,
             "verified_at": ext.verified_at,
+            # Rejection fields
+            "is_rejected": ext.is_rejected,
+            "rejected_by": ext.rejected_by,
+            "rejected_at": ext.rejected_at,
+            "rejection_reason": ext.rejection_reason,
             "relevance_score": ext.relevance_score,
             "created_at": ext.created_at,
             "updated_at": ext.updated_at,
@@ -183,11 +206,13 @@ async def list_extracted_data(
 
 @router.get("/stats", response_model=ExtractionStats)
 async def get_extraction_stats(
+    document_id: UUID | None = Query(default=None),
     category_id: UUID | None = Query(default=None),
     source_id: UUID | None = Query(default=None),
     extraction_type: str | None = Query(default=None),
     min_confidence: float | None = Query(default=None, ge=0, le=1, description="Minimum confidence score filter"),
     human_verified: bool | None = Query(default=None),
+    include_rejected: bool = Query(default=False, description="Include rejected extractions in stats"),
     created_from: date | None = Query(default=None, description="Filter by created date from (YYYY-MM-DD)"),
     created_to: date | None = Query(default=None, description="Filter by created date to (YYYY-MM-DD)"),
     search: str | None = Query(
@@ -199,11 +224,13 @@ async def get_extraction_stats(
     """Get extraction statistics."""
     base_query = apply_extraction_filters(
         select(ExtractedData),
+        document_id=document_id,
         category_id=category_id,
         source_id=source_id,
         extraction_type=extraction_type,
         min_confidence=min_confidence,
         human_verified=human_verified,
+        include_rejected=include_rejected,
         created_from=created_from,
         created_to=created_to,
         search=search,
@@ -303,10 +330,143 @@ async def verify_extraction(
     if data.corrections:
         extraction.human_corrections = data.corrections
 
+    await create_audit_log(
+        session=session,
+        action=AuditAction.VERIFY if data.verified else AuditAction.UPDATE,
+        entity_type="ExtractedData",
+        entity_id=extraction_id,
+        entity_name=f"extraction {extraction_id}",
+        user=current_user,
+    )
+
     await session.commit()
     await session.refresh(extraction)
 
     return ExtractedDataResponse.model_validate(extraction)
+
+
+@router.put("/extracted/{extraction_id}/reject", response_model=ExtractedDataRejectResponse)
+async def reject_extraction(
+    extraction_id: UUID,
+    data: ExtractedDataReject,
+    current_user: User = Depends(require_editor),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Reject extracted data and optionally deactivate related facet values.
+
+    When cascade_to_facets is True (default):
+    - All FacetValues with source_document_id matching the extraction's document_id
+      will have is_active set to False
+    - Already human_verified or human_corrected FacetValues will NOT be deactivated (protected)
+
+    Returns the updated extraction along with counts of deactivated and protected facets.
+    """
+    from datetime import datetime
+
+    from sqlalchemy.orm import selectinload
+
+    from app.models.facet_value import FacetValue
+
+    extraction = await session.get(ExtractedData, extraction_id)
+    if not extraction:
+        raise NotFoundError("Extracted Data", str(extraction_id))
+
+    deactivated_count = 0
+    protected_count = 0
+
+    if data.rejected:
+        # Set rejection status
+        rejector = current_user.full_name or current_user.email or str(current_user.id)
+        extraction.is_rejected = True
+        extraction.rejected_by = rejector
+        extraction.rejected_at = datetime.now(UTC)
+        extraction.rejection_reason = data.reason
+        # Clear verification if rejecting
+        extraction.human_verified = False
+        extraction.verified_by = None
+        extraction.verified_at = None
+
+        # Cascade to facet values if requested
+        if data.cascade_to_facets:
+            # Find all FacetValues from this document that are still active
+            facet_query = (
+                select(FacetValue)
+                .where(
+                    FacetValue.source_document_id == extraction.document_id,
+                    FacetValue.is_active.is_(True),
+                )
+                .options(selectinload(FacetValue.entity))
+            )
+            result = await session.execute(facet_query)
+            facet_values = result.scalars().all()
+
+            for fv in facet_values:
+                # Protect human-verified or human-corrected facets
+                if fv.human_verified or fv.human_corrections:
+                    protected_count += 1
+                else:
+                    fv.is_active = False
+                    deactivated_count += 1
+    else:
+        # Unreject - clear rejection status
+        extraction.is_rejected = False
+        extraction.rejected_by = None
+        extraction.rejected_at = None
+        extraction.rejection_reason = None
+
+    await create_audit_log(
+        session=session,
+        action=AuditAction.DELETE if data.rejected else AuditAction.UPDATE,
+        entity_type="ExtractedData",
+        entity_id=extraction_id,
+        entity_name=f"extraction {'rejected' if data.rejected else 'unrejected'}",
+        user=current_user,
+    )
+
+    await session.commit()
+    await session.refresh(extraction)
+
+    # Build response with document info
+    doc = extraction.document
+    source = doc.source if doc else None
+
+    ext_response = ExtractedDataResponse.model_validate(
+        {
+            "id": extraction.id,
+            "document_id": extraction.document_id,
+            "category_id": extraction.category_id,
+            "extraction_type": extraction.extraction_type,
+            "extracted_content": extraction.extracted_content,
+            "confidence_score": extraction.confidence_score,
+            "ai_model_used": extraction.ai_model_used,
+            "ai_prompt_version": extraction.ai_prompt_version,
+            "tokens_used": extraction.tokens_used,
+            "human_verified": extraction.human_verified,
+            "human_corrections": extraction.human_corrections,
+            "verified_by": extraction.verified_by,
+            "verified_at": extraction.verified_at,
+            "is_rejected": extraction.is_rejected,
+            "rejected_by": extraction.rejected_by,
+            "rejected_at": extraction.rejected_at,
+            "rejection_reason": extraction.rejection_reason,
+            "relevance_score": extraction.relevance_score,
+            "created_at": extraction.created_at,
+            "updated_at": extraction.updated_at,
+            "entity_references": extraction.entity_references,
+            "primary_entity_id": extraction.primary_entity_id,
+            "final_content": extraction.final_content,
+            "document_title": doc.title if doc else None,
+            "document_url": doc.original_url if doc else None,
+            "source_name": source.name if source else None,
+        }
+    )
+
+    return ExtractedDataRejectResponse(
+        extraction=ext_response,
+        deactivated_facets_count=deactivated_count,
+        protected_facets_count=protected_count,
+    )
 
 
 @router.put("/extracted/bulk-verify", response_model=ExtractedDataBulkVerifyResponse)
@@ -348,6 +508,16 @@ async def bulk_verify_extractions(
         except Exception:
             failed_ids.append(extraction_id)
 
+    if verified_ids:
+        await create_audit_log(
+            session=session,
+            action=AuditAction.VERIFY,
+            entity_type="ExtractedData",
+            entity_id=None,
+            entity_name=f"bulk verify ({len(verified_ids)} extractions)",
+            user=current_user,
+        )
+
     await session.commit()
 
     return ExtractedDataBulkVerifyResponse(
@@ -355,6 +525,97 @@ async def bulk_verify_extractions(
         failed_ids=failed_ids,
         verified_count=len(verified_ids),
         failed_count=len(failed_ids),
+    )
+
+
+@router.put("/extracted/bulk-reject", response_model=ExtractedDataBulkRejectResponse)
+async def bulk_reject_extractions(
+    data: ExtractedDataBulkReject,
+    current_user: User = Depends(require_editor),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Bulk reject multiple extracted data entries.
+
+    Rejects up to 100 extractions in a single request.
+    Optionally cascades to deactivate related facet values.
+    """
+    from datetime import datetime
+
+    from sqlalchemy.orm import selectinload
+
+    from app.models.facet_value import FacetValue
+
+    rejected_ids: list[UUID] = []
+    failed_ids: list[UUID] = []
+    total_deactivated = 0
+    total_protected = 0
+
+    rejector = current_user.full_name or current_user.email or str(current_user.id)
+    now = datetime.now(UTC)
+
+    for extraction_id in data.ids:
+        extraction = await session.get(ExtractedData, extraction_id)
+        if not extraction:
+            failed_ids.append(extraction_id)
+            continue
+
+        # Skip already rejected
+        if extraction.is_rejected:
+            rejected_ids.append(extraction_id)
+            continue
+
+        try:
+            extraction.is_rejected = True
+            extraction.rejected_by = rejector
+            extraction.rejected_at = now
+            extraction.human_verified = False
+            extraction.verified_by = None
+            extraction.verified_at = None
+
+            # Cascade to facet values if requested
+            if data.cascade_to_facets:
+                facet_query = (
+                    select(FacetValue)
+                    .where(
+                        FacetValue.source_document_id == extraction.document_id,
+                        FacetValue.is_active.is_(True),
+                    )
+                    .options(selectinload(FacetValue.entity))
+                )
+                result = await session.execute(facet_query)
+                facet_values = result.scalars().all()
+
+                for fv in facet_values:
+                    if fv.human_verified or fv.human_corrections:
+                        total_protected += 1
+                    else:
+                        fv.is_active = False
+                        total_deactivated += 1
+
+            rejected_ids.append(extraction_id)
+        except Exception:
+            failed_ids.append(extraction_id)
+
+    if rejected_ids:
+        await create_audit_log(
+            session=session,
+            action=AuditAction.DELETE,
+            entity_type="ExtractedData",
+            entity_id=None,
+            entity_name=f"bulk reject ({len(rejected_ids)} extractions)",
+            user=current_user,
+        )
+
+    await session.commit()
+
+    return ExtractedDataBulkRejectResponse(
+        rejected_ids=rejected_ids,
+        failed_ids=failed_ids,
+        rejected_count=len(rejected_ids),
+        failed_count=len(failed_ids),
+        total_deactivated_facets=total_deactivated,
+        total_protected_facets=total_protected,
     )
 
 
@@ -419,6 +680,11 @@ async def get_extractions_by_entity(
             "human_corrections": ext.human_corrections,
             "verified_by": ext.verified_by,
             "verified_at": ext.verified_at,
+            # Rejection fields
+            "is_rejected": ext.is_rejected,
+            "rejected_by": ext.rejected_by,
+            "rejected_at": ext.rejected_at,
+            "rejection_reason": ext.rejection_reason,
             "relevance_score": ext.relevance_score,
             "created_at": ext.created_at,
             "updated_at": ext.updated_at,
@@ -568,3 +834,113 @@ async def get_category_display_config(
         columns=columns,
         entity_reference_columns=entity_ref_cols,
     )
+
+
+@router.get("/extracted/{extraction_id}/facets", response_model=list[FacetValueResponse])
+async def get_extraction_facets(
+    extraction_id: UUID,
+    include_inactive: bool = Query(default=False, description="Include inactive facets"),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Get facet values that were extracted from this extraction's source document.
+
+    This retrieves all FacetValues where source_document_id matches the extraction's
+    document_id. Use include_inactive=true to also see deactivated facets.
+    """
+    from sqlalchemy.orm import selectinload
+
+    from app.models.entity import Entity
+    from app.models.facet_type import FacetType
+    from app.models.facet_value import FacetValue
+
+    # Get the extraction
+    extraction = await session.get(ExtractedData, extraction_id)
+    if not extraction:
+        raise NotFoundError("Extracted Data", str(extraction_id))
+
+    # Build query for facet values from this document
+    query = (
+        select(FacetValue)
+        .where(FacetValue.source_document_id == extraction.document_id)
+        .options(
+            selectinload(FacetValue.entity),
+            selectinload(FacetValue.facet_type),
+            selectinload(FacetValue.category),
+            selectinload(FacetValue.source_document),
+            selectinload(FacetValue.target_entity).selectinload(Entity.entity_type),
+        )
+        .order_by(FacetValue.created_at.desc())
+    )
+
+    # Filter by active status unless including inactive
+    if not include_inactive:
+        query = query.where(FacetValue.is_active.is_(True))
+
+    result = await session.execute(query)
+    facet_values = result.scalars().all()
+
+    # Build response items
+    items = []
+    for fv in facet_values:
+        entity = fv.entity
+        facet_type = fv.facet_type
+        category = fv.category
+        doc = fv.source_document
+        target_entity = fv.target_entity
+
+        items.append(
+            FacetValueResponse(
+                id=fv.id,
+                entity_id=fv.entity_id,
+                facet_type_id=fv.facet_type_id,
+                category_id=fv.category_id,
+                source_document_id=fv.source_document_id,
+                value=fv.value,
+                text_representation=fv.text_representation,
+                event_date=fv.event_date,
+                valid_from=fv.valid_from,
+                valid_until=fv.valid_until,
+                source_type=fv.source_type,
+                source_url=fv.source_url,
+                confidence_score=fv.confidence_score,
+                ai_model_used=fv.ai_model_used,
+                human_verified=fv.human_verified,
+                verified_by=fv.verified_by,
+                verified_at=fv.verified_at,
+                human_corrections=fv.human_corrections,
+                occurrence_count=fv.occurrence_count,
+                first_seen=fv.first_seen,
+                last_seen=fv.last_seen,
+                is_active=fv.is_active,
+                created_at=fv.created_at,
+                updated_at=fv.updated_at,
+                # Nested info
+                entity_name=entity.name if entity else None,
+                facet_type_slug=facet_type.slug if facet_type else None,
+                facet_type_name=facet_type.name if facet_type else None,
+                category_name=category.name if category else None,
+                document_title=doc.title if doc else None,
+                document_url=doc.original_url if doc else None,
+                # Target entity info
+                target_entity_name=target_entity.name if target_entity else None,
+                target_entity_slug=target_entity.slug if target_entity else None,
+                target_entity_type_slug=(
+                    target_entity.entity_type.slug
+                    if target_entity and target_entity.entity_type
+                    else None
+                ),
+                target_entity_type_icon=(
+                    target_entity.entity_type.icon
+                    if target_entity and target_entity.entity_type
+                    else None
+                ),
+                target_entity_type_color=(
+                    target_entity.entity_type.color
+                    if target_entity and target_entity.entity_type
+                    else None
+                ),
+            )
+        )
+
+    return items

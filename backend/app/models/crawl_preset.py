@@ -5,7 +5,6 @@ Unlike Smart Query History which saves AI-interpreted commands, presets store
 the exact technical filter configuration for deterministic re-execution.
 """
 
-import enum
 import uuid
 from datetime import datetime
 from typing import Any
@@ -13,7 +12,6 @@ from typing import Any
 from sqlalchemy import (
     Boolean,
     DateTime,
-    Enum,
     ForeignKey,
     Integer,
     String,
@@ -24,13 +22,6 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
-
-
-class PresetStatus(str, enum.Enum):
-    """Status of a crawl preset."""
-
-    ACTIVE = "ACTIVE"
-    ARCHIVED = "ARCHIVED"
 
 
 class CrawlPreset(Base):
@@ -120,11 +111,6 @@ class CrawlPreset(Base):
         nullable=False,
         default=False,
         comment="Whether this preset is marked as a favorite",
-    )
-    status: Mapped[PresetStatus] = mapped_column(
-        Enum(PresetStatus, name="crawl_preset_status_enum"),
-        nullable=False,
-        default=PresetStatus.ACTIVE,
     )
 
     # Timestamps

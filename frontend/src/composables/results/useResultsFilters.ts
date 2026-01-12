@@ -46,11 +46,14 @@ export function useResultsFilters(state: ResultsState) {
         per_page: state.perPage.value,
       }
 
+      if (state.documentIdFilter.value) params.document_id = state.documentIdFilter.value
       if (state.searchQuery.value) params.search = state.searchQuery.value
       if (state.extractionTypeFilter.value) params.extraction_type = state.extractionTypeFilter.value
       if (state.categoryFilter.value) params.category_id = state.categoryFilter.value
-      if (state.minConfidence.value > 0) params.min_confidence = state.minConfidence.value / 100
+      if (state.confidenceRange.value[0] > 0) params.min_confidence = state.confidenceRange.value[0] / 100
+      if (state.confidenceRange.value[1] < 100) params.max_confidence = state.confidenceRange.value[1] / 100
       if (state.verifiedFilter.value !== null) params.human_verified = state.verifiedFilter.value
+      if (state.showRejected.value) params.include_rejected = true
       if (state.dateFrom.value) params.created_from = state.dateFrom.value
       if (state.dateTo.value) params.created_to = state.dateTo.value
       if (state.sortBy.value.length > 0) {
@@ -60,10 +63,12 @@ export function useResultsFilters(state: ResultsState) {
 
       // Build stats params (same filters, no pagination)
       const statsParams: ExtractionStatsParams = {}
+      if (state.documentIdFilter.value) statsParams.document_id = state.documentIdFilter.value
       if (state.searchQuery.value) statsParams.search = state.searchQuery.value
       if (state.extractionTypeFilter.value) statsParams.extraction_type = state.extractionTypeFilter.value
       if (state.categoryFilter.value) statsParams.category_id = state.categoryFilter.value
-      if (state.minConfidence.value > 0) statsParams.min_confidence = state.minConfidence.value / 100
+      if (state.confidenceRange.value[0] > 0) statsParams.min_confidence = state.confidenceRange.value[0] / 100
+      if (state.confidenceRange.value[1] < 100) statsParams.max_confidence = state.confidenceRange.value[1] / 100
       if (state.verifiedFilter.value !== null) statsParams.human_verified = state.verifiedFilter.value
       if (state.dateFrom.value) statsParams.created_from = state.dateFrom.value
       if (state.dateTo.value) statsParams.created_to = state.dateTo.value
@@ -169,11 +174,13 @@ export function useResultsFilters(state: ResultsState) {
    */
   function clearFilters(): void {
     state.searchQuery.value = ''
+    state.documentIdFilter.value = null
     state.locationFilter.value = null
     state.extractionTypeFilter.value = null
     state.categoryFilter.value = null
-    state.minConfidence.value = 0
+    state.confidenceRange.value = [0, 100]
     state.verifiedFilter.value = null
+    state.showRejected.value = false
     state.dateFrom.value = null
     state.dateTo.value = null
     state.page.value = 1
@@ -209,6 +216,26 @@ export function useResultsFilters(state: ResultsState) {
    * Initialize the module with URL params and load initial data.
    */
   async function initialize(): Promise<void> {
+    // Check for search query parameter
+    if (route.query.search) {
+      const search = Array.isArray(route.query.search) ? route.query.search[0] : route.query.search
+      if (search) {
+        state.searchQuery.value = search
+        state.page.value = 1
+      }
+    }
+
+    // Check for document_id parameter to filter by document
+    if (route.query.document_id) {
+      const documentId = Array.isArray(route.query.document_id)
+        ? route.query.document_id[0]
+        : route.query.document_id
+      if (documentId) {
+        state.documentIdFilter.value = documentId
+        state.page.value = 1
+      }
+    }
+
     // Check for verified filter from URL
     if (route.query.verified !== undefined) {
       state.verifiedFilter.value = route.query.verified === 'true'

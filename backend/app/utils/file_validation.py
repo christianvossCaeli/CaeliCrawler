@@ -5,9 +5,9 @@ Uses magic bytes to validate actual file content type,
 preventing content_type header spoofing attacks.
 """
 
+import contextlib
 import shutil
 import tempfile
-from io import BytesIO
 from pathlib import Path
 from typing import BinaryIO
 
@@ -254,10 +254,8 @@ class StreamingUploadHandler:
     def cleanup(self) -> None:
         """Clean up temporary resources."""
         if self._temp_file:
-            try:
+            with contextlib.suppress(Exception):
                 self._temp_file.close()
-            except Exception:
-                pass
             self._temp_file = None
 
     def __enter__(self) -> "StreamingUploadHandler":

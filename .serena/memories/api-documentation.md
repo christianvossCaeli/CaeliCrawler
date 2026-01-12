@@ -6,6 +6,46 @@
 
 CaeliCrawler Backend nutzt FastAPI mit automatischer OpenAPI-Dokumentation.
 
+## Version 2.2.0 Updates (Januar 2026)
+
+**Letztes Audit:** 2026-01-05
+
+### Breaking Changes
+- **Category API:** Parameter `is_active` durch `scheduled_only` ersetzt
+- **CrawlPreset API:** Feld `status` entfernt, `category_id` jetzt required
+
+### Neue Endpoints
+- `GET /api/v1/attachments/search` - Volltext-Suche ueber Anhaenge
+- `PUT /api/v1/data/extracted/{id}/reject` - Extraktion ablehnen
+- `GET /api/v1/data/stats/unverified-count` - Zaehler fuer unverifizierte Extraktionen
+- `GET /api/v1/entities/{id}/sources` - DataSources einer Entity abrufen
+- `GET /api/v1/facets/types/for-category/{category_id}` - FacetTypes fuer Kategorie
+- `GET /api/v1/facets/entity/{entity_id}/referenced-by` - Referenzierende FacetValues
+- `POST /admin/crawler/ai-discovery/import-api-data` - API-Daten als DataSources importieren
+
+### Neue Smart Query Operations
+- `update_crawl_schedule` - Crawl-Schedule einer Kategorie aendern
+- `create_custom_summary` - Benutzerdefinierte Zusammenfassung erstellen
+- `push_to_pysis` - Facet-Daten nach PySis exportieren
+- `get_history` - Aenderungshistorie abrufen
+- `link_existing_category` - Bestehende Kategorie verknuepfen
+- `fetch_and_create_from_api` - Daten von API importieren und Entities erstellen
+
+### Korrigierte Operation-Namen (SMART_QUERY.md)
+- `analyze_pysis_for_facets` → `analyze_pysis`
+- `export_query_result` → `export`
+- `undo_change` → `undo`
+
+### Neue Felder
+- ExtractedData: `is_rejected`, `rejected_by`, `rejected_at`, `rejection_reason`
+- Facet Values: `target_entity_type_icon`, `target_entity_type_color`
+- Entities: `core_attr_filters` unterstuetzt jetzt Range-Filter (min/max)
+
+### Migration Guide
+Siehe `docs/api/MIGRATION_v2.2.md` fuer detaillierte Migrations-Anweisungen.
+
+---
+
 ## Endpoints
 
 ### Docs-Zugriff (nur Development)

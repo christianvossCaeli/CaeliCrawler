@@ -26,6 +26,7 @@ class SummaryTriggerType(str, Enum):
     CRON = "CRON"
     CRAWL_CATEGORY = "CRAWL_CATEGORY"
     CRAWL_PRESET = "CRAWL_PRESET"
+    AUTO = "AUTO"  # Automatically triggered when matching entity types are crawled
 
 
 class SummaryWidgetType(str, Enum):
@@ -380,6 +381,14 @@ class SummaryResponse(BaseModel):
     schedule_cron: str | None
     trigger_category_id: UUID | None
     trigger_preset_id: UUID | None
+    # AUTO trigger fields
+    auto_trigger_entity_types: list[str] = Field(
+        default_factory=list,
+        description="Entity type slugs that automatically trigger this summary",
+    )
+    last_auto_trigger_reason: str | None = Field(
+        None, description="Last reason why AUTO trigger was activated"
+    )
     schedule_enabled: bool
     next_run_at: datetime | None
     check_relevance: bool

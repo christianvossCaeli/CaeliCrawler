@@ -17,6 +17,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.deps import get_current_user
 from app.database import get_session
 from app.models import User
+from app.models.audit_log import AuditAction
+from app.services.audit_service import create_audit_log
 from services.entity_data_facet_service import EntityDataFacetService
 
 router = APIRouter()
@@ -141,6 +143,18 @@ async def analyze_for_facets(
             source_types=request.source_types,
             target_facet_types=request.target_facet_types,
         )
+
+        # Create audit log entry
+        await create_audit_log(
+            session=session,
+            action=AuditAction.CREATE,
+            entity_type="EntityDataAnalysis",
+            entity_id=request.entity_id,
+            entity_name=f"analysis for {len(request.source_types)} sources",
+            user=current_user,
+        )
+        await session.commit()
+
         return StartAnalysisResponse(
             task_id=str(task.id),
             status=task.status.value,
@@ -193,6 +207,18 @@ async def apply_changes(
             accepted_new_facets=request.accepted_new_facets,
             accepted_updates=request.accepted_updates,
         )
+
+        # Create audit log entry
+        await create_audit_log(
+            session=session,
+            action=AuditAction.UPDATE,
+            entity_type="EntityDataAnalysis",
+            entity_id=request.task_id,
+            entity_name=f"applied {result.get('created', 0)} new, {result.get('updated', 0)} updated",
+            user=current_user,
+        )
+        await session.commit()
+
         return ApplyChangesResponse(**result)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from None

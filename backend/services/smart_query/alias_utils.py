@@ -7,12 +7,18 @@ This module provides generic, AI-based functions for:
 """
 
 import time
+from typing import TYPE_CHECKING
 
 import structlog
 
 from app.core.cache import TTLCache
 from app.models.llm_usage import LLMProvider, LLMTaskType
+from app.models.user_api_credentials import LLMPurpose
+from services.llm_client_service import LLMClientService
 from services.llm_usage_tracker import record_llm_usage
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = structlog.get_logger(__name__)
 
@@ -90,7 +96,11 @@ def levenshtein_distance(s1: str, s2: str) -> int:
     return previous_row[-1]
 
 
-async def resolve_alias_async(alias: str, domain: str | None = None) -> str:
+async def resolve_alias_async(
+    alias: str,
+    domain: str | None = None,
+    session: "AsyncSession | None" = None,
+) -> str:
     """
     Resolve an alias/abbreviation to its canonical form using AI.
 
@@ -103,6 +113,7 @@ async def resolve_alias_async(alias: str, domain: str | None = None) -> str:
     Args:
         alias: The alias/abbreviation to resolve
         domain: Optional domain hint to help AI (e.g., "geographic", "organization", "technical")
+        session: Database session for loading LLM credentials
 
     Returns:
         The canonical form if recognized, otherwise the original input.
@@ -118,17 +129,25 @@ async def resolve_alias_async(alias: str, domain: str | None = None) -> str:
     if cached is not None:
         return cached if cached != "__NONE__" else alias
 
-    try:
-        from app.config import settings
-        from services.ai_client import AzureOpenAIClientFactory
+    if not session:
+        logger.debug("resolve_alias_async: No session provided, skipping AI resolution")
+        return alias
 
-        client = AzureOpenAIClientFactory.create_client()
+    try:
+        llm_service = LLMClientService(session)
+        client, config = await llm_service.get_system_client(LLMPurpose.DOCUMENT_ANALYSIS)
+        if not client or not config:
+            logger.warning("No LLM credentials configured for alias resolution")
+            return alias
+
+        model_name = llm_service.get_model_name(config)
+        provider = llm_service.get_provider(config)
 
         domain_hint = f"\nContext/Domain: {domain}" if domain else ""
 
         start_time = time.time()
         response = await client.chat.completions.create(
-            model=settings.azure_openai_deployment_name,
+            model=model_name,
             messages=[
                 {
                     "role": "system",
@@ -151,8 +170,8 @@ Return ONLY the canonical form or "NONE", nothing else.""",
 
         if response.usage:
             await record_llm_usage(
-                provider=LLMProvider.AZURE_OPENAI,
-                model=settings.azure_openai_deployment_name,
+                provider=provider,
+                model=model_name,
                 task_type=LLMTaskType.CHAT,
                 task_name="resolve_alias_async",
                 prompt_tokens=response.usage.prompt_tokens,
@@ -442,7 +461,11 @@ def resolve_with_suggestion(
         return asyncio.run(resolve_with_suggestion_async(input_text, domain, known_values, threshold))
 
 
-async def expand_terms_async(context: str, raw_terms: list[str]) -> list[str]:
+async def expand_terms_async(
+    context: str,
+    raw_terms: list[str],
+    session: "AsyncSession | None" = None,
+) -> list[str]:
     """
     Expand abstract terms into concrete terms using AI.
 
@@ -454,14 +477,26 @@ async def expand_terms_async(context: str, raw_terms: list[str]) -> list[str]:
     Args:
         context: The context for expansion (helps AI understand the domain)
         raw_terms: List of terms to potentially expand
+        session: Database session for loading LLM credentials
 
     Returns:
         List of expanded terms with duplicates removed.
     """
-    from app.config import settings
-    from services.ai_client import AzureOpenAIClientFactory
+    if not session:
+        logger.debug("expand_terms_async: No session provided, skipping AI expansion")
+        return raw_terms
 
     expanded = []
+
+    # Get LLM client once for all terms
+    llm_service = LLMClientService(session)
+    client, config = await llm_service.get_system_client(LLMPurpose.DOCUMENT_ANALYSIS)
+    if not client or not config:
+        logger.warning("No LLM credentials configured for term expansion")
+        return raw_terms
+
+    model_name = llm_service.get_model_name(config)
+    provider = llm_service.get_provider(config)
 
     for term in raw_terms:
         term_lower = term.lower()
@@ -474,11 +509,9 @@ async def expand_terms_async(context: str, raw_terms: list[str]) -> list[str]:
             continue
 
         try:
-            client = AzureOpenAIClientFactory.create_client()
-
             start_time = time.time()
             response = await client.chat.completions.create(
-                model=settings.azure_openai_deployment_name,
+                model=model_name,
                 messages=[
                     {
                         "role": "system",
@@ -500,8 +533,8 @@ Maximum 10 terms.""",
 
             if response.usage:
                 await record_llm_usage(
-                    provider=LLMProvider.AZURE_OPENAI,
-                    model=settings.azure_openai_deployment_name,
+                    provider=provider,
+                    model=model_name,
                     task_type=LLMTaskType.CHAT,
                     task_name="expand_terms_async",
                     prompt_tokens=response.usage.prompt_tokens,

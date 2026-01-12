@@ -36,6 +36,8 @@ class SerpAPISearchProvider(BaseSearchProvider):
                      If None, search will return empty results.
         """
         self.api_key = api_key
+        self.had_error = False
+        self.last_error: str | None = None
 
     async def search(
         self,
@@ -52,7 +54,12 @@ class SerpAPISearchProvider(BaseSearchProvider):
         Returns:
             List of SearchResult objects
         """
+        self.had_error = False
+        self.last_error = None
+
         if not self.api_key:
+            self.had_error = True
+            self.last_error = "SerpAPI API key not configured"
             logger.error(
                 "SerpAPI API key not provided - web search disabled. "
                 "User must configure SerpAPI credentials under Settings > API Credentials."
@@ -85,6 +92,17 @@ class SerpAPISearchProvider(BaseSearchProvider):
                     response.raise_for_status()
                     data = response.json()
 
+                    if data.get("error") or data.get("search_metadata", {}).get("status") == "Error":
+                        error_message = data.get("error") or data.get("search_metadata", {}).get("error", "Unknown error")
+                        self.had_error = True
+                        self.last_error = f"SerpAPI error: {error_message}"
+                        logger.error(
+                            "SerpAPI returned error payload",
+                            query=query,
+                            error=error_message,
+                        )
+                        continue
+
                     # Extract organic results
                     for item in data.get("organic_results", []):
                         url = item.get("link", "")
@@ -107,6 +125,8 @@ class SerpAPISearchProvider(BaseSearchProvider):
                     )
 
                 except httpx.HTTPStatusError as e:
+                    self.had_error = True
+                    self.last_error = f"SerpAPI HTTP {e.response.status_code}"
                     logger.error(
                         "SerpAPI request failed",
                         query=query,
@@ -114,12 +134,16 @@ class SerpAPISearchProvider(BaseSearchProvider):
                         error=str(e),
                     )
                 except httpx.HTTPError as e:
+                    self.had_error = True
+                    self.last_error = f"SerpAPI network error: {e}"
                     logger.error(
                         "SerpAPI network error",
                         query=query,
                         error=str(e),
                     )
                 except Exception as e:
+                    self.had_error = True
+                    self.last_error = f"SerpAPI unexpected error: {e}"
                     logger.error(
                         "Unexpected error during SerpAPI search",
                         query=query,

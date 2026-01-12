@@ -120,6 +120,7 @@ export interface FilterState {
   entity_type_filter?: string
   extraction_type?: string
   min_confidence?: number
+  max_confidence?: number
   human_verified_only?: boolean
   verified_filter?: boolean | null
 }

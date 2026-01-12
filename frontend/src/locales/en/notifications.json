@@ -2,7 +2,13 @@
   "notifications": {
     "title": "Notifications",
     "subtitle": "Manage automatic notifications for important events",
+    "info": {
+      "title": "Stay Informed",
+      "description": "Get notified automatically - via email, in-app, or webhook. Create rules for specific events (e.g. 'New document with high relevance') and set conditions (confidence, keywords). Digest notifications combine multiple events instead of individual messages. The inbox shows all notifications at a glance."
+    },
     "notification": "Notification",
+    "read": "Read",
+    "unread": "Unread",
     "inbox": {
       "channel": "Channel",
       "eventType": "Event Type",
@@ -12,7 +18,19 @@
       "statusSent": "Sent",
       "statusFailed": "Failed",
       "statusRead": "Read",
-      "goTo": "Go to {entity}"
+      "goTo": "Go to {entity}",
+      "notificationsList": "Notifications list",
+      "sortBy": "Sort by",
+      "sortDate": "Date",
+      "sortStatus": "Status",
+      "selectAll": "Select all",
+      "selected": "{count} selected",
+      "bulkMarkRead": "Mark as read",
+      "bulkDelete": "Delete",
+      "deleteConfirm": "Do you really want to delete this notification?",
+      "deleteSuccess": "Notification deleted",
+      "bulkDeleteConfirm": "Do you really want to delete {count} notifications?",
+      "bulkDeleteSuccess": "{count} notifications deleted"
     },
     "rules": {
       "title": "Notification Rules",
@@ -116,6 +134,22 @@
       "ruleDeleted": "Rule deleted successfully",
       "markAllRead": "Mark all as read",
       "noNotifications": "No notifications"
+    },
+    "errors": {
+      "loadNotifications": "Error loading notifications",
+      "markAsRead": "Error marking as read",
+      "markAllAsRead": "Error marking all as read",
+      "loadRules": "Error loading rules",
+      "createRule": "Error creating rule",
+      "updateRule": "Error updating rule",
+      "deleteRule": "Error deleting rule",
+      "loadEmailAddresses": "Error loading email addresses",
+      "addEmailAddress": "Error adding email address",
+      "deleteEmailAddress": "Error deleting email address",
+      "updatePreferences": "Error updating preferences",
+      "testWebhook": "Error testing webhook",
+      "deleteNotification": "Error deleting notification",
+      "resendVerification": "Error sending verification email"
     }
   },
   "notificationsView": {

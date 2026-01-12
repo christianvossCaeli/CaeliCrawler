@@ -13,7 +13,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.models import AITask, AITaskStatus, AITaskType, Entity, FacetType
 from app.models.entity_attachment import AttachmentAnalysisStatus, EntityAttachment
-from app.models.llm_usage import LLMProvider, LLMTaskType
+from app.models.llm_usage import LLMTaskType
+from app.models.user_api_credentials import LLMPurpose
+from services.llm_client_service import LLMClientService
 from services.llm_usage_tracker import record_llm_usage
 
 logger = structlog.get_logger()
@@ -120,14 +122,16 @@ class AttachmentAnalysisService:
 
 
 async def analyze_image_with_vision(
+    session: AsyncSession,
     image_path: Path,
     entity_name: str,
     facet_types: list[FacetType],
 ) -> dict[str, Any]:
     """
-    Analyze an image using Azure OpenAI Vision API.
+    Analyze an image using Vision API.
 
     Args:
+        session: Database session for LLM credentials
         image_path: Path to the image file
         entity_name: Name of the entity (for context)
         facet_types: Available facet types for extraction
@@ -135,9 +139,13 @@ async def analyze_image_with_vision(
     Returns:
         Analysis result dict with description, detected text, entities, facet suggestions
     """
-    from services.ai_client import AzureOpenAIClientFactory
+    llm_service = LLMClientService(session)
+    client, config = await llm_service.get_system_client(LLMPurpose.DOCUMENT_ANALYSIS)
+    if not client or not config:
+        raise ValueError("LLM nicht konfiguriert für Bildanalyse")
 
-    client = AzureOpenAIClientFactory.create_client()
+    model_name = llm_service.get_model_name(config)
+    provider = llm_service.get_provider(config)
 
     # Read and encode image
     image_bytes = image_path.read_bytes()
@@ -199,13 +207,10 @@ ANTWORTFORMAT (JSON):
 }}
 """
 
-    # Get vision deployment name
-    deployment = settings.azure_openai_deployment_vision or settings.azure_openai_deployment_name
-
     start_time = time.time()
     try:
         response = await client.chat.completions.create(
-            model=deployment,
+            model=model_name,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {
@@ -232,8 +237,8 @@ ANTWORTFORMAT (JSON):
 
         if response.usage:
             await record_llm_usage(
-                provider=LLMProvider.AZURE_OPENAI,
-                model=settings.azure_openai_deployment_name,
+                provider=provider,
+                model=model_name,
                 task_type=LLMTaskType.ATTACHMENT_ANALYSIS,
                 task_name="analyze_image_with_vision",
                 prompt_tokens=response.usage.prompt_tokens,
@@ -244,8 +249,8 @@ ANTWORTFORMAT (JSON):
             )
     except Exception:
         await record_llm_usage(
-            provider=LLMProvider.AZURE_OPENAI,
-            model=settings.azure_openai_deployment_name,
+            provider=provider,
+            model=model_name,
             task_type=LLMTaskType.ATTACHMENT_ANALYSIS,
             task_name="analyze_image_with_vision",
             prompt_tokens=0,
@@ -259,13 +264,14 @@ ANTWORTFORMAT (JSON):
     import json
 
     result = json.loads(response.choices[0].message.content)
-    result["ai_model_used"] = deployment
+    result["ai_model_used"] = model_name
     result["tokens_used"] = response.usage.total_tokens if response.usage else None
 
     return result
 
 
 async def analyze_pdf_with_ai(
+    session: AsyncSession,
     pdf_path: Path,
     entity_name: str,
     facet_types: list[FacetType],
@@ -274,6 +280,7 @@ async def analyze_pdf_with_ai(
     Analyze a PDF by extracting text and analyzing with AI.
 
     Args:
+        session: Database session for LLM credentials
         pdf_path: Path to the PDF file
         entity_name: Name of the entity (for context)
         facet_types: Available facet types for extraction
@@ -281,8 +288,6 @@ async def analyze_pdf_with_ai(
     Returns:
         Analysis result dict
     """
-    from services.ai_client import AzureOpenAIClientFactory
-
     # Extract text from PDF
     extracted_text = await extract_pdf_text(pdf_path)
 
@@ -296,7 +301,13 @@ async def analyze_pdf_with_ai(
             "extraction_error": "Kein oder zu wenig Text extrahiert",
         }
 
-    client = AzureOpenAIClientFactory.create_client()
+    llm_service = LLMClientService(session)
+    client, config = await llm_service.get_system_client(LLMPurpose.DOCUMENT_ANALYSIS)
+    if not client or not config:
+        raise ValueError("LLM nicht konfiguriert für PDF-Analyse")
+
+    model_name = llm_service.get_model_name(config)
+    provider = llm_service.get_provider(config)
 
     # Build facet extraction prompt
     facet_prompts = []
@@ -354,7 +365,7 @@ ANTWORTFORMAT (JSON):
     start_time = time.time()
     try:
         response = await client.chat.completions.create(
-            model=settings.azure_openai_deployment_name,
+            model=model_name,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {
@@ -369,8 +380,8 @@ ANTWORTFORMAT (JSON):
 
         if response.usage:
             await record_llm_usage(
-                provider=LLMProvider.AZURE_OPENAI,
-                model=settings.azure_openai_deployment_name,
+                provider=provider,
+                model=model_name,
                 task_type=LLMTaskType.ATTACHMENT_ANALYSIS,
                 task_name="analyze_pdf_with_ai",
                 prompt_tokens=response.usage.prompt_tokens,
@@ -381,8 +392,8 @@ ANTWORTFORMAT (JSON):
             )
     except Exception:
         await record_llm_usage(
-            provider=LLMProvider.AZURE_OPENAI,
-            model=settings.azure_openai_deployment_name,
+            provider=provider,
+            model=model_name,
             task_type=LLMTaskType.ATTACHMENT_ANALYSIS,
             task_name="analyze_pdf_with_ai",
             prompt_tokens=0,
@@ -396,7 +407,7 @@ ANTWORTFORMAT (JSON):
     import json
 
     result = json.loads(response.choices[0].message.content)
-    result["ai_model_used"] = settings.azure_openai_deployment_name
+    result["ai_model_used"] = model_name
     result["tokens_used"] = response.usage.total_tokens if response.usage else None
     result["text_truncated"] = truncated
     result["original_text_length"] = len(extracted_text)

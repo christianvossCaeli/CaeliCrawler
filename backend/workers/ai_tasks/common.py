@@ -375,6 +375,88 @@ async def _ensure_entity_type_exists(
 # =============================================================================
 
 
+async def classify_by_llm(
+    session: "AsyncSession",
+    name: str,
+    available_types: list[dict[str, str]],
+) -> str | None:
+    """
+    Classify entity type using LLM for multilingual, context-aware classification.
+
+    This approach is language-agnostic and fully dynamic - classification rules
+    are derived from entity type descriptions in the database.
+
+    Args:
+        session: Database session
+        name: The entity name to classify
+        available_types: List of dicts with 'slug' and 'description' for each type
+
+    Returns:
+        Entity type slug or None if classification failed
+    """
+    from services.llm_client_service import LLMClientService, LLMPurpose
+
+    try:
+        llm_service = LLMClientService(session)
+        client, config = await llm_service.get_system_client(LLMPurpose.DOCUMENT_ANALYSIS)
+
+        if not client or not config:
+            logger.warning("No LLM client available for entity classification")
+            return None
+
+        # Build type options from database descriptions (fully dynamic)
+        type_options = "\n".join(
+            f"- {t['slug']}: {t['description']}"
+            for t in available_types
+            if t.get("description")
+        )
+
+        prompt = f"""Classify the following name into one of these entity types.
+Return ONLY the type slug, nothing else.
+
+Entity types:
+{type_options}
+
+Name to classify: "{name}"
+
+Return the most appropriate type slug:"""
+
+        response = await client.chat.completions.create(
+            model=config.get("model", "gpt-4o-mini"),
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=20,
+            temperature=0,
+        )
+
+        result = response.choices[0].message.content.strip().lower()
+
+        # Validate result is a known type
+        valid_slugs = {t["slug"] for t in available_types}
+        if result in valid_slugs:
+            logger.debug(
+                "Classified entity type by LLM",
+                name=name,
+                classified_type=result,
+            )
+            return result
+
+        logger.warning(
+            "LLM returned invalid entity type",
+            name=name,
+            llm_result=result,
+            valid_types=list(valid_slugs),
+        )
+        return None
+
+    except Exception as e:
+        logger.warning(
+            "LLM classification failed",
+            name=name,
+            error=str(e),
+        )
+        return None
+
+
 async def classify_by_existing_entities(
     session: "AsyncSession",
     name: str,
@@ -451,11 +533,13 @@ async def classify_entity_type(
 
     Classification strategy:
     1. Similarity to existing entities (fast, free, data-driven)
-    2. Fallback to default type or first allowed type
+    2. LLM-based classification (multilingual, context-aware)
+    3. Fallback to default type or first allowed type
 
-    This approach is generic and works for any entity types without
-    hardcoded patterns. The classification improves as more entities
-    are added to the database.
+    This approach is fully dynamic and language-agnostic:
+    - Learns from existing data via similarity matching
+    - Uses LLM for uncertain cases (supports any language)
+    - No hardcoded patterns that would break with new languages
 
     Args:
         session: Database session
@@ -466,10 +550,33 @@ async def classify_entity_type(
     Returns:
         Entity type slug (never None - always returns a valid type)
     """
-    # Strategy 1: Classify by similarity to existing entities
+    from sqlalchemy import select
+
+    from app.models import EntityType
+
+    # Strategy 1: Classify by similarity to existing entities (fast, free)
     result = await classify_by_existing_entities(session, name, allowed_types)
     if result:
         return result
+
+    # Strategy 2: LLM-based classification (multilingual, handles edge cases)
+    # Load available entity types with descriptions for context
+    query = select(EntityType).where(EntityType.is_active.is_(True))
+    if allowed_types:
+        query = query.where(EntityType.slug.in_(allowed_types))
+
+    type_result = await session.execute(query)
+    entity_types = type_result.scalars().all()
+
+    available_types = [
+        {"slug": et.slug, "description": et.description or et.name}
+        for et in entity_types
+    ]
+
+    if available_types:
+        llm_result = await classify_by_llm(session, name, available_types)
+        if llm_result:
+            return llm_result
 
     # Fallback: Use default or first allowed type
     if default_type:

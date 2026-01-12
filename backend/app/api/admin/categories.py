@@ -71,9 +71,9 @@ async def list_categories(
         description="Number of items per page (max 100)",
         examples=[10, 20, 50],
     ),
-    is_active: bool | None = Query(
-        default=None,
-        description="Filter by active status. True = only active, False = only inactive, None = all",
+    scheduled_only: bool = Query(
+        default=False,
+        description="Filter to only show categories with active schedule",
     ),
     is_public: bool | None = Query(
         default=None,
@@ -99,7 +99,7 @@ async def list_categories(
     ),
     sort_by: str | None = Query(
         default="name",
-        description="Sort by field (name, purpose, is_active, source_count, document_count)",
+        description="Sort by field (name, purpose, schedule_enabled, source_count, document_count)",
         examples=["name", "document_count"],
     ),
     sort_order: str | None = Query(
@@ -123,7 +123,7 @@ async def list_categories(
     - Default: 20 items per page, max 100
 
     **Filtering:**
-    - `is_active`: Filter by crawling status
+    - `scheduled_only`: Filter to categories with active schedule
     - `is_public`: Explicit visibility filter
     - `search`: Full-text search in name/description
     """
@@ -150,8 +150,8 @@ async def list_categories(
         # Only public categories
         query = query.where(Category.is_public.is_(True))
 
-    if is_active is not None:
-        query = query.where(Category.is_active.is_(is_active))
+    if scheduled_only:
+        query = query.where(Category.schedule_enabled.is_(True))
 
     if search:
         # Escape SQL wildcards to prevent injection
@@ -178,7 +178,7 @@ async def list_categories(
     sort_column_map = {
         "name": Category.name,
         "purpose": Category.purpose,
-        "is_active": Category.is_active,
+        "schedule_enabled": Category.schedule_enabled,
     }
 
     if sort_by in sort_column_map:
@@ -316,7 +316,7 @@ async def create_category(
             ai_extraction_prompt=data.ai_extraction_prompt,
             extraction_handler=data.extraction_handler,
             schedule_cron=data.schedule_cron,
-            is_active=data.is_active,
+            schedule_enabled=data.schedule_enabled,
             is_public=data.is_public,
             target_entity_type_id=data.target_entity_type_id,
             created_by_id=current_user.id if current_user else None,
@@ -343,7 +343,7 @@ async def create_category(
                 "slug": category.slug,
                 "purpose": category.purpose,
                 "is_public": category.is_public,
-                "is_active": category.is_active,
+                "schedule_enabled": category.schedule_enabled,
                 "languages": category.languages,
                 "search_terms": category.search_terms[:5] if category.search_terms else [],
                 "extraction_handler": category.extraction_handler,
@@ -452,7 +452,7 @@ async def update_category(
     **Example Request:**
     ```json
     {
-        "is_active": false,
+        "schedule_enabled": false,
         "schedule_cron": "0 3 * * *"
     }
     ```
@@ -481,7 +481,7 @@ async def update_category(
         "slug": category.slug,
         "description": category.description,
         "purpose": category.purpose,
-        "is_active": category.is_active,
+        "schedule_enabled": category.schedule_enabled,
         "is_public": category.is_public,
         "languages": category.languages,
         "search_terms": category.search_terms,
@@ -510,7 +510,7 @@ async def update_category(
             "slug": category.slug,
             "description": category.description,
             "purpose": category.purpose,
-            "is_active": category.is_active,
+            "schedule_enabled": category.schedule_enabled,
             "is_public": category.is_public,
             "languages": category.languages,
             "search_terms": category.search_terms,
@@ -1109,4 +1109,432 @@ async def assign_sources_by_tags(
         already_assigned=already_assigned,
         removed=removed,
         total_in_category=total_in_category,
+    )
+
+
+# ============================================
+# Assign Sources by IDs
+# ============================================
+
+
+class AssignSourcesByIdsRequest(BaseModel):
+    """Request body for assigning sources by IDs."""
+
+    source_ids: list[UUID] = Field(..., description="Source IDs to assign")
+
+
+@router.post(
+    "/{category_id}/assign-sources",
+    response_model=AssignSourcesByTagsResponse,
+    summary="Assign Sources by IDs",
+    description="Assign data sources to this category by their IDs.",
+    responses={
+        200: {
+            "description": "Sources assigned successfully",
+            "model": AssignSourcesByTagsResponse,
+        },
+        404: {
+            "description": "Category not found",
+            "model": ErrorResponse,
+        },
+    },
+)
+async def assign_sources_by_ids(
+    category_id: UUID,
+    assign_request: AssignSourcesByIdsRequest,
+    http_request: Request,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_editor),
+):
+    """
+    Assign DataSources to a category by their IDs.
+
+    This endpoint allows direct assignment of specific sources to a category,
+    useful for single-source assignment or manual selection.
+    """
+    # Verify category exists
+    category = await session.get(Category, category_id)
+    if not category:
+        raise NotFoundError("Category", str(category_id))
+
+    # Get existing assignments
+    existing_result = await session.execute(
+        select(DataSourceCategory.data_source_id).where(DataSourceCategory.category_id == category_id)
+    )
+    existing_source_ids = {row[0] for row in existing_result.fetchall()}
+
+    # Batch fetch existing category counts for all sources
+    source_category_counts: dict = {}
+    if assign_request.source_ids:
+        counts_result = await session.execute(
+            select(DataSourceCategory.data_source_id, func.count(DataSourceCategory.id).label("count"))
+            .where(DataSourceCategory.data_source_id.in_(assign_request.source_ids))
+            .group_by(DataSourceCategory.data_source_id)
+        )
+        source_category_counts = {row[0]: row[1] for row in counts_result.fetchall()}
+
+    assigned = 0
+    already_assigned = 0
+    assigned_source_names = []
+
+    async with AuditContext(session, current_user, http_request) as audit:
+        for source_id in assign_request.source_ids:
+            if source_id in existing_source_ids:
+                already_assigned += 1
+                continue
+
+            # Verify source exists
+            source = await session.get(DataSource, source_id)
+            if not source:
+                continue
+
+            # Check if this is the first category for the source
+            existing_cats_count = source_category_counts.get(source_id, 0)
+
+            link = DataSourceCategory(
+                data_source_id=source_id,
+                category_id=category_id,
+                is_primary=(existing_cats_count == 0),
+            )
+            session.add(link)
+            assigned += 1
+            if len(assigned_source_names) < 10:
+                assigned_source_names.append(source.name)
+
+        if assigned > 0:
+            audit.track_action(
+                action=AuditAction.UPDATE,
+                entity_type="Category",
+                entity_id=category_id,
+                entity_name=category.name,
+                changes={
+                    "operation": "assign_sources_by_ids",
+                    "assigned": assigned,
+                    "already_assigned": already_assigned,
+                    "sample_sources": assigned_source_names,
+                },
+            )
+
+        await session.commit()
+
+    # Get total count in category
+    total_in_category = (
+        await session.execute(select(func.count()).where(DataSourceCategory.category_id == category_id))
+    ).scalar()
+
+    return AssignSourcesByTagsResponse(
+        assigned=assigned,
+        already_assigned=already_assigned,
+        removed=0,
+        total_in_category=total_in_category,
+    )
+
+
+# ============================================
+# Category Sources (Get/List)
+# ============================================
+
+
+class CategorySourceItem(BaseModel):
+    """A source assigned to a category."""
+
+    id: UUID
+    name: str
+    base_url: str | None = None
+    status: str | None = None
+    source_type: str | None = None
+    tags: list[str] = []
+    document_count: int = 0
+
+
+class CategorySourcesResponse(BaseModel):
+    """Response for category sources list."""
+
+    items: list[CategorySourceItem]
+    total: int
+    page: int
+    per_page: int
+
+
+@router.get(
+    "/{category_id}/sources",
+    response_model=CategorySourcesResponse,
+    summary="List Category Sources",
+    description="Get paginated list of sources assigned to this category.",
+)
+async def list_category_sources(
+    category_id: UUID,
+    page: int = Query(1, ge=1, description="Page number"),
+    per_page: int = Query(25, ge=1, le=100, description="Items per page"),
+    search: str | None = Query(None, description="Search query for name or URL"),
+    tags: list[str] | None = Query(None, description="Filter by tags"),
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_editor),
+):
+    """
+    Get sources assigned to a category with pagination and filters.
+
+    Supports:
+    - Pagination (page, per_page)
+    - Search by name or URL
+    - Filter by tags (AND logic)
+    """
+    # Verify category exists
+    category = await session.get(Category, category_id)
+    if not category:
+        raise NotFoundError("Category", str(category_id))
+
+    # Base query: sources assigned to this category
+    query = (
+        select(DataSource)
+        .join(DataSourceCategory, DataSource.id == DataSourceCategory.data_source_id)
+        .where(DataSourceCategory.category_id == category_id)
+    )
+
+    # Apply search filter
+    if search:
+        search_term = f"%{search}%"
+        query = query.where(
+            or_(
+                DataSource.name.ilike(search_term),
+                DataSource.base_url.ilike(search_term),
+            )
+        )
+
+    # Apply tags filter (AND logic)
+    if tags:
+        for tag in tags:
+            query = query.where(DataSource.tags.contains([tag]))
+
+    # Count total
+    count_query = select(func.count()).select_from(query.subquery())
+    total = (await session.execute(count_query)).scalar() or 0
+
+    # Apply pagination
+    offset = (page - 1) * per_page
+    query = query.offset(offset).limit(per_page).order_by(DataSource.name)
+
+    result = await session.execute(query)
+    sources = result.scalars().all()
+
+    # Get document counts for sources
+    source_ids = [s.id for s in sources]
+    doc_counts: dict = {}
+    if source_ids:
+        counts_result = await session.execute(
+            select(Document.data_source_id, func.count(Document.id).label("count"))
+            .where(Document.data_source_id.in_(source_ids))
+            .group_by(Document.data_source_id)
+        )
+        doc_counts = {row[0]: row[1] for row in counts_result.fetchall()}
+
+    items = [
+        CategorySourceItem(
+            id=source.id,
+            name=source.name,
+            base_url=source.base_url,
+            status=source.status.value if source.status else None,
+            source_type=source.source_type.value if source.source_type else None,
+            tags=source.tags or [],
+            document_count=doc_counts.get(source.id, 0),
+        )
+        for source in sources
+    ]
+
+    return CategorySourcesResponse(
+        items=items,
+        total=total,
+        page=page,
+        per_page=per_page,
+    )
+
+
+# ============================================
+# Category Sources Tags
+# ============================================
+
+
+class CategorySourcesTagsResponse(BaseModel):
+    """Response for available tags in category sources."""
+
+    tags: list[str]
+
+
+@router.get(
+    "/{category_id}/sources/tags",
+    response_model=CategorySourcesTagsResponse,
+    summary="Get Tags in Category Sources",
+    description="Get all unique tags from sources assigned to this category.",
+)
+async def get_category_sources_tags(
+    category_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_editor),
+):
+    """Get unique tags from sources assigned to a category."""
+    # Verify category exists
+    category = await session.get(Category, category_id)
+    if not category:
+        raise NotFoundError("Category", str(category_id))
+
+    # Get all tags from assigned sources
+    query = (
+        select(DataSource.tags)
+        .join(DataSourceCategory, DataSource.id == DataSourceCategory.data_source_id)
+        .where(DataSourceCategory.category_id == category_id)
+        .where(DataSource.tags.isnot(None))
+    )
+
+    result = await session.execute(query)
+    all_tags_lists = result.scalars().all()
+
+    # Flatten and deduplicate
+    unique_tags = set()
+    for tags_list in all_tags_lists:
+        if tags_list:
+            unique_tags.update(tags_list)
+
+    return CategorySourcesTagsResponse(tags=sorted(unique_tags))
+
+
+# ============================================
+# Unassign Source
+# ============================================
+
+
+@router.delete(
+    "/{category_id}/sources/{source_id}",
+    response_model=MessageResponse,
+    summary="Unassign Source from Category",
+    description="Remove a source from this category.",
+)
+async def unassign_source(
+    category_id: UUID,
+    source_id: UUID,
+    http_request: Request,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_editor),
+):
+    """Remove a source assignment from a category."""
+    # Verify category exists
+    category = await session.get(Category, category_id)
+    if not category:
+        raise NotFoundError("Category", str(category_id))
+
+    # Find and delete the assignment
+    result = await session.execute(
+        select(DataSourceCategory).where(
+            DataSourceCategory.category_id == category_id,
+            DataSourceCategory.data_source_id == source_id,
+        )
+    )
+    link = result.scalar_one_or_none()
+
+    if not link:
+        raise NotFoundError("Source assignment", f"{source_id} in category {category_id}")
+
+    # Get source name for audit
+    source = await session.get(DataSource, source_id)
+    source_name = source.name if source else str(source_id)
+
+    async with AuditContext(session, current_user, http_request) as audit:
+        await session.delete(link)
+
+        audit.track_action(
+            action=AuditAction.UPDATE,
+            entity_type="Category",
+            entity_id=category_id,
+            entity_name=category.name,
+            changes={
+                "operation": "unassign_source",
+                "source_id": str(source_id),
+                "source_name": source_name,
+            },
+        )
+
+        await session.commit()
+
+    return MessageResponse(message=f"Source '{source_name}' removed from category")
+
+
+class UnassignSourcesBulkRequest(BaseModel):
+    """Request body for bulk unassigning sources."""
+
+    source_ids: list[UUID] = Field(..., description="Source IDs to unassign")
+
+
+class UnassignSourcesBulkResponse(BaseModel):
+    """Response for bulk unassign operation."""
+
+    removed: int = Field(..., description="Number of sources successfully unassigned")
+    not_found: int = Field(..., description="Number of sources not found in category")
+    message: str = Field(..., description="Human-readable result message")
+
+
+@router.post(
+    "/{category_id}/unassign-sources",
+    response_model=UnassignSourcesBulkResponse,
+    summary="Bulk Unassign Sources from Category",
+    description="Remove multiple sources from this category at once.",
+)
+async def unassign_sources_bulk(
+    category_id: UUID,
+    body: UnassignSourcesBulkRequest,
+    http_request: Request,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_editor),
+):
+    """Remove multiple source assignments from a category."""
+    # Verify category exists
+    category = await session.get(Category, category_id)
+    if not category:
+        raise NotFoundError("Category", str(category_id))
+
+    if not body.source_ids:
+        return UnassignSourcesBulkResponse(
+            removed=0, not_found=0, message="No sources specified"
+        )
+
+    # Find existing assignments
+    result = await session.execute(
+        select(DataSourceCategory).where(
+            DataSourceCategory.category_id == category_id,
+            DataSourceCategory.data_source_id.in_(body.source_ids),
+        )
+    )
+    links = result.scalars().all()
+
+    found_ids = {link.data_source_id for link in links}
+    not_found_count = len(body.source_ids) - len(found_ids)
+
+    if not links:
+        return UnassignSourcesBulkResponse(
+            removed=0,
+            not_found=not_found_count,
+            message="No matching source assignments found",
+        )
+
+    async with AuditContext(session, current_user, http_request) as audit:
+        # Delete all found links
+        for link in links:
+            await session.delete(link)
+
+        audit.track_action(
+            action=AuditAction.UPDATE,
+            entity_type="Category",
+            entity_id=category_id,
+            entity_name=category.name,
+            changes={
+                "operation": "bulk_unassign_sources",
+                "source_ids": [str(sid) for sid in found_ids],
+                "removed_count": len(links),
+            },
+        )
+
+        await session.commit()
+
+    return UnassignSourcesBulkResponse(
+        removed=len(links),
+        not_found=not_found_count,
+        message=f"{len(links)} source(s) removed from category",
     )

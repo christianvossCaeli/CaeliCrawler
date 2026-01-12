@@ -8,7 +8,7 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 logger = structlog.get_logger(__name__)
-from sqlalchemy import and_, delete, func, or_, select, text  # noqa: E402
+from sqlalchemy import Numeric, and_, delete, func, or_, select, text  # noqa: E402
 from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
 
 from app.core.audit import AuditContext  # noqa: E402
@@ -113,13 +113,29 @@ async def list_entities(
         query = query.where(Entity.api_configuration_id == api_configuration_id)
 
     # Filter by core_attributes (dynamic schema-based filtering)
+    # Supports exact match (string) and range filters (object with min/max)
+    # Example: {"status": "active", "power_mw": {"min": 10, "max": 30}}
     if core_attr_filters:
         try:
             attr_filters = json.loads(core_attr_filters)
             if not isinstance(attr_filters, dict):
                 raise ValueError("core_attr_filters must be a JSON object")
             for key, value in attr_filters.items():
-                if value is not None and value != "":
+                if value is None or value == "":
+                    continue
+
+                # Check if it's a range filter (object with min/max)
+                if isinstance(value, dict):
+                    min_val = value.get("min")
+                    max_val = value.get("max")
+                    # Cast JSONB value to numeric for comparison
+                    numeric_attr = Entity.core_attributes[key].astext.cast(Numeric)
+                    if min_val is not None:
+                        query = query.where(numeric_attr >= float(min_val))
+                    if max_val is not None:
+                        query = query.where(numeric_attr <= float(max_val))
+                else:
+                    # Exact match for string values
                     query = query.where(Entity.core_attributes[key].astext == str(value))
         except (json.JSONDecodeError, ValueError) as e:
             raise HTTPException(status_code=400, detail=f"Invalid core_attr_filters parameter: {str(e)}") from None
@@ -541,6 +557,7 @@ async def get_attribute_filter_options(
     """Get available filter options for core_attributes based on entity type schema.
 
     Returns the attribute schema properties and optionally distinct values for a specific attribute.
+    If no schema is defined, dynamically introspects actual core_attributes from entities.
     """
     # Get entity type with schema
     et_result = await session.execute(select(EntityType).where(EntityType.slug == entity_type_slug))
@@ -554,24 +571,115 @@ async def get_attribute_filter_options(
 
     # Build response with filterable attributes
     filterable_attributes = []
-    for key, prop in properties.items():
-        attr_type = prop.get("type", "string")
-        # Only include filterable types (strings, enums)
-        if attr_type in ["string", "integer", "number"]:
+
+    if properties:
+        # Use schema-defined properties
+        for key, prop in properties.items():
+            attr_type = prop.get("type", "string")
+            # Only include filterable types (strings, enums)
+            if attr_type in ["string", "integer", "number"]:
+                filterable_attributes.append(
+                    FilterableAttribute(
+                        key=key,
+                        title=prop.get("title", key),
+                        description=prop.get("description"),
+                        type=attr_type,
+                        format=prop.get("format"),
+                    )
+                )
+    else:
+        # No schema - introspect actual core_attributes from entities
+        # Get distinct keys used in core_attributes for this entity type
+        keys_query = text("""
+            SELECT DISTINCT jsonb_object_keys(core_attributes) as attr_key
+            FROM entities
+            WHERE entity_type_id = :entity_type_id
+              AND core_attributes IS NOT NULL
+              AND core_attributes != '{}'::jsonb
+            ORDER BY attr_key
+            LIMIT 50
+        """)
+        keys_result = await session.execute(keys_query, {"entity_type_id": entity_type.id})
+        discovered_keys = [row[0] for row in keys_result.fetchall()]
+
+        # Known attribute titles (German)
+        known_titles = {
+            "population": "Einwohner",
+            "einwohnerzahl": "Einwohnerzahl",
+            "area_km2": "Fläche (km²)",
+            "flache_km2": "Fläche (km²)",
+            "area_ha": "Fläche (ha)",
+            "bundesland": "Bundesland",
+            "postleitzahl": "Postleitzahl",
+            "status": "Status",
+            "type": "Typ",
+            "power_mw": "Leistung (MW)",
+            "wea_count": "Anzahl WEA",
+            "wind_speed_ms": "Windgeschwindigkeit (m/s)",
+            "role": "Rolle",
+            "source": "Quelle",
+            "name": "Name",
+            "latitude": "Breitengrad",
+            "longitude": "Längengrad",
+        }
+
+        # Known numeric attributes (use range filter instead of dropdown)
+        numeric_keys = {
+            "population", "einwohnerzahl", "area_km2", "flache_km2", "area_ha",
+            "power_mw", "wea_count", "wind_speed_ms",
+        }
+
+        # Skip internal/meta attributes
+        skip_keys = {"auto_created", "latitude", "longitude", "name"}
+
+        for key in discovered_keys:
+            if key in skip_keys:
+                continue
+
+            is_numeric = key in numeric_keys
+            min_val = None
+            max_val = None
+
+            # For numeric attributes, get min/max values
+            if is_numeric:
+                range_query = text("""
+                    SELECT
+                        MIN((core_attributes->>:key)::numeric) as min_val,
+                        MAX((core_attributes->>:key)::numeric) as max_val
+                    FROM entities
+                    WHERE entity_type_id = :entity_type_id
+                      AND core_attributes->>:key IS NOT NULL
+                      AND core_attributes->>:key ~ '^[0-9]+(\\.[0-9]+)?$'
+                """)
+                range_result = await session.execute(
+                    range_query,
+                    {"entity_type_id": entity_type.id, "key": key}
+                )
+                row = range_result.fetchone()
+                if row and row[0] is not None:
+                    min_val = float(row[0])
+                    max_val = float(row[1]) if row[1] is not None else min_val
+
             filterable_attributes.append(
                 FilterableAttribute(
                     key=key,
-                    title=prop.get("title", key),
-                    description=prop.get("description"),
-                    type=attr_type,
-                    format=prop.get("format"),
+                    title=known_titles.get(key, key.replace("_", " ").title()),
+                    description=None,
+                    type="number" if is_numeric else "string",
+                    format=None,
+                    is_numeric=is_numeric,
+                    min_value=min_val,
+                    max_value=max_val,
                 )
             )
+
+    # Determine which keys are valid for value lookup
+    valid_keys = set(properties.keys()) if properties else {attr.key for attr in filterable_attributes}
 
     attribute_values = None
 
     # If specific attribute requested, get distinct values
-    if attribute_key and attribute_key in properties:
+    if attribute_key and attribute_key in valid_keys:
         # Query distinct values from core_attributes JSONB
         # Use labeled column so ORDER BY matches SELECT DISTINCT exactly
         attr_value = Entity.core_attributes[attribute_key].astext.label("attr_value")
@@ -1197,10 +1305,10 @@ async def get_entity_documents(
             {
                 "id": str(doc.id),
                 "title": doc.title,
-                "url": doc.source_url,
-                "source_type": doc.source_type,
+                "url": doc.original_url,
+                "source_type": doc.document_type,
                 "processing_status": doc.processing_status,
-                "created_at": doc.created_at.isoformat() if doc.created_at else None,
+                "created_at": doc.discovered_at.isoformat() if doc.discovered_at else None,
                 "facet_count": facet_counts_map.get(doc.id, 0),
             }
         )

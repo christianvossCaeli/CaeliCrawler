@@ -4,7 +4,6 @@ This module contains shared utilities, constants, and client initialization
 that are used across the assistant service modules.
 
 Exports:
-    - get_openai_client: Azure OpenAI client factory (from centralized ai_client)
     - validate_entity_context: Validate entity ID and context
     - build_suggestions_list: Build smart suggestions from results
 """
@@ -13,7 +12,6 @@ from typing import Any
 from uuid import UUID
 
 import structlog
-from openai import AzureOpenAI
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -21,25 +19,7 @@ from sqlalchemy.orm import selectinload
 from app.models import Entity
 from app.schemas.assistant import SuggestedAction
 
-# Import from centralized AI client module
-from services.ai_client import get_sync_openai_client
-
 logger = structlog.get_logger()
-
-
-def get_openai_client() -> AzureOpenAI | None:
-    """Get or initialize the Azure OpenAI client.
-
-    This is a wrapper around the centralized ai_client module.
-
-    Returns:
-        AzureOpenAI client instance or None if not configured
-    """
-    try:
-        return get_sync_openai_client()
-    except ValueError:
-        # Not configured
-        return None
 
 
 async def validate_entity_context(db: AsyncSession, entity_id: str, with_facets: bool = False) -> Entity | None:

@@ -7,7 +7,7 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_current_user, require_editor
+from app.core.deps import get_current_user, require_editor, require_llm_budget
 from app.database import get_session
 from app.models.user import User
 
@@ -78,7 +78,7 @@ async def smart_query_endpoint(
     request: Request,  # Required for slowapi
     query_request: SmartQueryRequest,
     session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_llm_budget),  # Budget check before LLM usage
 ):
     """
     Execute a natural language query or command against the Entity-Facet system.
@@ -149,7 +149,7 @@ async def smart_query_stream_endpoint(
     request: Request,  # Required for slowapi
     stream_request: SmartQueryStreamRequest,
     session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_llm_budget),  # Budget check before LLM usage
 ):
     """
     Stream a Plan Mode query response using Server-Sent Events (SSE).
@@ -298,7 +298,7 @@ async def validate_prompt_endpoint(
     request: Request,
     validate_request: ValidatePromptRequest,
     session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_llm_budget),  # Budget check before LLM usage
 ):
     """
     Validate a prompt before execution (smoke test / sanity check).

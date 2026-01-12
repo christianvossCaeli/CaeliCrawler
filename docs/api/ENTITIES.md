@@ -101,19 +101,58 @@ Entity-Typ loeschen. Nur moeglich wenn keine Entities existieren.
 Entities auflisten.
 
 **Query-Parameter:**
-| Parameter | Typ | Beschreibung |
+| Parameter | Typ | Default | Beschreibung |
+|-----------|-----|---------|--------------|
+| `page` | int | 1 | Seite (1-basiert) |
+| `per_page` | int | 50 | Eintraege pro Seite (max 500) |
+| `entity_type_slug` | string | - | Filter nach Entity-Typ (Slug) |
+| `entity_type_id` | uuid | - | Filter nach Entity-Typ (ID) |
+| `parent_id` | uuid | - | Filter nach Parent-Entity |
+| `hierarchy_level` | int | - | Filter nach Hierarchie-Ebene (0=root) |
+| `is_active` | boolean | - | Nur aktive Entities |
+| `search` | string | - | Suche in Name, name_normalized und external_id |
+| `country` | string | - | Filter nach Laendercode (DE, GB, etc.) |
+| `admin_level_1` | string | - | Filter nach Bundesland/Region |
+| `admin_level_2` | string | - | Filter nach Landkreis/District |
+| `core_attr_filters` | string | - | JSON-codierte Filter fuer `core_attributes` (siehe unten) |
+| `api_configuration_id` | uuid | - | Filter nach API-Konfiguration |
+| `has_facets` | boolean | - | Nur Entities mit/ohne Facets |
+| `sort_by` | string | - | Sortierung: `name`, `hierarchy_path`, `external_id`, `created_at`, `updated_at`, `facet_count`, `relation_count` |
+| `sort_order` | string | `"asc"` | Sortierreihenfolge: `asc`, `desc` |
+
+> **Hinweis:** Die Parameter `facet_type_slugs` und `category_id` existieren nicht in diesem Endpoint. Verwenden Sie stattdessen `/v1/facets/values` mit `entity_id` Filter.
+
+**core_attr_filters Syntax:**
+
+> **NEU in v2.2.0:** Unterstuetzt jetzt Range-Filter fuer numerische Attribute.
+
+Das `core_attr_filters` Query-Parameter ermoeglicht Filterung nach Werten in `core_attributes`. Zwei Filter-Modi werden unterstuetzt:
+
+**1. Exakter Match (String/Zahl):**
+```json
+{"status": "active", "locality_type": "Stadt"}
+```
+
+**2. Range-Filter (fuer numerische Attribute):**
+```json
+{"power_mw": {"min": 10, "max": 50}}
+```
+
+**Kombiniertes Beispiel:**
+```
+GET /v1/entities?entity_type_slug=wind_turbine&core_attr_filters={"status":"active","power_mw":{"min":10,"max":50}}
+```
+
+| Range-Key | Typ | Beschreibung |
 |-----------|-----|--------------|
-| `entity_type_slug` | string | Filter nach Entity-Typ |
-| `entity_type_id` | uuid | Filter nach Entity-Typ ID |
-| `parent_id` | uuid | Filter nach Parent-Entity |
-| `hierarchy_level` | int | Filter nach Hierarchie-Ebene (0=root) |
-| `search` | string | Suche in Name |
-| `has_facets` | boolean | Nur Entities mit/ohne Facets |
-| `facet_type_slugs` | string | Komma-separierte Facet-Typ Slugs |
-| `category_id` | uuid | Filter nach verknuepfter Kategorie |
-| `is_active` | boolean | Nur aktive Entities |
-| `page` | int | Seitennummer |
-| `per_page` | int | Eintraege pro Seite |
+| `min` | number | Minimum (inklusive, >= Vergleich) |
+| `max` | number | Maximum (inklusive, <= Vergleich) |
+
+**Dynamische Schema-Introspection:**
+Wenn fuer einen Entity-Typ kein `attribute_schema` definiert ist, werden die filterbaren Attribute automatisch aus vorhandenen Entities ermittelt. Der Endpoint `/v1/entities/{entity_type_slug}/attribute-filter-options` liefert dann:
+- Automatisch erkannte Attribute aus tatsaechlichen Daten
+- Min/Max-Werte fuer numerische Felder
+- `is_numeric: true` fuer Range-Filter-faehige Attribute
 
 **Response:**
 ```json
@@ -177,6 +216,35 @@ Dokumente abrufen, die mit einer Entity ueber Facet-Werte verknuepft sind.
 ### GET /v1/entities/{id}/external-data
 Rohe API-Daten fuer Entities abrufen, die aus externen APIs synchronisiert wurden.
 
+### GET /v1/entities/{id}/sources
+DataSources abrufen, die mit einer Entity verknuepft sind.
+
+> **NEU in v2.2.0**
+
+Findet DataSources ueber zwei Pfade:
+1. **Direkte Verknuepfung:** `entity_id` in `DataSource.extra_data.entity_ids` Array
+2. **Indirekt:** Entity → FacetValues → Documents → DataSources
+
+**Response:**
+```json
+{
+  "entity_id": "uuid",
+  "entity_name": "Musterstadt",
+  "sources": [
+    {
+      "id": "uuid",
+      "name": "Stadt Musterstadt",
+      "url": "https://musterstadt.de",
+      "source_type": "WEBSITE",
+      "status": "ACTIVE",
+      "document_count": 42,
+      "last_crawled": "2025-01-15T10:00:00Z"
+    }
+  ],
+  "total_sources": 3
+}
+```
+
 ### GET /v1/entities/hierarchy/{entity_type_slug}
 Hierarchie-Baum abrufen.
 
@@ -216,10 +284,178 @@ Entity loeschen.
 | `force` | boolean | Auch Kinder und Facets loeschen |
 
 ### GET /v1/entities/filter-options/location
-Verfuegbare Filter-Optionen fuer Standort-Felder abrufen.
+Location-Filter-Optionen abrufen (Laender, Bundeslaender, Landkreise).
+
+> **NEU in v2.2.0**
+
+Liefert verfuegbare Werte fuer geografische Filter. Unterstuetzt kaskadierte Filterung.
+
+**Query-Parameter:**
+| Parameter | Typ | Beschreibung |
+|-----------|-----|--------------|
+| `country` | string | Filtert `admin_level_1` Optionen nach Land |
+| `admin_level_1` | string | Filtert `admin_level_2` Optionen nach Bundesland |
+
+**Response:**
+```json
+{
+  "countries": ["DE", "AT", "CH"],
+  "admin_level_1": ["Bayern", "Nordrhein-Westfalen", "Baden-Wuerttemberg"],
+  "admin_level_2": ["Oberbergischer Kreis", "Rheinisch-Bergischer Kreis"]
+}
+```
+
+**Verwendung:**
+```
+GET /v1/entities/filter-options/location
+→ Alle Laender, Bundeslaender und Landkreise
+
+GET /v1/entities/filter-options/location?country=DE
+→ admin_level_1 nur fuer Deutschland
+
+GET /v1/entities/filter-options/location?country=DE&admin_level_1=Nordrhein-Westfalen
+→ admin_level_2 nur fuer NRW
+```
 
 ### GET /v1/entities/filter-options/attributes
-Verfuegbare Filter-Optionen fuer core_attributes basierend auf Entity-Typ Schema.
+Attribut-Filter-Optionen fuer einen Entity-Typ abrufen.
+
+> **NEU in v2.2.0**
+
+Liefert filterbare Attribute basierend auf dem `attribute_schema` des Entity-Typs.
+Falls kein Schema definiert ist, werden Attribute dynamisch aus vorhandenen Daten introspiziert.
+
+**Query-Parameter:**
+| Parameter | Typ | Required | Beschreibung |
+|-----------|-----|----------|--------------|
+| `entity_type_slug` | string | ja | Slug des Entity-Typs |
+| `attribute_key` | string | nein | Spezifisches Attribut fuer Werte-Lookup |
+
+**Response:**
+```json
+{
+  "entity_type_slug": "wind_turbine",
+  "entity_type_name": "Windkraftanlage",
+  "attributes": [
+    {
+      "key": "status",
+      "title": "Status",
+      "description": "Betriebsstatus der Anlage",
+      "type": "string",
+      "format": null,
+      "is_numeric": false,
+      "min_value": null,
+      "max_value": null
+    },
+    {
+      "key": "power_mw",
+      "title": "Leistung (MW)",
+      "description": null,
+      "type": "number",
+      "format": null,
+      "is_numeric": true,
+      "min_value": 0.5,
+      "max_value": 8.0
+    }
+  ],
+  "attribute_values": null
+}
+```
+
+**Mit Attribut-Werten:**
+```
+GET /v1/entities/filter-options/attributes?entity_type_slug=wind_turbine&attribute_key=status
+```
+
+```json
+{
+  "entity_type_slug": "wind_turbine",
+  "entity_type_name": "Windkraftanlage",
+  "attributes": [...],
+  "attribute_values": {
+    "status": ["in_betrieb", "geplant", "genehmigt", "ausserbetrieb"]
+  }
+}
+```
+
+**Dynamische Introspection:**
+Wenn kein `attribute_schema` definiert ist:
+- Attribute werden aus vorhandenen `core_attributes` ermittelt
+- Bekannte numerische Felder (population, power_mw, etc.) erhalten `is_numeric: true`
+- Min/Max-Werte werden fuer numerische Felder berechnet
+- Maximal 50 Attribute werden erkannt
+
+### GET /v1/entities/geojson
+Entities als GeoJSON FeatureCollection fuer Kartendarstellung.
+
+> **NEU in v2.2.0**
+
+Optimiert fuer grosse Datensaetze mit Unterstuetzung fuer Clustering.
+
+**Query-Parameter:**
+| Parameter | Typ | Default | Beschreibung |
+|-----------|-----|---------|--------------|
+| `entity_type_slug` | string | - | Filter nach Entity-Typ |
+| `country` | string | - | Filter nach Laendercode |
+| `admin_level_1` | string | - | Filter nach Bundesland |
+| `admin_level_2` | string | - | Filter nach Landkreis |
+| `search` | string | - | Suche im Namen |
+| `include_geometry` | boolean | `true` | Polygon-Geometrien einschliessen |
+| `limit` | int | 50000 | Max. Entities (1-100000) |
+
+**Response:**
+```json
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [11.5678, 48.1234]
+      },
+      "properties": {
+        "id": "uuid",
+        "name": "Musterstadt",
+        "slug": "musterstadt",
+        "external_id": "12345678",
+        "entity_type_slug": "municipality",
+        "entity_type_name": "Gemeinde",
+        "icon": "mdi-city",
+        "color": "#1976D2",
+        "country": "DE",
+        "admin_level_1": "Bayern",
+        "admin_level_2": "Oberland",
+        "geometry_type": "Point"
+      }
+    }
+  ],
+  "total_with_coords": 450,
+  "total_without_coords": 50
+}
+```
+
+**Geometrie-Typen:**
+- `Point` - Aus `latitude`/`longitude` Feldern generiert
+- `Polygon` - Aus `geometry` Feld (z.B. Gemeindegrenzen)
+- `MultiPolygon` - Komplexe Geometrien aus `geometry` Feld
+
+**Felder in Properties:**
+| Feld | Typ | Beschreibung |
+|------|-----|--------------|
+| `id` | uuid | Entity-ID |
+| `name` | string | Name der Entity |
+| `slug` | string | URL-freundlicher Slug |
+| `entity_type_slug` | string | Typ-Slug fuer Icon/Farbe |
+| `icon` | string | Material Design Icon |
+| `color` | string | Hex-Farbcode |
+| `geometry_type` | string | Point, Polygon, MultiPolygon |
+
+**Statistik-Felder:**
+| Feld | Typ | Beschreibung |
+|------|-----|--------------|
+| `total_with_coords` | int | Entities mit Geo-Daten |
+| `total_without_coords` | int | Entities ohne Geo-Daten |
 
 ---
 
@@ -286,6 +522,37 @@ Facet-Typ aktualisieren.
 
 ### DELETE /v1/facets/types/{id}
 Facet-Typ loeschen.
+
+### GET /v1/facets/types/for-category/{category_id}
+Alle FacetTypes abrufen, die fuer eine bestimmte Kategorie relevant sind.
+
+> **NEU in v2.2.0**
+
+Die Verbindung laeuft ueber: Category → EntityTypes → FacetTypes (via `applicable_entity_type_slugs`).
+Nuetzlich fuer dynamisches Laden von FacetTypes in der ResultsView basierend auf dem Kategorie-Filter.
+
+**Query-Parameter:**
+| Parameter | Typ | Default | Beschreibung |
+|-----------|-----|---------|--------------|
+| `ai_extraction_enabled` | boolean | `true` | Nur Typen mit aktivierter KI-Extraktion |
+| `is_active` | boolean | `true` | Nur aktive Typen |
+
+**Response:**
+```json
+[
+  {
+    "id": "uuid",
+    "slug": "pain_point",
+    "name": "Pain Point",
+    "description": "Probleme und Herausforderungen",
+    "icon": "mdi-alert-circle",
+    "color": "error",
+    "applicable_entity_types": ["municipality"],
+    "ai_extraction_enabled": true,
+    "is_active": true
+  }
+]
+```
 
 ### POST /v1/facets/types/generate-schema
 KI-gestuetztes Schema und Konfiguration fuer neuen Facet-Typ generieren.
@@ -372,12 +639,22 @@ Facet-Werte auflisten.
       "event_date": null,
       "valid_from": null,
       "valid_until": null,
-      "created_at": "2025-01-15T10:00:00Z"
+      "created_at": "2025-01-15T10:00:00Z",
+      "target_entity_type_icon": "mdi-account",
+      "target_entity_type_color": "secondary"
     }
   ],
   "total": 100
 }
 ```
+
+**Neue Felder in v2.2.0:**
+| Feld | Typ | Beschreibung |
+|------|-----|--------------|
+| `target_entity_type_icon` | string | Icon des Ziel-Entity-Typs (bei Relation-Facets) |
+| `target_entity_type_color` | string | Farbe des Ziel-Entity-Typs (z.B. `primary`, `secondary`) |
+
+Diese Felder sind relevant fuer Facet-Values, die auf eine andere Entity verweisen (z.B. "arbeitet_fuer" Relationen).
 
 ### GET /v1/facets/values/{id}
 Facet-Wert abrufen.
@@ -455,6 +732,44 @@ Volltextsuche ueber alle Facet-Werte mit Relevanz-Ranking.
 
 ### GET /v1/facets/entity/{entity_id}/summary
 Facet-Zusammenfassung einer Entity.
+
+### GET /v1/facets/entity/{entity_id}/referenced-by
+Alle FacetValues abrufen, die diese Entity als `target_entity` referenzieren.
+
+> **NEU in v2.2.0**
+
+Zeigt, wo diese Entity verwendet/referenziert wird, z.B. eine Person-Entity, die in Kontakt-Facets anderer Entities referenziert wird.
+
+**Query-Parameter:**
+| Parameter | Typ | Default | Beschreibung |
+|-----------|-----|---------|--------------|
+| `page` | int | 1 | Seitennummer |
+| `per_page` | int | 50 | Eintraege pro Seite (max 200) |
+| `facet_type_slug` | string | - | Filter nach Facet-Typ |
+
+**Response:**
+```json
+{
+  "items": [
+    {
+      "id": "uuid",
+      "entity_id": "uuid",
+      "entity_name": "Musterstadt",
+      "facet_type_slug": "contact",
+      "facet_type_name": "Ansprechpartner",
+      "value": {"role": "Buergermeister"},
+      "text_representation": "Max Mustermann - Buergermeister",
+      "confidence_score": 0.95,
+      "human_verified": true,
+      "source_document_id": "uuid",
+      "created_at": "2025-01-15T10:00:00Z"
+    }
+  ],
+  "total": 5,
+  "page": 1,
+  "per_page": 50
+}
+```
 
 ---
 

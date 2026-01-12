@@ -1,0 +1,91 @@
+{
+  "chatHome": {
+    "welcome": {
+      "morning": "Good morning",
+      "afternoon": "Good afternoon",
+      "evening": "Good evening",
+      "subtitle": "How can I help you today? Ask me a question or choose a suggestion."
+    },
+    "input": {
+      "placeholder": "Ask a question...",
+      "placeholderWrite": "Describe what you want to create or change...",
+      "placeholderPlan": "Describe your goal and I'll create a plan...",
+      "listening": "Listening...",
+      "send": "Send",
+      "attachFile": "Attach file",
+      "startRecording": "Start voice input",
+      "stopRecording": "Stop voice input"
+    },
+    "mode": {
+      "read": "Read",
+      "write": "Write",
+      "plan": "Plan"
+    },
+    "categories": {
+      "all": "All",
+      "query": "Queries",
+      "crawler": "Crawler",
+      "summary": "Summaries"
+    },
+    "suggestions": {
+      "showEntities": {
+        "title": "Show entities",
+        "query": "Show me all entities from Hamburg"
+      },
+      "countDocuments": {
+        "title": "Count documents",
+        "query": "How many documents were added this week?"
+      },
+      "searchDocuments": {
+        "title": "Search documents",
+        "query": "Search for procurement documents"
+      },
+      "startCrawl": {
+        "title": "Start crawl",
+        "query": "Start crawl for all RSS sources"
+      },
+      "crawlerStatus": {
+        "title": "Crawler status",
+        "query": "What is the current crawler status?"
+      },
+      "retryCrawl": {
+        "title": "Retry failed crawls",
+        "query": "Crawl the failed sources again"
+      },
+      "whatsNew": {
+        "title": "What's new?",
+        "query": "What's new since my last login?"
+      },
+      "createSummary": {
+        "title": "Create summary",
+        "query": "Create a summary of the top entities"
+      },
+      "weeklyChanges": {
+        "title": "Weekly changes",
+        "query": "Show me important changes this week"
+      }
+    },
+    "history": {
+      "title": "History",
+      "toggle": "Show history",
+      "favorites": "Favorites",
+      "recent": "Recent",
+      "empty": "No queries yet",
+      "justNow": "Just now",
+      "minutesAgo": "{count} min ago",
+      "hoursAgo": "{count} hours ago",
+      "daysAgo": "{count} days ago"
+    },
+    "results": {
+      "entities": "Results",
+      "visualization": "Visualization",
+      "results": "Results",
+      "items": "items",
+      "showAll": "Show all {count}"
+    },
+    "messages": {
+      "complete": "Done! Is there anything else I can help you with?",
+      "error": "An error occurred. Please try again."
+    }
+  }
+}

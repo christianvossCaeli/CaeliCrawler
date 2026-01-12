@@ -19,6 +19,11 @@
       </template>
     </PageHeader>
 
+    <!-- Info Box -->
+    <PageInfoBox :storage-key="INFO_BOX_STORAGE_KEYS.SUMMARIES" :title="t('summaries.info.title')">
+      {{ t('summaries.info.description') }}
+    </PageInfoBox>
+
     <!-- Filters -->
     <v-card class="mb-4">
       <v-card-text>
@@ -240,6 +245,8 @@ import { useCustomSummariesStore, type CustomSummary } from '@/stores/customSumm
 import { useSnackbar } from '@/composables/useSnackbar'
 import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
 import PageHeader from '@/components/common/PageHeader.vue'
+import PageInfoBox from '@/components/common/PageInfoBox.vue'
+import { INFO_BOX_STORAGE_KEYS } from '@/config/infoBox'
 import SummaryCard from '@/components/summaries/SummaryCard.vue'
 import SummaryCreateDialog from '@/components/summaries/SummaryCreateDialog.vue'
 import SummaryEditDialog from '@/components/summaries/SummaryEditDialog.vue'

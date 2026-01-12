@@ -16,7 +16,6 @@ from uuid import UUID
 
 import structlog
 
-from app.config import settings
 from app.models.llm_usage import LLMProvider, LLMTaskType
 from services.llm_usage_tracker import record_llm_usage
 from workers.async_runner import run_async
@@ -221,7 +220,7 @@ def register_tasks(celery_app):
                     await session.commit()
 
                 try:
-                    value, confidence = await _extract_single_pysis_field(field, context_text, process.entity_name)
+                    value, confidence = await _extract_single_pysis_field(session, field, context_text, process.entity_name)
 
                     if value:
                         # Store AI value as suggestion - don't auto-apply
@@ -262,21 +261,34 @@ def register_tasks(celery_app):
             logger.info("PySis field extraction completed", process_id=process_id, fields_extracted=fields_extracted)
 
     async def _extract_single_pysis_field(
-        field: "PySisProcessField", context: str, location_name: str
+        session, field: "PySisProcessField", context: str, location_name: str
     ) -> tuple[str, float]:
         """
         Extract a single PySis field value using AI.
+
+        Args:
+            session: Database session for loading LLM credentials
 
         Returns:
             Tuple of (extracted_value, confidence_score)
 
         Raises:
-            ValueError: If Azure OpenAI is not configured
+            ValueError: If LLM credentials are not configured
             RuntimeError: If AI extraction fails
         """
-        from services.ai_client import AzureOpenAIClientFactory
+        from app.models.user_api_credentials import LLMPurpose
+        from services.llm_client_service import LLMClientService
 
-        client = AzureOpenAIClientFactory.create_client()
+        llm_service = LLMClientService(session)
+        client, config = await llm_service.get_system_client(LLMPurpose.DOCUMENT_ANALYSIS)
+
+        if not client or not config:
+            raise ValueError(
+                "Keine LLM-Credentials konfiguriert. "
+                "Bitte konfigurieren Sie die API-Zugangsdaten unter /admin/api-credentials."
+            )
+
+        model_name = llm_service.get_model_name(config)
 
         # Build extraction prompt
         custom_prompt = field.ai_extraction_prompt or ""
@@ -305,7 +317,7 @@ def register_tasks(celery_app):
         try:
             start_time = time.time()
             response = await client.chat.completions.create(
-                model=settings.azure_openai_deployment_name,
+                model=model_name,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {
@@ -321,7 +333,7 @@ def register_tasks(celery_app):
             if response.usage:
                 await record_llm_usage(
                     provider=LLMProvider.AZURE_OPENAI,
-                    model=settings.azure_openai_deployment_name,
+                    model=model_name,
                     task_type=LLMTaskType.EXTRACT,
                     task_name="_extract_single_pysis_field",
                     prompt_tokens=response.usage.prompt_tokens,
@@ -354,7 +366,7 @@ def register_tasks(celery_app):
             logger.exception("Azure OpenAI API call failed for PySis field extraction")
             await record_llm_usage(
                 provider=LLMProvider.AZURE_OPENAI,
-                model=settings.azure_openai_deployment_name,
+                model=model_name,
                 task_type=LLMTaskType.EXTRACT,
                 task_name="_extract_single_pysis_field",
                 prompt_tokens=0,
@@ -657,6 +669,7 @@ def register_tasks(celery_app):
             # 5. Run AI analysis with dynamic FacetTypes
             try:
                 facet_extractions = await _extract_facets_from_pysis_fields_dynamic(
+                    session,
                     field_data,
                     entity.name,
                     facet_types,
@@ -695,6 +708,7 @@ def register_tasks(celery_app):
             )
 
     async def _extract_facets_from_pysis_fields_dynamic(
+        session,
         fields: list[dict[str, Any]],
         entity_name: str,
         facet_types: list["FacetType"],
@@ -703,6 +717,7 @@ def register_tasks(celery_app):
         Extract facets from PySis field values using AI with dynamic FacetTypes.
 
         Args:
+            session: Database session for loading LLM credentials
             fields: List of PySis field data
             entity_name: Name of the entity (e.g., municipality)
             facet_types: List of FacetType objects to extract
@@ -710,9 +725,19 @@ def register_tasks(celery_app):
         Returns:
             Dict with slug as key and list of extracted items as value
         """
-        from services.ai_client import AzureOpenAIClientFactory
+        from app.models.user_api_credentials import LLMPurpose
+        from services.llm_client_service import LLMClientService
 
-        client = AzureOpenAIClientFactory.create_client()
+        llm_service = LLMClientService(session)
+        client, config = await llm_service.get_system_client(LLMPurpose.DOCUMENT_ANALYSIS)
+
+        if not client or not config:
+            raise ValueError(
+                "Keine LLM-Credentials konfiguriert. "
+                "Bitte konfigurieren Sie die API-Zugangsdaten unter /admin/api-credentials."
+            )
+
+        model_name = llm_service.get_model_name(config)
 
         # Prepare field values as structured text
         fields_text = "PYSIS-FELDER:\n\n"
@@ -805,7 +830,7 @@ def register_tasks(celery_app):
         try:
             start_time = time.time()
             response = await client.chat.completions.create(
-                model=settings.azure_openai_deployment_name,
+                model=model_name,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": fields_text},
@@ -818,7 +843,7 @@ def register_tasks(celery_app):
             if response.usage:
                 await record_llm_usage(
                     provider=LLMProvider.AZURE_OPENAI,
-                    model=settings.azure_openai_deployment_name,
+                    model=model_name,
                     task_type=LLMTaskType.EXTRACT,
                     task_name="_extract_facets_from_pysis_fields_dynamic",
                     prompt_tokens=response.usage.prompt_tokens,
@@ -848,7 +873,7 @@ def register_tasks(celery_app):
             logger.exception("Azure OpenAI API call failed for PySis facet extraction")
             await record_llm_usage(
                 provider=LLMProvider.AZURE_OPENAI,
-                model=settings.azure_openai_deployment_name,
+                model=model_name,
                 task_type=LLMTaskType.EXTRACT,
                 task_name="_extract_facets_from_pysis_fields_dynamic",
                 prompt_tokens=0,
@@ -913,6 +938,7 @@ def register_tasks(celery_app):
         from app.models.facet_value import FacetValueSourceType
         from services.entity_facet_service import (
             check_duplicate_facet,
+            check_facet_value_quality,
             create_facet_value,
         )
 
@@ -956,6 +982,16 @@ def register_tasks(celery_app):
                     item_source_fields = extracted_data.get("source_fields", [])
 
                 if text_content and len(text_content) > PYSIS_MIN_TEXT_LENGTH:
+                    # Quality check before creating facet value
+                    quality = check_facet_value_quality(text_content, ft.slug, base_confidence)
+                    if not quality.is_valid:
+                        logger.debug(
+                            "PySiS facet rejected by quality check",
+                            facet_type=ft.slug,
+                            reason=quality.rejection_reason,
+                        )
+                        continue
+
                     # Build metadata with specific source fields
                     value_with_metadata = {
                         "text": text_content,
@@ -969,7 +1005,7 @@ def register_tasks(celery_app):
                         facet_type_id=ft.id,
                         value=value_with_metadata,
                         text_representation=text_content[:PYSIS_SUMMARY_MAX_LENGTH],
-                        confidence_score=base_confidence,
+                        confidence_score=quality.adjusted_confidence,
                         source_type=FacetValueSourceType.PYSIS,
                         facet_type=ft,  # Pass FacetType for entity reference resolution
                     )
@@ -1009,6 +1045,16 @@ def register_tasks(celery_app):
                         if dedup_parts:
                             dedup_text = " ".join(dedup_parts)
 
+                    # Quality check before other validations
+                    quality = check_facet_value_quality(item, ft.slug, base_confidence)
+                    if not quality.is_valid:
+                        logger.debug(
+                            "PySiS facet item rejected by quality check",
+                            facet_type=ft.slug,
+                            reason=quality.rejection_reason,
+                        )
+                        continue
+
                     is_dupe = await check_duplicate_facet(
                         session,
                         entity.id,
@@ -1030,13 +1076,16 @@ def register_tasks(celery_app):
                     value_with_metadata.update(pysis_base_metadata)
                     value_with_metadata.update(_build_pysis_source_metadata(item_source_fields, pysis_fields_dict))
 
+                    # Apply adjusted confidence from quality check with PySiS boost
+                    final_confidence = min(PYSIS_MAX_CONFIDENCE, quality.adjusted_confidence + PYSIS_CONFIDENCE_BOOST)
+
                     await create_facet_value(
                         session,
                         entity_id=entity.id,
                         facet_type_id=ft.id,
                         value=value_with_metadata,
                         text_representation=text_repr[:PYSIS_TEXT_REPR_MAX_LENGTH],
-                        confidence_score=min(PYSIS_MAX_CONFIDENCE, base_confidence + PYSIS_CONFIDENCE_BOOST),
+                        confidence_score=final_confidence,
                         source_type=FacetValueSourceType.PYSIS,
                         facet_type=ft,  # Pass FacetType for entity reference resolution
                     )
@@ -1204,11 +1253,21 @@ def register_tasks(celery_app):
 
             task_id = ai_task.id
 
-            # 5. Initialize Azure OpenAI client
-            from services.ai_client import AzureOpenAIClientFactory
+            # 5. Initialize LLM client
+            from app.models.user_api_credentials import LLMPurpose
+            from services.llm_client_service import LLMClientService
 
             try:
-                client = AzureOpenAIClientFactory.create_client()
+                llm_service = LLMClientService(session)
+                client, config = await llm_service.get_system_client(LLMPurpose.DOCUMENT_ANALYSIS)
+
+                if not client or not config:
+                    raise ValueError(
+                        "Keine LLM-Credentials konfiguriert. "
+                        "Bitte konfigurieren Sie die API-Zugangsdaten unter /admin/api-credentials."
+                    )
+
+                model_name = llm_service.get_model_name(config)
             except ValueError as e:
                 ai_task.status = AITaskStatus.FAILED
                 ai_task.error_message = str(e)
@@ -1234,6 +1293,7 @@ def register_tasks(celery_app):
                 try:
                     enriched_value = await _enrich_single_facet_value(
                         client,
+                        model_name,
                         fv.value or {},
                         facet_type.value_schema,
                         pysis_fields,
@@ -1244,7 +1304,7 @@ def register_tasks(celery_app):
                     if enriched_value and enriched_value != fv.value:
                         fv.value = enriched_value
                         fv.updated_at = datetime.now(UTC)
-                        fv.ai_model_used = settings.azure_openai_deployment_name
+                        fv.ai_model_used = model_name
 
                         # Update text representation
                         text_repr = (
@@ -1278,6 +1338,7 @@ def register_tasks(celery_app):
 
     async def _enrich_single_facet_value(
         client: "AsyncAzureOpenAI",
+        model_name: str,
         current_value: dict[str, Any],
         value_schema: dict[str, Any],
         pysis_fields: list[dict[str, Any]],
@@ -1289,6 +1350,7 @@ def register_tasks(celery_app):
 
         Args:
             client: Azure OpenAI client
+            model_name: Model deployment name
             current_value: Current value dict
             value_schema: JSON Schema defining expected structure
             pysis_fields: Available PySis field data
@@ -1351,7 +1413,7 @@ def register_tasks(celery_app):
         try:
             start_time = time.time()
             response = await client.chat.completions.create(
-                model=settings.azure_openai_deployment_name,
+                model=model_name,
                 messages=[
                     {
                         "role": "system",
@@ -1367,7 +1429,7 @@ def register_tasks(celery_app):
             if response.usage:
                 await record_llm_usage(
                     provider=LLMProvider.AZURE_OPENAI,
-                    model=settings.azure_openai_deployment_name,
+                    model=model_name,
                     task_type=LLMTaskType.EXTRACT,
                     task_name="_enrich_single_facet_value",
                     prompt_tokens=response.usage.prompt_tokens,
@@ -1393,7 +1455,7 @@ def register_tasks(celery_app):
             logger.error("AI enrichment failed", error=str(e))
             await record_llm_usage(
                 provider=LLMProvider.AZURE_OPENAI,
-                model=settings.azure_openai_deployment_name,
+                model=model_name,
                 task_type=LLMTaskType.EXTRACT,
                 task_name="_enrich_single_facet_value",
                 prompt_tokens=0,

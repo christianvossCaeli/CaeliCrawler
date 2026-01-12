@@ -78,6 +78,18 @@ class ExternalServiceError(AppException):
         )
 
 
+class ConfigurationError(AppException):
+    """Configuration is missing or invalid."""
+
+    def __init__(self, detail: str):
+        super().__init__(
+            message="Configuration error",
+            status_code=500,
+            detail=detail,
+            code="CONFIGURATION_ERROR",
+        )
+
+
 class FeatureDisabledError(AppException):
     """Feature is disabled via feature flag."""
 
