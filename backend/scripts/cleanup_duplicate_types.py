@@ -115,7 +115,7 @@ class DuplicateTypesCleaner:
             if ft1.name_embedding is not None:
                 emb1 = ft1.name_embedding
             else:
-                emb1 = await generate_embedding(ft1.name)
+                emb1 = await generate_embedding(ft1.name, session=self.session)
                 if emb1 is None:
                     continue
 
@@ -137,7 +137,7 @@ class DuplicateTypesCleaner:
                 if ft2.name_embedding is not None:
                     emb2 = ft2.name_embedding
                 else:
-                    emb2 = await generate_embedding(ft2.name)
+                    emb2 = await generate_embedding(ft2.name, session=self.session)
                     if emb2 is None:
                         continue
 
@@ -186,7 +186,7 @@ class DuplicateTypesCleaner:
             if et1.name_embedding is not None:
                 emb1 = et1.name_embedding
             else:
-                emb1 = await generate_embedding(et1.name)
+                emb1 = await generate_embedding(et1.name, session=self.session)
                 if emb1 is None:
                     continue
 
@@ -207,7 +207,7 @@ class DuplicateTypesCleaner:
                 if et2.name_embedding is not None:
                     emb2 = et2.name_embedding
                 else:
-                    emb2 = await generate_embedding(et2.name)
+                    emb2 = await generate_embedding(et2.name, session=self.session)
                     if emb2 is None:
                         continue
 
@@ -252,7 +252,7 @@ class DuplicateTypesCleaner:
             if hasattr(cat1, "name_embedding") and cat1.name_embedding is not None:
                 emb1 = cat1.name_embedding
             else:
-                emb1 = await generate_embedding(cat1.name)
+                emb1 = await generate_embedding(cat1.name, session=self.session)
                 if emb1 is None:
                     continue
 
@@ -273,7 +273,7 @@ class DuplicateTypesCleaner:
                 if hasattr(cat2, "name_embedding") and cat2.name_embedding is not None:
                     emb2 = cat2.name_embedding
                 else:
-                    emb2 = await generate_embedding(cat2.name)
+                    emb2 = await generate_embedding(cat2.name, session=self.session)
                     if emb2 is None:
                         continue
 
