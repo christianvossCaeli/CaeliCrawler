@@ -44,7 +44,7 @@ ChartJS.register(
 
 const chartData = computed(() => {
   const sortedData = [...props.data].sort(
-    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    (a, b) => new Date(a.day).getTime() - new Date(b.day).getTime()
   )
 
   return {
@@ -52,7 +52,7 @@ const chartData = computed(() => {
       {
         label: 'Tokens',
         data: sortedData.map((d) => ({
-          x: new Date(d.date).getTime(),
+          x: new Date(d.day).getTime(),
           y: d.total_tokens,
         })),
         borderColor: '#1976D2',
@@ -66,7 +66,7 @@ const chartData = computed(() => {
       {
         label: 'Kosten ($)',
         data: sortedData.map((d) => ({
-          x: new Date(d.date).getTime(),
+          x: new Date(d.day).getTime(),
           y: d.cost_cents / 100,
         })),
         borderColor: '#4CAF50',
@@ -80,7 +80,7 @@ const chartData = computed(() => {
       {
         label: 'Fehler',
         data: sortedData.map((d) => ({
-          x: new Date(d.date).getTime(),
+          x: new Date(d.day).getTime(),
           y: d.error_count,
         })),
         borderColor: '#F44336',
