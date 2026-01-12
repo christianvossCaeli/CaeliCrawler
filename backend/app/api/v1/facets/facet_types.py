@@ -437,7 +437,7 @@ async def update_facet_type(
         if "name" in update_data:
             from app.utils.similarity import generate_embedding
 
-            embedding = await generate_embedding(update_data["name"])
+            embedding = await generate_embedding(update_data["name"], session=session)
             if embedding:
                 update_data["name_embedding"] = embedding
 

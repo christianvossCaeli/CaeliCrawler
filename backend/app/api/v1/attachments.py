@@ -628,7 +628,7 @@ async def apply_facet_suggestions(
     from app.utils.similarity import generate_embedding
 
     for facet_value, text_repr in facet_values_for_embedding:
-        embedding = await generate_embedding(text_repr)
+        embedding = await generate_embedding(text_repr, session=session)
         if embedding:
             facet_value.text_embedding = embedding
 

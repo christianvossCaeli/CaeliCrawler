@@ -198,7 +198,7 @@ async def create_entity_type(
         from app.utils.similarity import generate_embedding
 
         try:
-            embedding = await generate_embedding(entity_type.name)
+            embedding = await generate_embedding(entity_type.name, session=session)
             if embedding:
                 entity_type.name_embedding = embedding
                 logger.info("Generated embedding for EntityType", name=entity_type.name)
@@ -301,7 +301,7 @@ async def update_entity_type(
         if "name" in update_data:
             from app.utils.similarity import generate_embedding
 
-            embedding = await generate_embedding(update_data["name"])
+            embedding = await generate_embedding(update_data["name"], session=session)
             if embedding:
                 update_data["name_embedding"] = embedding
 

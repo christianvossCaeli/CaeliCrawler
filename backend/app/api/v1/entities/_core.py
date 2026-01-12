@@ -398,7 +398,7 @@ async def create_entity(
         # Generate embedding for semantic similarity search
         from app.utils.similarity import generate_embedding
 
-        embedding = await generate_embedding(entity.name)
+        embedding = await generate_embedding(entity.name, session=session)
         if embedding:
             entity.name_embedding = embedding
 
@@ -1077,7 +1077,7 @@ async def update_entity(
         # Regenerate embedding for new name
         from app.utils.similarity import generate_embedding
 
-        embedding = await generate_embedding(update_data["name"])
+        embedding = await generate_embedding(update_data["name"], session=session)
         if embedding:
             update_data["name_embedding"] = embedding
 

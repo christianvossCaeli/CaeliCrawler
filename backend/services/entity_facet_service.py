@@ -584,7 +584,7 @@ async def get_or_create_facet_type(
     name_plural = _pluralize_name(name)
 
     # Generate embedding for future similarity matching
-    embedding = await generate_embedding(f"{name}: {field_name}")
+    embedding = await generate_embedding(f"{name}: {field_name}", session=session)
 
     # Determine value_type based on data
     if isinstance(sample_data, list):
@@ -700,7 +700,7 @@ async def create_facet_value(
         # Generate embedding for semantic similarity search
         from app.utils.similarity import generate_embedding
 
-        embedding = await generate_embedding(text_representation)
+        embedding = await generate_embedding(text_representation, session=session)
         if embedding:
             facet_value.text_embedding = embedding
 

@@ -198,11 +198,11 @@ async def create_relation_type(
         # Generate embeddings for semantic similarity search
         from app.utils.similarity import generate_embedding
 
-        name_embedding = await generate_embedding(data.name)
+        name_embedding = await generate_embedding(data.name, session=session)
         if name_embedding:
             relation_type.name_embedding = name_embedding
         if data.name_inverse:
-            name_inverse_embedding = await generate_embedding(data.name_inverse)
+            name_inverse_embedding = await generate_embedding(data.name_inverse, session=session)
             if name_inverse_embedding:
                 relation_type.name_inverse_embedding = name_inverse_embedding
 
@@ -322,7 +322,7 @@ async def update_relation_type(
         if "name" in update_data:
             from app.utils.similarity import generate_embedding
 
-            embedding = await generate_embedding(update_data["name"])
+            embedding = await generate_embedding(update_data["name"], session=session)
             if embedding:
                 update_data["name_embedding"] = embedding
 
@@ -330,7 +330,7 @@ async def update_relation_type(
         if "name_inverse" in update_data:
             from app.utils.similarity import generate_embedding
 
-            embedding = await generate_embedding(update_data["name_inverse"])
+            embedding = await generate_embedding(update_data["name_inverse"], session=session)
             if embedding:
                 update_data["name_inverse_embedding"] = embedding
 

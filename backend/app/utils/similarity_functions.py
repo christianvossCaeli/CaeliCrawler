@@ -213,7 +213,7 @@ async def find_similar_types[T: Base](
     has_stored_embedding = hasattr(model_class, "name_embedding")
 
     # Generate embedding for the search name
-    new_embedding = await generate_embedding(name)
+    new_embedding = await generate_embedding(name, session=session)
     if new_embedding is None:
         logger.warning(f"Could not generate embedding for {model_class.__name__} similarity", name=name)
         return []
@@ -317,7 +317,7 @@ async def find_similar_types[T: Base](
             check_text = field_value[:100] if len(field_value) > 100 else field_value
 
             # Get or generate embedding for existing item
-            existing_embedding = await generate_embedding(check_text)
+            existing_embedding = await generate_embedding(check_text, session=session)
             if existing_embedding is None:
                 continue
 
@@ -464,11 +464,11 @@ async def find_similar_relation_types(
     _increment_stat("searches")
 
     # Generate embeddings for search terms
-    new_name_embedding = await generate_embedding(name)
+    new_name_embedding = await generate_embedding(name, session=session)
     if new_name_embedding is None:
         return []
 
-    new_inverse_embedding = await generate_embedding(name_inverse) if name_inverse else None
+    new_inverse_embedding = await generate_embedding(name_inverse, session=session) if name_inverse else None
     max_distance = 1.0 - threshold
 
     # Build base conditions
@@ -635,7 +635,7 @@ async def update_type_embedding[T: Base](
 
         if embedding is None:
             name_to_embed = name or item.name
-            embedding = await generate_embedding(name_to_embed)
+            embedding = await generate_embedding(name_to_embed, session=session)
 
         if embedding is None:
             return False
@@ -665,13 +665,13 @@ async def update_relation_type_embeddings(
             return False
 
         # Generate and store name_embedding
-        name_embedding = await generate_embedding(rt.name)
+        name_embedding = await generate_embedding(rt.name, session=session)
         if name_embedding:
             rt.name_embedding = name_embedding
 
         # Generate and store name_inverse_embedding
         if rt.name_inverse:
-            inverse_embedding = await generate_embedding(rt.name_inverse)
+            inverse_embedding = await generate_embedding(rt.name_inverse, session=session)
             if inverse_embedding:
                 rt.name_inverse_embedding = inverse_embedding
 
@@ -695,7 +695,7 @@ async def update_facet_value_embedding(
         if not fv or not fv.text_representation:
             return False
 
-        embedding = await generate_embedding(fv.text_representation)
+        embedding = await generate_embedding(fv.text_representation, session=session)
         if embedding:
             fv.text_embedding = embedding
             await session.flush()
@@ -741,7 +741,7 @@ async def batch_update_embeddings(
         names = [e.name for e in batch]
 
         try:
-            embeddings = await generate_embeddings_batch(names)
+            embeddings = await generate_embeddings_batch(names, session=session)
 
             for entity, embedding in zip(batch, embeddings, strict=False):
                 if embedding:
@@ -764,7 +764,11 @@ async def batch_update_type_embeddings[T: Base](
     only_missing: bool = True,
 ) -> int:
     """Batch update embeddings for all items of a type model."""
-    query = select(model_class).where(model_class.is_active.is_(True))
+    # Build base query - only filter by is_active if the model has the attribute
+    if hasattr(model_class, "is_active"):
+        query = select(model_class).where(model_class.is_active.is_(True))
+    else:
+        query = select(model_class)
 
     if only_missing and hasattr(model_class, "name_embedding"):
         query = query.where(model_class.name_embedding.is_(None))
@@ -778,7 +782,7 @@ async def batch_update_type_embeddings[T: Base](
     logger.info(f"Updating embeddings for {len(items)} {model_class.__name__} items")
 
     names = [item.name for item in items]
-    embeddings = await generate_embeddings_batch(names)
+    embeddings = await generate_embeddings_batch(names, session=session)
 
     updated_count = 0
     for item, embedding in zip(items, embeddings, strict=False):
@@ -835,7 +839,7 @@ async def batch_update_facet_value_embeddings(
         texts = [fv.text_representation for fv in batch]
 
         try:
-            embeddings = await generate_embeddings_batch(texts)
+            embeddings = await generate_embeddings_batch(texts, session=session)
 
             for fv, embedding in zip(batch, embeddings, strict=False):
                 if embedding:
@@ -896,8 +900,8 @@ async def batch_update_relation_type_embeddings(
     valid_name_texts = [t for t in name_texts if t]
     valid_inverse_texts = [t for t in inverse_texts if t]
 
-    name_embeddings = await generate_embeddings_batch(valid_name_texts) if valid_name_texts else []
-    inverse_embeddings = await generate_embeddings_batch(valid_inverse_texts) if valid_inverse_texts else []
+    name_embeddings = await generate_embeddings_batch(valid_name_texts, session=session) if valid_name_texts else []
+    inverse_embeddings = await generate_embeddings_batch(valid_inverse_texts, session=session) if valid_inverse_texts else []
 
     # Map back to relation types
     name_idx = 0
@@ -1376,7 +1380,7 @@ async def find_similar_facet_values(
 
     # Generate embedding for search text
     if embedding is None:
-        embedding = await generate_embedding(text_representation)
+        embedding = await generate_embedding(text_representation, session=session)
     if embedding is None:
         return []
 
@@ -1428,7 +1432,7 @@ async def find_similar_facet_values(
         if fv.id in seen_ids or not fv.text_representation:
             continue
 
-        existing_embedding = await generate_embedding(fv.text_representation)
+        existing_embedding = await generate_embedding(fv.text_representation, session=session)
         if existing_embedding is None:
             continue
 

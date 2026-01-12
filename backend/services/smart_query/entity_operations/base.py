@@ -145,7 +145,7 @@ async def create_entity_type_from_command(
     from app.utils.similarity import generate_embedding
 
     try:
-        embedding = await generate_embedding(name)
+        embedding = await generate_embedding(name, session=session)
         if embedding:
             entity_type.name_embedding = embedding
             logger.info("Generated embedding for new EntityType", name=name)
@@ -453,7 +453,7 @@ async def create_facet_from_command(
     # Generate embedding for semantic similarity search
     from app.utils.similarity import generate_embedding
 
-    embedding = await generate_embedding(text_repr)
+    embedding = await generate_embedding(text_repr, session=session)
     if embedding:
         facet_value.text_embedding = embedding
 

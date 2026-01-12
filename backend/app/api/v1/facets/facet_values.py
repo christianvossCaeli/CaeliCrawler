@@ -243,7 +243,7 @@ async def create_facet_value(
         # Generate embedding for semantic similarity search
         from app.utils.similarity import generate_embedding
 
-        embedding = await generate_embedding(text_repr)
+        embedding = await generate_embedding(text_repr, session=session)
         if embedding:
             facet_value.text_embedding = embedding
 
@@ -336,7 +336,7 @@ async def update_facet_value(
             from app.utils.similarity import generate_embedding
 
             text_repr = update_data.get("text_representation") or fv.text_representation
-            embedding = await generate_embedding(text_repr)
+            embedding = await generate_embedding(text_repr, session=session)
             if embedding:
                 update_data["text_embedding"] = embedding
 

@@ -134,7 +134,7 @@ class CreateFacetTypeOperation(WriteOperation):
         # Generate embedding for semantic similarity search
         from app.utils.similarity import generate_embedding
 
-        embedding = await generate_embedding(name)
+        embedding = await generate_embedding(name, session=session)
         if embedding:
             facet_type.name_embedding = embedding
 

@@ -434,7 +434,7 @@ class EntityDataFacetService:
         # Generate embedding for semantic similarity search
         from app.utils.similarity import generate_embedding
 
-        embedding = await generate_embedding(text_repr)
+        embedding = await generate_embedding(text_repr, session=self.db)
         if embedding:
             facet_value.text_embedding = embedding
 
