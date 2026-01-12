@@ -9,17 +9,17 @@ CaeliCrawler ist eine modulare Plattform zur automatisierten Erfassung, Analyse 
 ## Tech Stack
 
 ### Backend
-- **Framework**: FastAPI 0.115+ (Python 3.12)
+- **Framework**: FastAPI 0.115+ (Python 3.13)
 - **Datenbank**: PostgreSQL 17 mit pgvector
 - **Task Queue**: Celery mit Redis
 - **ORM**: SQLAlchemy 2.0 (async)
-- **KI**: Azure OpenAI, LangChain
+- **KI**: Azure OpenAI, Anthropic Claude, LangChain
 - **Validation**: Pydantic 2.x
 
 ### Frontend
 - **Framework**: Vue 3.5 (Composition API, script setup)
 - **UI Library**: Vuetify 3.7
-- **State**: Pinia
+- **State**: Pinia 3
 - **Build**: Vite 7
 - **Sprache**: TypeScript 5.7
 
@@ -49,10 +49,17 @@ cp .env.example .env
 # .env bearbeiten und Werte eintragen
 ```
 
-**Wichtige Variablen:**
+**Erforderliche Variablen:**
 - `POSTGRES_PASSWORD` - Datenbank-Passwort
 - `AZURE_OPENAI_API_KEY` - Azure OpenAI API Key
 - `AZURE_OPENAI_ENDPOINT` - Azure OpenAI Endpoint
+- `AZURE_OPENAI_API_VERSION` - API Version (z.B. 2025-04-01-preview)
+- `AZURE_OPENAI_DEPLOYMENT_NAME` - Chat-Model Deployment Name
+- `AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT` - Embeddings Deployment Name
+
+**Optionale Variablen:**
+- `ANTHROPIC_API_KEY` - Fuer erweiterte AI Discovery
+- `SERPAPI_API_KEY` - Fuer Web-Suche Funktionen
 
 ### 3. Services starten
 ```bash
@@ -155,11 +162,8 @@ npm install
 # Development Server starten
 npm run dev
 
-# Build erstellen
+# Build erstellen (inkl. Type Checking)
 npm run build
-
-# Type Checking
-npm run type-check
 
 # Linting
 npm run lint
@@ -193,10 +197,21 @@ Die vollstaendige API-Dokumentation ist modular aufgebaut:
 | **Uebersicht** | [docs/api/README.md](docs/api/README.md) | API-Schnellstart |
 | **Auth** | [docs/api/AUTH.md](docs/api/AUTH.md) | Authentifizierung |
 | **Entities** | [docs/api/ENTITIES.md](docs/api/ENTITIES.md) | Entity-Facet System |
+| **Data** | [docs/api/DATA.md](docs/api/DATA.md) | Daten-Endpunkte |
+| **Attachments** | [docs/api/ATTACHMENTS.md](docs/api/ATTACHMENTS.md) | Dokumentenverwaltung |
 | **Analysis** | [docs/api/ANALYSIS.md](docs/api/ANALYSIS.md) | Analyse & Reports |
 | **Smart Query** | [docs/api/SMART_QUERY.md](docs/api/SMART_QUERY.md) | KI-Abfragen |
 | **Assistant** | [docs/api/ASSISTANT.md](docs/api/ASSISTANT.md) | Chat-Assistant |
+| **AI Discovery** | [docs/api/AI_DISCOVERY.md](docs/api/AI_DISCOVERY.md) | KI-Quellensuche |
+| **Favorites** | [docs/api/FAVORITES.md](docs/api/FAVORITES.md) | Favoriten |
+| **Notifications** | [docs/api/NOTIFICATIONS.md](docs/api/NOTIFICATIONS.md) | Benachrichtigungen |
+| **Dashboard** | [docs/api/DASHBOARD.md](docs/api/DASHBOARD.md) | Dashboard-Daten |
 | **Admin** | [docs/api/ADMIN.md](docs/api/ADMIN.md) | Admin-Funktionen |
+| **System** | [docs/api/SYSTEM.md](docs/api/SYSTEM.md) | System-Endpunkte |
+| **PySis** | [docs/api/PYSIS.md](docs/api/PYSIS.md) | PySis-Integration |
+| **External APIs** | [docs/api/EXTERNAL_APIS.md](docs/api/EXTERNAL_APIS.md) | Externe Schnittstellen |
+| **Entity Matching** | [docs/api/ENTITY_MATCHING.md](docs/api/ENTITY_MATCHING.md) | Entity-Abgleich |
+| **Enrichment** | [docs/api/ENRICHMENT.md](docs/api/ENRICHMENT.md) | Datenanreicherung |
 
 **Interaktive Dokumentation:** http://localhost:8000/docs (Swagger UI)
 
