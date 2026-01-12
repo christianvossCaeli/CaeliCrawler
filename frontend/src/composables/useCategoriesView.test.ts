@@ -400,7 +400,7 @@ describe('useCategoryCrawler', () => {
 
       const result = await crawler.startFilteredCrawl()
 
-      expect(result).toBe(false)
+      expect(result.success).toBe(false)
       expect(adminApi.startCrawl).not.toHaveBeenCalled()
     })
   })
@@ -506,7 +506,8 @@ describe('useCategoryDataSources', () => {
 
       const result = await dataSources.assignSourcesByTags('cat-123')
 
-      expect(result).toBeNull()
+      // Returns NO_OP_RESULT when no tags selected
+      expect(result).toEqual({ success: true, count: 0 })
       expect(categoryApi.assignSourcesByTags).not.toHaveBeenCalled()
     })
 

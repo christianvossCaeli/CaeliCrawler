@@ -9,7 +9,7 @@
       <v-divider></v-divider>
 
       <v-list density="compact" nav>
-        <template v-for="(group, groupIndex) in navGroups" :key="group.title">
+        <template v-for="group in navGroups" :key="group.title">
           <!-- Group Header -->
           <v-list-subheader class="text-caption font-weight-bold text-uppercase nav-group-header">
             {{ group.title }}

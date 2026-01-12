@@ -274,19 +274,22 @@ class TestEntityMatchingServiceBasic:
             with patch.object(service, "_find_by_normalized_name", new_callable=AsyncMock) as mock_find:
                 mock_find.return_value = None
 
-                with patch.object(service, "_resolve_composite_entity", new_callable=AsyncMock) as mock_resolve:
-                    mock_resolve.return_value = None
+                with patch.object(service, "_find_by_core_name", new_callable=AsyncMock) as mock_find_core:
+                    mock_find_core.return_value = None
 
-                    with patch.object(service, "_create_entity_safe", new_callable=AsyncMock) as mock_create:
-                        mock_new_entity = MagicMock()
-                        mock_new_entity.id = uuid4()
-                        mock_new_entity.name = "New Entity"
-                        mock_create.return_value = mock_new_entity
+                    with patch.object(service, "_resolve_composite_entity", new_callable=AsyncMock) as mock_resolve:
+                        mock_resolve.return_value = None
 
-                        result = await service.get_or_create_entity(
-                            entity_type_slug="territorial_entity",
-                            name="New Entity",
-                        )
+                        with patch.object(service, "_create_entity_safe", new_callable=AsyncMock) as mock_create:
+                            mock_new_entity = MagicMock()
+                            mock_new_entity.id = uuid4()
+                            mock_new_entity.name = "New Entity"
+                            mock_create.return_value = mock_new_entity
+
+                            result = await service.get_or_create_entity(
+                                entity_type_slug="territorial_entity",
+                                name="New Entity",
+                            )
 
         assert result is not None
         assert result.name == "New Entity"
