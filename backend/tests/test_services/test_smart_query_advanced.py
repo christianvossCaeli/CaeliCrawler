@@ -288,11 +288,12 @@ class TestMultiHopRelations:
     @pytest.mark.asyncio
     async def test_relation_chain_max_depth(self):
         """Test that RelationChain enforces max depth."""
+        from app.core.exceptions import RelationDepthError
         from services.smart_query.relation_resolver import MAX_RELATION_DEPTH, RelationChain, RelationHop
 
         hops = [RelationHop(f"relation_{i}", "source") for i in range(MAX_RELATION_DEPTH + 1)]
 
-        with pytest.raises(ValueError, match="exceeds maximum depth"):
+        with pytest.raises(RelationDepthError, match="exceeds maximum depth"):
             RelationChain(hops)
 
     @pytest.mark.asyncio

@@ -60,13 +60,8 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 
-interface Document {
-  id: string
-  [key: string]: unknown
-}
-
 defineProps<{
-  selectedDocuments: Document[]
+  selectedDocuments: string[]
   bulkProcessing?: boolean
   bulkAnalyzing?: boolean
 }>()

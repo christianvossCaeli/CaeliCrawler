@@ -784,7 +784,7 @@ const handleStartFilteredCrawl = async () => {
   }
   const result = await startFilteredCrawl()
   if (result) {
-    showSnackbar(result.message, result.success ? 'success' : 'error')
+    showSnackbar(result.message || '', result.success ? 'success' : 'error')
   }
 }
 
@@ -811,7 +811,7 @@ const handleAssignSources = async () => {
 
   const result = await assignSourcesByTags(selectedCategory.value.id)
   if (result) {
-    showSnackbar(result.message, result.success ? 'success' : 'error')
+    showSnackbar(result.message || '', result.success ? 'success' : 'error')
 
     if (result.success) {
       await loadCategories()
@@ -850,7 +850,7 @@ const handleAssignDirect = async (sources: CategorySource[]) => {
     // Edit mode: assign immediately via API
     const result = await assignDirectSelectedSources(selectedCategory.value.id, sources)
     if (result) {
-      showSnackbar(result.message, result.success ? 'success' : 'error')
+      showSnackbar(result.message || '', result.success ? 'success' : 'error')
       if (result.success) {
         dataSourcesTab.value.directSelectedSources = []
         await loadAssignedSources(selectedCategory.value.id)

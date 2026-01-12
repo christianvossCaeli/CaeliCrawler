@@ -63,7 +63,7 @@
 import { useI18n } from 'vue-i18n'
 
 defineProps<{
-  selectedResults: number[]
+  selectedResults: string[]
   canVerify: boolean
   bulkVerifying?: boolean
   bulkRejecting?: boolean
