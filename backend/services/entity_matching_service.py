@@ -150,7 +150,7 @@ class EntityMatchingService:
 
     # Default threshold for AI-based embedding similarity search
     # 0.85 = high confidence match (same entity, different formatting)
-    DEFAULT_SIMILARITY_THRESHOLD = 0.85
+    DEFAULT_SIMILARITY_THRESHOLD = 0.80  # Lowered from 0.85 for stricter deduplication = 0.85
 
     async def get_or_create_entity(
         self,
@@ -178,7 +178,8 @@ class EntityMatchingService:
         3. Core name match - structural patterns (parentheses, commas)
         4. AI embedding similarity - semantic matching via OpenAI embeddings
         5. Composite name detection - returns existing entity if found
-        6. Create new entity if not found
+        6. Cross-type exact name check - prevents duplicates across entity types
+        7. Create new entity if not found
 
         The AI embedding search uses pgvector's cosine similarity to find
         semantically similar names, even across languages or naming conventions.
@@ -286,7 +287,34 @@ class EntityMatchingService:
                 )
                 return existing_entity
 
-        # 8. Create new entity (race-condition-safe, with embedding)
+        # 8. Final safety check: Look for exact name match across ALL entity types
+        # This catches cases where the same entity was created with a different type
+        # (e.g., "Düsseldorf" as both city and organization)
+        cross_type_match = await self._find_exact_name_any_type(name_normalized, entity_type.id)
+        if cross_type_match is not None:
+            if cross_type_match.entity_type_id == entity_type.id:
+                # Same type - this shouldn't happen but return the match
+                logger.warning(
+                    "Found existing entity in final safety check (same type)",
+                    search_name=name,
+                    matched_name=cross_type_match.name,
+                    entity_id=str(cross_type_match.id),
+                )
+                return cross_type_match
+            else:
+                # Different type - log warning but return existing to prevent duplicate
+                logger.warning(
+                    "Found existing entity with same name but different type",
+                    search_name=name,
+                    search_type=entity_type.slug,
+                    matched_name=cross_type_match.name,
+                    matched_type_id=str(cross_type_match.entity_type_id),
+                    entity_id=str(cross_type_match.id),
+                )
+                # Return existing entity to prevent creating a duplicate name
+                return cross_type_match
+
+        # 9. Create new entity (race-condition-safe, with embedding)
         return await self._create_entity_safe(
             entity_type=entity_type,
             name=name,
@@ -505,6 +533,50 @@ class EntityMatchingService:
                 Entity.name_normalized == name_normalized,
                 Entity.is_active.is_(True),
             )
+        )
+        return result.scalar_one_or_none()
+
+    async def _find_exact_name_any_type(
+        self,
+        name_normalized: str,
+        preferred_entity_type_id: uuid.UUID | None = None,
+    ) -> Entity | None:
+        """
+        Find entity by exact normalized name across ALL entity types.
+
+        This is a safety check to prevent creating duplicates when the same
+        entity name exists but was categorized under a different type.
+        For example, "Düsseldorf" might exist as both a city and an organization.
+
+        Args:
+            name_normalized: The normalized entity name to search for
+            preferred_entity_type_id: If provided, prefer entities of this type
+
+        Returns:
+            Existing entity if found, None otherwise
+        """
+        # First try to find in preferred entity type
+        if preferred_entity_type_id:
+            result = await self.session.execute(
+                select(Entity).where(
+                    Entity.entity_type_id == preferred_entity_type_id,
+                    Entity.name_normalized == name_normalized,
+                    Entity.is_active.is_(True),
+                )
+            )
+            entity = result.scalar_one_or_none()
+            if entity:
+                return entity
+
+        # Then search across all entity types
+        result = await self.session.execute(
+            select(Entity)
+            .where(
+                Entity.name_normalized == name_normalized,
+                Entity.is_active.is_(True),
+            )
+            .order_by(Entity.created_at.asc())  # Prefer older entities
+            .limit(1)
         )
         return result.scalar_one_or_none()
 

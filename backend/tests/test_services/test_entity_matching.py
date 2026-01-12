@@ -180,16 +180,19 @@ class TestCompositeEntityResolution:
                     with patch.object(service, "_resolve_composite_entity", new_callable=AsyncMock) as mock_resolve:
                         mock_resolve.return_value = None
 
-                        with patch.object(service, "_create_entity_safe", new_callable=AsyncMock) as mock_create:
-                            mock_new_entity = MagicMock()
-                            mock_new_entity.id = uuid4()
-                            mock_new_entity.name = "Region X, Gemeinde New"
-                            mock_create.return_value = mock_new_entity
+                        with patch.object(service, "_find_exact_name_any_type", new_callable=AsyncMock) as mock_find_exact:
+                            mock_find_exact.return_value = None
 
-                            result = await service.get_or_create_entity(
-                                entity_type_slug="territorial_entity",
-                                name="Region X, Gemeinde New",
-                            )
+                            with patch.object(service, "_create_entity_safe", new_callable=AsyncMock) as mock_create:
+                                mock_new_entity = MagicMock()
+                                mock_new_entity.id = uuid4()
+                                mock_new_entity.name = "Region X, Gemeinde New"
+                                mock_create.return_value = mock_new_entity
+
+                                result = await service.get_or_create_entity(
+                                    entity_type_slug="territorial_entity",
+                                    name="Region X, Gemeinde New",
+                                )
 
         assert result is not None
         mock_create.assert_called_once()
@@ -280,16 +283,19 @@ class TestEntityMatchingServiceBasic:
                     with patch.object(service, "_resolve_composite_entity", new_callable=AsyncMock) as mock_resolve:
                         mock_resolve.return_value = None
 
-                        with patch.object(service, "_create_entity_safe", new_callable=AsyncMock) as mock_create:
-                            mock_new_entity = MagicMock()
-                            mock_new_entity.id = uuid4()
-                            mock_new_entity.name = "New Entity"
-                            mock_create.return_value = mock_new_entity
+                        with patch.object(service, "_find_exact_name_any_type", new_callable=AsyncMock) as mock_find_exact:
+                            mock_find_exact.return_value = None
 
-                            result = await service.get_or_create_entity(
-                                entity_type_slug="territorial_entity",
-                                name="New Entity",
-                            )
+                            with patch.object(service, "_create_entity_safe", new_callable=AsyncMock) as mock_create:
+                                mock_new_entity = MagicMock()
+                                mock_new_entity.id = uuid4()
+                                mock_new_entity.name = "New Entity"
+                                mock_create.return_value = mock_new_entity
+
+                                result = await service.get_or_create_entity(
+                                    entity_type_slug="territorial_entity",
+                                    name="New Entity",
+                                )
 
         assert result is not None
         assert result.name == "New Entity"
