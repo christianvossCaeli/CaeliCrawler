@@ -242,6 +242,7 @@ export function useResultsHelpers() {
         chipFields: [],
         severityColors: {},
         layout: 'card' as const,
+        labels: {},
       }
       return getPrimaryValue(normalized, defaultConfig)
     }

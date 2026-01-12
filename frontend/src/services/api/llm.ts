@@ -66,7 +66,8 @@ export async function getLimitRequests(params?: {
   const cleanParams: Record<string, string | number> = {}
 
   // Only add status if it's a valid non-empty value
-  if (params?.status && params.status !== '') {
+  // Use explicit string check to handle v-select clearing to empty string
+  if (params?.status && (params.status as string) !== '') {
     cleanParams.status = params.status
   }
 

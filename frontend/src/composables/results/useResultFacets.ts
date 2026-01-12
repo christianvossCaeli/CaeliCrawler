@@ -40,7 +40,7 @@ export interface ResultFacetsState {
 // Composable
 // =============================================================================
 
-export function useResultFacets(extractionId: Ref<string | null>) {
+export function useResultFacets(extractionId: Ref<string | null | undefined>) {
   const logger = useLogger('useResultFacets')
   const { t } = useI18n()
   const { showSuccess, showError } = useSnackbar()

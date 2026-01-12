@@ -2,7 +2,7 @@
  * Tests for useResultFacets composable
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { ref } from 'vue'
+import { ref, type Ref } from 'vue'
 import { useResultFacets } from './useResultFacets'
 import { mockAxiosResponse } from '@/test/setup'
 import type { FacetValue } from '@/types/entity'
@@ -95,11 +95,11 @@ const mockFacets: FacetValue[] = [
 ]
 
 describe('useResultFacets', () => {
-  let extractionIdRef: ReturnType<typeof ref<string | null>>
+  let extractionIdRef: Ref<string | null>
 
   beforeEach(() => {
     vi.clearAllMocks()
-    extractionIdRef = ref('extraction-123')
+    extractionIdRef = ref<string | null>('extraction-123')
   })
 
   // ==========================================================================
