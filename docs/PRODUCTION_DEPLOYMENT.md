@@ -336,10 +336,7 @@ services:
       - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD}@redis:6379/2
       - CORS_ORIGINS=["https://app.caeli-wind.de"]
       - FRONTEND_URL=https://app.caeli-wind.de
-      # Azure OpenAI
-      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
-      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
-      # ... weitere Secrets
+      # KI-Credentials werden ueber Admin UI konfiguriert (Admin > API Credentials)
     volumes:
       - document_storage:/app/storage/documents
       - attachment_storage:/app/storage/attachments
@@ -445,7 +442,7 @@ volumes:
 
 ```dockerfile
 # backend/Dockerfile.prod
-FROM python:3.12-slim AS builder
+FROM python:3.13-slim AS builder
 
 WORKDIR /app
 
@@ -453,7 +450,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir --user -r requirements.txt
 
-FROM python:3.12-slim
+FROM python:3.13-slim
 
 # Non-root user erstellen
 RUN groupadd -r caeli && useradd -r -g caeli caeli
@@ -695,35 +692,21 @@ SMTP_USE_TLS=true
 SMTP_USE_SSL=false
 
 # =====================
-# Azure OpenAI (GPT für Analyse)
+# KI-SERVICES
 # =====================
-AZURE_OPENAI_ENDPOINT=https://your-endpoint.openai.azure.com/
-AZURE_OPENAI_API_KEY=<API_KEY>
-AZURE_OPENAI_API_VERSION=2025-04-01-preview
-AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4.1-mini
-AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT=text-embedding-3-large
-
-# =====================
-# Azure Document Intelligence (PDF-Verarbeitung)
-# =====================
+# WICHTIG: KI-API-Credentials (Azure OpenAI, Anthropic, SerpAPI)
+# werden ueber die Admin-Oberflaeche konfiguriert:
+# Admin > API Credentials
+#
+# Dies ermoeglicht:
+# - Sichere Speicherung in der Datenbank
+# - Runtime-Konfiguration ohne Container-Neustart
+# - Audit-Logging aller Credential-Aenderungen
+# - Per-User Credential-Verwaltung
+#
+# Nur Azure Document Intelligence (falls verwendet) benoetigt env vars:
 AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT=https://your-endpoint.cognitiveservices.azure.com/
 AZURE_DOCUMENT_INTELLIGENCE_KEY=<API_KEY>
-
-# =====================
-# Anthropic/Claude (AI Source Discovery)
-# =====================
-ANTHROPIC_API_ENDPOINT=https://your-azure-anthropic-endpoint.ai.azure.com/anthropic/v1/messages
-ANTHROPIC_API_KEY=<API_KEY>
-ANTHROPIC_MODEL=claude-opus-4-5
-AI_DISCOVERY_USE_CLAUDE=true
-
-# =====================
-# Web Search APIs (für AI Source Discovery)
-# =====================
-# SerpAPI (Google Search)
-SERPAPI_API_KEY=<SERPAPI_KEY>
-# Serper.dev (Alternative)
-SERPER_API_KEY=<SERPER_KEY>
 
 # =====================
 # PySis Integration

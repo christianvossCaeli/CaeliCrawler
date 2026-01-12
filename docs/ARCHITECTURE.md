@@ -91,15 +91,29 @@ CaeliCrawler ist eine interne Datenplattform zur Überwachung kommunaler Veröff
 5. **COMPLETED**: Fertig verarbeitet
 6. **FAILED**: Fehler aufgetreten
 
-## KI-Integration (Azure OpenAI)
+## KI-Integration (Multi-Provider)
 
-### Deployments
-| Task | Deployment | Modell |
-|------|------------|--------|
-| Chat/Standard | gpt-4.1-mini | GPT-4.1 Mini |
-| Embeddings | text-embedding-3-large | 3072 Dimensionen |
-| PDF-Extraktion | (konfigurierbar) | - |
-| Classification | (konfigurierbar) | - |
+Die Anwendung unterstuetzt mehrere KI-Provider, die ueber die Admin-Oberflaeche konfiguriert werden:
+
+**Unterstuetzte Provider:**
+- Azure OpenAI (GPT-4, GPT-4.1 Mini)
+- Anthropic Claude (Claude 3.5, Claude Opus 4.5)
+- Azure Document Intelligence (PDF-OCR)
+- SerpAPI / Serper (Web-Suche)
+
+**Konfiguration:**
+API-Credentials werden ueber `Admin > API Credentials` verwaltet. Dies ermoeglicht:
+- Sichere Speicherung in der Datenbank
+- Runtime-Konfiguration ohne Neustart
+- Audit-Logging aller Aenderungen
+
+### Typische Deployments
+| Task | Provider | Modell |
+|------|----------|--------|
+| Chat/Analyse | Azure OpenAI | gpt-4.1-mini |
+| Embeddings | Azure OpenAI | text-embedding-3-large |
+| AI Discovery | Anthropic | claude-opus-4-5 |
+| PDF-Extraktion | Azure Doc Intelligence | - |
 
 ### Analyse-Prompts (pro Kategorie)
 
@@ -390,20 +404,30 @@ async def detect_remote_changes(source: DataSource) -> bool:
 ## Konfiguration
 
 ### Umgebungsvariablen
+
+Nur infrastrukturbezogene Variablen werden ueber `.env` konfiguriert:
+
 ```env
-# Azure OpenAI
-AZURE_OPENAI_ENDPOINT=https://...
-AZURE_OPENAI_API_KEY=...
-AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4.1-mini
-AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT=text-embedding-3-large
+# Application
+APP_ENV=development
+DEBUG=false
 
 # Database
 DATABASE_URL=postgresql+asyncpg://...
+POSTGRES_PASSWORD=...
 
 # Redis
 REDIS_URL=redis://localhost:6379/0
 CELERY_BROKER_URL=redis://localhost:6379/1
 ```
+
+### KI-Service Credentials
+
+**WICHTIG:** KI-API-Keys (Azure OpenAI, Anthropic, SerpAPI) werden NICHT ueber Umgebungsvariablen konfiguriert, sondern ueber die Admin-Oberflaeche:
+
+`Admin > API Credentials`
+
+Siehe [API Credentials Dokumentation](api/ADMIN.md) fuer Details.
 
 ## Entwicklung
 

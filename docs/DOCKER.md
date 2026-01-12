@@ -6,7 +6,7 @@ Dieses Dokument beschreibt alle Docker-Container des CaeliCrawler-Projekts und i
 
 | Container | Image/Build | Port | Beschreibung |
 |-----------|-------------|------|--------------|
-| postgres | postgres:17-alpine | 5432 | Datenbank |
+| postgres | pgvector/pgvector:pg17 | 5432 | Datenbank mit pgvector |
 | redis | redis:7-alpine | 6379 | Message Broker & Cache |
 | backend | ./backend | 8000 | FastAPI REST-API |
 | celery-worker | ./backend | - | Allgemeiner Worker |
@@ -21,12 +21,12 @@ Dieses Dokument beschreibt alle Docker-Container des CaeliCrawler-Projekts und i
 
 ### postgres
 
-**Image:** `postgres:17-alpine`
+**Image:** `pgvector/pgvector:pg17`
 **Container-Name:** `caelichrawler-postgres`
 **Port:** 5432
 
 **Aufgabe:**
-PostgreSQL-Datenbank für die persistente Speicherung aller Anwendungsdaten:
+PostgreSQL-Datenbank mit pgvector-Erweiterung für die persistente Speicherung aller Anwendungsdaten und Embedding-Similarity-Suche:
 - OParl-Entitäten (Organisationen, Personen, Meetings, Dokumente, etc.)
 - Crawl-Jobs und deren Status
 - Benutzereinstellungen und Konfigurationen

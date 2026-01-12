@@ -6,6 +6,8 @@ Vollstaendige technische Dokumentation aller API-Endpunkte.
 
 **Interaktive Dokumentation:** `http://localhost:8000/docs` (Swagger UI)
 
+> **Hinweis:** Die interaktive API-Dokumentation unter `/docs` und `/redoc` ist nur im Development-Modus (`DEBUG=true`) verfuegbar. In Production ist diese aus Sicherheitsgruenden deaktiviert.
+
 > **Vollstaendige Referenz:** Fuer die komplette API-Dokumentation siehe [API_REFERENCE.md](../API_REFERENCE.md).
 > Diese modulare Struktur bietet eine uebersichtlichere Navigation.
 

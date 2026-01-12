@@ -37,20 +37,24 @@ Health-Check.
 
 ## Konfiguration
 
-### GET /config/features
+### GET /api/config/features
 Feature-Flags fuer das Frontend abrufen.
 
 **Response:**
 ```json
 {
-  "entityLevelFacets": false
+  "entityLevelFacets": true,
+  "pysisFieldTemplates": false,
+  "entityHierarchyEnabled": true
 }
 ```
 
 **Feature-Flags:**
-| Flag | Beschreibung |
-|------|--------------|
-| `entityLevelFacets` | Wenn `true`, koennen Facets einzelnen Entities zugewiesen werden (nicht nur ueber Entity-Typ) |
+| Flag | Default | Beschreibung |
+|------|---------|--------------|
+| `entityLevelFacets` | `true` | Wenn `true`, koennen Facets einzelnen Entities zugewiesen werden (nicht nur ueber Entity-Typ) |
+| `pysisFieldTemplates` | `false` | Aktiviert PySis Field Templates Funktionalitaet |
+| `entityHierarchyEnabled` | `true` | Aktiviert Parent-Child-Beziehungen zwischen Entities |
 
 ---
 
@@ -118,15 +122,15 @@ Alle Endpunkte koennen folgende Fehler zurueckgeben:
 ```json
 {
   "error": "Configuration Error",
-  "detail": "Missing required configuration: AZURE_OPENAI_API_KEY",
+  "detail": "KI-Service nicht konfiguriert. Bitte API-Credentials unter Admin > API Credentials einrichten.",
   "code": "CONFIGURATION_ERROR"
 }
 ```
 
 Dieser Fehler tritt auf, wenn eine erforderliche Konfiguration fehlt oder ungueltig ist, z.B.:
-- Fehlende API-Keys fuer externe Dienste (OpenAI, Azure)
+- Fehlende KI-API-Credentials (konfiguriert ueber Admin > API Credentials)
 - Ungueltige Datenbankverbindung
-- Fehlende Umgebungsvariablen
+- Fehlende Umgebungsvariablen fuer Infrastruktur (DATABASE_URL, REDIS_URL)
 
 ---
 
