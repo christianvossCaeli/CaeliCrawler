@@ -70,7 +70,7 @@
 </template>
 
 <script setup lang="ts">
-import type { Category, CategorySource } from '@/types/category'
+import type { CategorySource } from '@/types/category'
 import {
   DirectSourceSelector,
   TagFilterSection,

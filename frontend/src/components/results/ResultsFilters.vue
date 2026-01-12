@@ -105,7 +105,7 @@
             hide-details
             density="compact"
             color="error"
-            @update:model-value="$emit('update:show-rejected', $event)"
+            @update:model-value="$emit('update:show-rejected', $event ?? false)"
           />
         </v-col>
 

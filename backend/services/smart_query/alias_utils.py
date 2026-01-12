@@ -28,6 +28,27 @@ _alias_cache: TTLCache[str | None] = TTLCache(default_ttl=1800, max_size=500)
 # Term expansion cache: 1 hour TTL, max 300 entries (expansions are more stable)
 _term_expansion_cache: TTLCache[list[str]] = TTLCache(default_ttl=3600, max_size=300)
 
+# Static alias mappings for common abbreviations (used as fallback without AI)
+# German Bundesland abbreviations
+_STATIC_ALIASES: dict[str, str] = {
+    "nrw": "Nordrhein-Westfalen",
+    "bw": "Baden-Württemberg",
+    "by": "Bayern",
+    "be": "Berlin",
+    "bb": "Brandenburg",
+    "hb": "Bremen",
+    "hh": "Hamburg",
+    "he": "Hessen",
+    "mv": "Mecklenburg-Vorpommern",
+    "ni": "Niedersachsen",
+    "rp": "Rheinland-Pfalz",
+    "sl": "Saarland",
+    "sn": "Sachsen",
+    "st": "Sachsen-Anhalt",
+    "sh": "Schleswig-Holstein",
+    "th": "Thüringen",
+}
+
 
 def invalidate_alias_cache(domain: str | None = None) -> int:
     """
@@ -128,6 +149,12 @@ async def resolve_alias_async(
     cached = _alias_cache.get(cache_key)
     if cached is not None:
         return cached if cached != "__NONE__" else alias
+
+    # Check static aliases (works without AI/session)
+    static_result = _STATIC_ALIASES.get(normalized)
+    if static_result:
+        _alias_cache.set(cache_key, static_result)
+        return static_result
 
     if not session:
         logger.debug("resolve_alias_async: No session provided, skipping AI resolution")

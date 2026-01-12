@@ -118,9 +118,9 @@ const assignableCount = computed(() =>
 )
 
 // Methods
-const handleSearch = useDebounce((query: string) => {
+const { debouncedFn: handleSearch } = useDebounce((query: string) => {
   emit('search', query)
-}, SEARCH_DEBOUNCE_MS)
+}, { delay: SEARCH_DEBOUNCE_MS })
 
 const handleAssign = () => {
   emit('assign', localSelectedSources.value)

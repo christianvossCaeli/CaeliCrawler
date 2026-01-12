@@ -214,9 +214,9 @@ const headers = computed(() => [
 ])
 
 // Methods
-const debouncedSearch = useDebounce((value: string | null) => {
+const { debouncedFn: debouncedSearch } = useDebounce((value: string | null) => {
   emit('update:search', value || '')
-}, SEARCH_DEBOUNCE_MS)
+}, { delay: SEARCH_DEBOUNCE_MS })
 
 const handleTagFilterChange = (tags: string[]) => {
   emit('update:tagFilter', tags)
