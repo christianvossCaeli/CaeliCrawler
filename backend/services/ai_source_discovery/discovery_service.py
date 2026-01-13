@@ -18,36 +18,58 @@ from app.core.cache import make_cache_key, search_strategy_cache
 from app.core.security_logging import security_logger
 from app.models.llm_usage import LLMTaskType
 from app.models.user_api_credentials import LLMPurpose
+from services.credentials_resolver import get_anthropic_compatible_config
 from services.llm_client_service import LLMClientService
 from services.llm_usage_tracker import record_llm_usage
 from services.smart_query.utils import clean_json_response
 
 
-async def call_claude_api(prompt: str, max_tokens: int = 4000) -> str | None:
+async def call_claude_api(
+    prompt: str, session: AsyncSession, max_tokens: int = 4000
+) -> str | None:
     """
-    Call Claude API via Azure-hosted Anthropic endpoint.
+    Call Claude API via database-configured credentials.
 
     Args:
         prompt: The prompt to send to Claude
+        session: Database session for loading credentials
         max_tokens: Maximum tokens in response
 
     Returns:
         Response content or None on error
     """
-    if not settings.anthropic_api_endpoint or not settings.anthropic_api_key:
+    # Load Anthropic credentials from database
+    llm_service = LLMClientService(session)
+    admin_user = await llm_service._get_admin_with_credentials()
+
+    if not admin_user:
+        structlog.get_logger().warning("No admin user with credentials found for Claude API")
         return None
+
+    anthropic_config = await get_anthropic_compatible_config(
+        session, admin_user.id, LLMPurpose.API_DISCOVERY
+    )
+
+    if not anthropic_config:
+        structlog.get_logger().info("Claude API not configured in DB")
+        return None
+
+    # Build endpoint URL
+    endpoint = anthropic_config["endpoint"].rstrip("/")
+    if not endpoint.endswith("/messages"):
+        endpoint = f"{endpoint}/v1/messages"
 
     try:
         async with httpx.AsyncClient(timeout=120.0) as client:
             response = await client.post(
-                settings.anthropic_api_endpoint,
+                endpoint,
                 headers={
-                    "api-key": settings.anthropic_api_key,
+                    "api-key": anthropic_config["api_key"],
                     "Content-Type": "application/json",
                     "anthropic-version": "2023-06-01",
                 },
                 json={
-                    "model": settings.anthropic_model,
+                    "model": anthropic_config["model"],
                     "max_tokens": max_tokens,
                     "messages": [{"role": "user", "content": prompt}],
                 },
@@ -871,9 +893,9 @@ class AISourceDiscoveryService:
         content = None
 
         # Try Claude first if configured (better API knowledge)
-        if settings.ai_discovery_use_claude and settings.anthropic_api_endpoint:
-            logger.info("Using Claude for API suggestions", prompt=prompt[:100])
-            claude_response = await call_claude_api(api_prompt, max_tokens=4000)
+        if self.session:
+            logger.info("Trying Claude for API suggestions", prompt=prompt[:100])
+            claude_response = await call_claude_api(api_prompt, self.session, max_tokens=4000)
             if claude_response:
                 content = clean_json_response(claude_response)
                 logger.info("Claude API suggestions received", length=len(content))

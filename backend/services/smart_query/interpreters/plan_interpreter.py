@@ -13,10 +13,10 @@ import httpx
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.core.exceptions import AIInterpretationError, SessionRequiredError
 from app.models.llm_usage import LLMProvider, LLMTaskType
 from app.models.user_api_credentials import LLMPurpose
+from services.credentials_resolver import get_anthropic_compatible_config
 from services.llm_client_service import LLMClientService
 from services.llm_usage_tracker import estimate_tokens, record_llm_usage
 
@@ -42,23 +42,37 @@ logger = structlog.get_logger()
 async def call_claude_for_plan_mode_stream(
     system_prompt: str,
     messages: list[dict[str, str]],
+    session: AsyncSession,
     max_tokens: int = MAX_TOKENS_PLAN_MODE,
 ):
     """Call Claude Opus for Plan Mode with streaming response.
 
     Yields SSE-formatted events as the response is generated.
+    Uses database-stored Anthropic credentials.
 
     Args:
         system_prompt: The system prompt with Smart Query documentation
         messages: Conversation history as list of {"role": "user"|"assistant", "content": "..."}
+        session: Database session for loading credentials
         max_tokens: Maximum tokens in response
 
     Yields:
         SSE-formatted strings: data: {"event": "...", "data": "..."}
+        Returns early with 'anthropic_not_configured' event if no Anthropic credentials found.
     """
-    if not settings.anthropic_api_endpoint or not settings.anthropic_api_key:
-        logger.warning("Claude API not configured for streaming")
-        yield f"data: {json_module.dumps({'event': SSE_EVENT_ERROR, 'data': 'Claude API not configured'})}\n\n"
+    # Load Anthropic credentials from database
+    llm_service = LLMClientService(session)
+    admin_user = await llm_service._get_admin_with_credentials()
+
+    anthropic_config = None
+    if admin_user:
+        anthropic_config = await get_anthropic_compatible_config(
+            session, admin_user.id, LLMPurpose.PLAN_MODE
+        )
+
+    if not anthropic_config:
+        logger.info("Claude API not configured in DB, will use fallback")
+        yield f"data: {json_module.dumps({'event': 'anthropic_not_configured'})}\n\n"
         return
 
     # Sanitize and limit conversation history using comprehensive sanitization
@@ -86,18 +100,23 @@ async def call_claude_for_plan_mode_stream(
         pool=5.0,
     )
 
+    # Build endpoint URL
+    endpoint = anthropic_config["endpoint"].rstrip("/")
+    if not endpoint.endswith("/messages"):
+        endpoint = f"{endpoint}/v1/messages"
+
     try:
         async with httpx.AsyncClient(timeout=timeout_config) as client:  # noqa: SIM117
             async with client.stream(
                 "POST",
-                settings.anthropic_api_endpoint,
+                endpoint,
                 headers={
-                    "api-key": settings.anthropic_api_key,
+                    "api-key": anthropic_config["api_key"],
                     "Content-Type": "application/json",
                     "anthropic-version": "2023-06-01",
                 },
                 json={
-                    "model": settings.anthropic_model,
+                    "model": anthropic_config["model"],
                     "max_tokens": max_tokens,
                     "system": system_prompt,
                     "messages": sanitized_messages,
@@ -174,24 +193,36 @@ async def call_claude_for_plan_mode_stream(
 async def call_claude_for_plan_mode(
     system_prompt: str,
     messages: list[dict[str, str]],
+    session: AsyncSession,
     max_tokens: int = MAX_TOKENS_PLAN_MODE,
     user_id: UUID | None = None,
 ) -> str | None:
     """Call Claude Opus for Plan Mode with conversation history.
 
-    Uses the Azure-hosted Anthropic endpoint configured in settings.
+    Uses database-stored Anthropic credentials.
 
     Args:
         system_prompt: The system prompt with Smart Query documentation
         messages: Conversation history as list of {"role": "user"|"assistant", "content": "..."}
+        session: Database session for loading credentials
         max_tokens: Maximum tokens in response
         user_id: Optional user ID for tracking
 
     Returns:
-        Response content or None on error
+        Response content or None if Anthropic not configured (fallback to OpenAI)
     """
-    if not settings.anthropic_api_endpoint or not settings.anthropic_api_key:
-        logger.warning("Claude API not configured, falling back to OpenAI")
+    # Load Anthropic credentials from database
+    llm_service = LLMClientService(session)
+    admin_user = await llm_service._get_admin_with_credentials()
+
+    anthropic_config = None
+    if admin_user:
+        anthropic_config = await get_anthropic_compatible_config(
+            session, admin_user.id, LLMPurpose.PLAN_MODE
+        )
+
+    if not anthropic_config:
+        logger.info("Claude API not configured in DB, falling back to OpenAI")
         return None
 
     # Sanitize and limit conversation history using comprehensive sanitization
@@ -207,18 +238,24 @@ async def call_claude_for_plan_mode(
     prompt_tokens = 0
     completion_tokens = 0
     response_text = None
+    model_name = anthropic_config["model"]
+
+    # Build endpoint URL
+    endpoint = anthropic_config["endpoint"].rstrip("/")
+    if not endpoint.endswith("/messages"):
+        endpoint = f"{endpoint}/v1/messages"
 
     try:
         async with httpx.AsyncClient(timeout=120.0) as client:
             response = await client.post(
-                settings.anthropic_api_endpoint,
+                endpoint,
                 headers={
-                    "api-key": settings.anthropic_api_key,
+                    "api-key": anthropic_config["api_key"],
                     "Content-Type": "application/json",
                     "anthropic-version": "2023-06-01",
                 },
                 json={
-                    "model": settings.anthropic_model,
+                    "model": model_name,
                     "max_tokens": max_tokens,
                     "system": system_prompt,
                     "messages": sanitized_messages,
@@ -273,7 +310,7 @@ async def call_claude_for_plan_mode(
     try:
         await record_llm_usage(
             provider=LLMProvider.ANTHROPIC,
-            model=settings.anthropic_model,
+            model=model_name,
             task_type=LLMTaskType.PLAN_MODE,
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
@@ -363,6 +400,7 @@ async def interpret_plan_query(
         response_text = await call_claude_for_plan_mode(
             system_prompt=system_prompt,
             messages=messages,
+            session=session,
         )
 
         # Fallback to OpenAI if Claude is not available
@@ -509,12 +547,59 @@ async def interpret_plan_query_stream(
         messages = conversation_history or []
         messages = messages + [{"role": "user", "content": sanitized_question}]
 
-        # Stream the response
+        # Try Claude first, with fallback detection
+        use_openai_fallback = False
         async for event in call_claude_for_plan_mode_stream(
             system_prompt=system_prompt,
             messages=messages,
+            session=session,
         ):
+            # Check if Anthropic is not configured
+            if "anthropic_not_configured" in event:
+                use_openai_fallback = True
+                break
             yield event
+
+        # Fallback to OpenAI streaming if Anthropic not configured
+        if use_openai_fallback:
+            logger.info("Using OpenAI fallback for plan mode streaming")
+
+            llm_service = LLMClientService(session)
+            client, config = await llm_service.get_system_client(LLMPurpose.PLAN_MODE)
+
+            if not client or not config:
+                yield f"data: {json_module.dumps({'event': SSE_EVENT_ERROR, 'data': 'No LLM credentials configured'})}\n\n"
+                return
+
+            model_name = llm_service.get_model_name(config)
+
+            # Build OpenAI messages
+            openai_messages = [{"role": "system", "content": system_prompt}]
+            for msg in messages:
+                openai_messages.append({"role": msg["role"], "content": msg["content"]})
+
+            # Signal start of streaming
+            yield f"data: {json_module.dumps({'event': SSE_EVENT_START})}\n\n"
+
+            try:
+                stream = await client.chat.completions.create(
+                    model=model_name,
+                    messages=openai_messages,
+                    temperature=AI_TEMPERATURE_MEDIUM,
+                    max_tokens=MAX_TOKENS_PLAN_MODE,
+                    stream=True,
+                )
+
+                async for chunk in stream:
+                    if chunk.choices and chunk.choices[0].delta.content:
+                        text = chunk.choices[0].delta.content
+                        yield f"data: {json_module.dumps({'event': SSE_EVENT_CHUNK, 'data': text})}\n\n"
+
+                yield f"data: {json_module.dumps({'event': SSE_EVENT_DONE})}\n\n"
+
+            except Exception as e:
+                logger.error("OpenAI streaming failed", error=str(e))
+                yield f"data: {json_module.dumps({'event': SSE_EVENT_ERROR, 'data': str(e)})}\n\n"
 
     except Exception as e:
         logger.error("Failed to stream plan query", error=str(e), exc_info=True)
