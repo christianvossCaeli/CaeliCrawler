@@ -360,8 +360,6 @@ async def debug_pricing(
 
     Shows which models are used, how they're normalized, and what pricing is applied.
     """
-    from collections import defaultdict
-
     from sqlalchemy import func, select
 
     from app.models.llm_usage import LLMUsageRecord
@@ -442,7 +440,7 @@ async def recalculate_costs(
     """
     from collections import defaultdict
 
-    from sqlalchemy import select, update
+    from sqlalchemy import select
 
     from app.models.llm_usage import LLMUsageRecord
     from services.llm_usage_tracker import get_model_pricing

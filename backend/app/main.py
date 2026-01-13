@@ -58,7 +58,6 @@ from app.api.v1 import summaries as public_summaries
 from app.api.v1.analysis_api import router as analysis_router
 from app.api.v1.data_api import router as data_router
 from app.config import settings
-from services.llm_usage_tracker import get_tracker as get_llm_usage_tracker
 from app.core.exceptions import AppException
 from app.core.i18n_middleware import I18nMiddleware
 from app.core.rate_limit import RateLimiter, set_rate_limiter
@@ -67,6 +66,7 @@ from app.core.token_blacklist import TokenBlacklist, set_token_blacklist
 from app.database import close_db, init_db
 from app.i18n import load_translations
 from app.monitoring.metrics import get_metrics_router, set_app_info
+from services.llm_usage_tracker import get_tracker as get_llm_usage_tracker
 
 
 def sanitize_sensitive_data(

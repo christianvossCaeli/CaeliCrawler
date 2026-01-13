@@ -198,8 +198,8 @@ def get_config_status(
                     extracted_config["api_key_masked"] = mask_api_key(v)
                 elif k in non_sensitive:
                     extracted_config[k] = v
-        except Exception:
-            pass  # If decryption fails, just don't include config
+        except Exception as e:
+            logger.debug("Failed to decrypt LLM config", error=str(e))
 
     return PurposeConfigStatus(
         purpose=purpose.value,
@@ -369,8 +369,8 @@ async def save_purpose_config(
             existing_creds = EncryptionService.decrypt(existing.encrypted_data)
             if existing_creds.get("api_key"):
                 credentials_to_save["api_key"] = existing_creds["api_key"]
-        except Exception:
-            pass  # If decryption fails, require new api_key
+        except Exception as e:
+            logger.debug("Failed to decrypt existing credentials, new api_key required", error=str(e))
 
     # Now validate (api_key should be present either from input or existing)
     validate_credentials(provider, credentials_to_save, llm_purpose)

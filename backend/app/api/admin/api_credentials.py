@@ -181,8 +181,8 @@ def make_credential_status(
                     config["api_key_masked"] = mask_api_key(v)
                 elif k in non_sensitive:
                     config[k] = v
-        except Exception:
-            pass  # If decryption fails, just don't include config
+        except Exception as e:
+            logger.debug("Failed to decrypt credentials config", error=str(e))
 
     return CredentialStatusResponse(
         type=cred_type.value,

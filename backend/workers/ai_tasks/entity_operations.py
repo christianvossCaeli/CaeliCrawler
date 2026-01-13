@@ -42,7 +42,7 @@ def _get_redis_client():
 
 def get_embedding_task_status() -> dict[str, Any]:
     """Get the current status of embedding generation task from Redis.
-    
+
     Also detects and clears stale tasks (running for more than 2 hours).
     """
     try:
@@ -50,7 +50,7 @@ def get_embedding_task_status() -> dict[str, Any]:
         data = client.get(EMBEDDING_TASK_STATUS_KEY)
         if data:
             status = json.loads(data)
-            
+
             # Check for stale tasks (running > 2 hours = likely crashed)
             if status.get("running") and status.get("started_at"):
                 try:
@@ -72,7 +72,7 @@ def get_embedding_task_status() -> dict[str, Any]:
                         }
                 except (ValueError, TypeError):
                     pass  # Invalid date format, continue with status as-is
-            
+
             return status
     except Exception as e:
         logger.warning("Failed to get embedding task status from Redis", error=str(e))

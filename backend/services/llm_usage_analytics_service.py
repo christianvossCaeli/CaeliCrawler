@@ -353,7 +353,7 @@ class LLMUsageAnalyticsService:
                 user_data[key]["models_used"].add(row.model)
 
         # Get users with configured credentials
-        user_ids = [key[0] for key in user_data.keys() if key[0]]
+        user_ids = [key[0] for key in user_data if key[0]]
         users_with_creds: set[UUID] = set()
 
         if user_ids:
