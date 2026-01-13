@@ -203,11 +203,19 @@ async def _generate_embedding_with_db_credentials(
         client, config = await service.get_system_client(LLMPurpose.EMBEDDINGS)
 
         if not client or not config:
-            logger.warning("No LLM credentials configured in database for embeddings")
+            logger.debug("No DB credentials available, this is expected if not configured")
             return None
 
         model = service.get_model_name(config, for_embeddings=True)
-        provider = LLMProvider.AZURE_OPENAI if "azure" in str(config.endpoint or "").lower() else LLMProvider.OPENAI
+
+        # Determine provider from config dict
+        config_type = config.get("type", "azure")
+        if config_type == "azure":
+            provider = LLMProvider.AZURE_OPENAI
+        elif config_type == "openai":
+            provider = LLMProvider.OPENAI
+        else:
+            provider = LLMProvider.AZURE_OPENAI  # Default fallback
 
         async with track_llm_usage(
             provider=provider,
@@ -246,7 +254,7 @@ generate_entity_embedding = generate_embedding
 
 async def generate_embeddings_batch(
     texts: list[str],
-    session: "AsyncSession | None" = None,
+    session: AsyncSession | None = None,
 ) -> list[list[float] | None]:
     """
     Generate embeddings for multiple texts efficiently.

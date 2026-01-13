@@ -216,6 +216,8 @@ class AIService:
         self.session = session
         self._client: AsyncAzureOpenAI | AsyncOpenAI | None = None
         self._config: dict[str, Any] | None = None
+        self._embeddings_client: AsyncAzureOpenAI | AsyncOpenAI | None = None
+        self._embeddings_config: dict[str, Any] | None = None
         self._llm_service = None
         self.logger = logger.bind(service="AIService")
 
@@ -233,8 +235,16 @@ class AIService:
         service = LLMClientService(self.session)
         return service.get_model_name(self._config, for_embeddings=(task_type == TaskType.EMBEDDINGS))
 
-    async def _get_client(self) -> AsyncAzureOpenAI | AsyncOpenAI:
-        """Get or create OpenAI client using database credentials."""
+    async def _get_client(self, purpose: LLMPurpose = LLMPurpose.DOCUMENT_ANALYSIS) -> AsyncAzureOpenAI | AsyncOpenAI:
+        """Get or create OpenAI client using database credentials.
+
+        Args:
+            purpose: Which LLM purpose to load credentials for
+        """
+        # For embeddings, use separate client/config
+        if purpose == LLMPurpose.EMBEDDINGS:
+            return await self._get_embeddings_client()
+
         if self._client is None:
             if not self.session:
                 raise ValueError(
@@ -255,15 +265,37 @@ class AIService:
 
         return self._client
 
+    async def _get_embeddings_client(self) -> AsyncAzureOpenAI | AsyncOpenAI:
+        """Get or create OpenAI client specifically for embeddings."""
+        if self._embeddings_client is None:
+            if not self.session:
+                raise ValueError(
+                    "Database session required for AIService. "
+                    "Please configure API credentials in /admin/api-credentials."
+                )
+
+            from services.llm_client_service import LLMClientService
+
+            service = LLMClientService(self.session)
+            self._embeddings_client, self._embeddings_config = await service.get_system_client(LLMPurpose.EMBEDDINGS)
+
+            if not self._embeddings_client or not self._embeddings_config:
+                raise ValueError(
+                    "No EMBEDDINGS credentials configured in database. "
+                    "Please configure API credentials in /admin/api-credentials."
+                )
+
+        return self._embeddings_client
+
     @property
     def embeddings_deployment(self) -> str:
         """Get embeddings deployment name."""
-        if not self._config:
-            raise ValueError("Client not initialized - call _get_client() first")
+        if not self._embeddings_config:
+            raise ValueError("Embeddings client not initialized - call _get_embeddings_client() first")
         from services.llm_client_service import LLMClientService
 
         service = LLMClientService(self.session)
-        return service.get_model_name(self._config, for_embeddings=True)
+        return service.get_model_name(self._embeddings_config, for_embeddings=True)
 
     @property
     def default_deployment(self) -> str:
@@ -280,6 +312,9 @@ class AIService:
         if self._client:
             await self._client.close()
             self._client = None
+        if self._embeddings_client:
+            await self._embeddings_client.close()
+            self._embeddings_client = None
 
     # === Embeddings ===
 
@@ -304,15 +339,19 @@ class AIService:
         Returns:
             List of embedding vectors
         """
-        client = await self._get_client()
+        client = await self._get_embeddings_client()
         all_embeddings = []
         total_tokens = 0
+
+        # Determine provider from embeddings config
+        config_type = self._embeddings_config.get("type", "azure") if self._embeddings_config else "azure"
+        provider = LLMProvider.AZURE_OPENAI if config_type == "azure" else LLMProvider.OPENAI
 
         for i in range(0, len(texts), batch_size):
             batch = texts[i : i + batch_size]
 
             async with track_llm_usage(
-                provider=LLMProvider.AZURE_OPENAI,
+                provider=provider,
                 model=self.embeddings_deployment,
                 task_type=LLMTaskType.EMBEDDING,
                 task_name="generate_embeddings",
