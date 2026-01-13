@@ -393,72 +393,38 @@
               </v-data-table>
             </v-card>
 
-            <!-- Tables Row -->
-            <v-row class="mb-4">
-              <v-col cols="12" md="6">
-                <v-card variant="outlined">
-                  <v-card-title class="text-subtitle-1 py-2">
-                    <v-icon start size="small">mdi-format-list-bulleted-type</v-icon>
-                    {{ t('admin.llmUsage.tables.byTaskType') }}
-                  </v-card-title>
-                  <v-divider />
-                  <v-data-table
-                    :headers="taskTypeHeaders"
-                    :items="store.analytics?.by_task || []"
-                    :items-per-page="5"
-                    density="compact"
-                  >
-                    <template #item.task_type="{ item }">
-                      <v-chip size="x-small" label>{{ getTaskTypeLabel(item.task_type) }}</v-chip>
-                    </template>
-                    <template #item.total_tokens="{ item }">
-                      {{ formatTokens(item.total_tokens) }}
-                    </template>
-                    <template #item.cost_cents="{ item }">
-                      {{ formatCurrency(item.cost_cents) }}
-                    </template>
-                    <template #item.avg_duration_ms="{ item }">
-                      {{ item.avg_duration_ms?.toFixed(0) || '-' }} ms
-                    </template>
-                    <template #no-data>
-                      <div class="text-center py-4 text-medium-emphasis">
-                        {{ t('admin.llmUsage.noData') }}
-                      </div>
-                    </template>
-                  </v-data-table>
-                </v-card>
-              </v-col>
-              <v-col cols="12" md="6">
-                <v-card variant="outlined">
-                  <v-card-title class="text-subtitle-1 py-2">
-                    <v-icon start size="small">mdi-folder-multiple</v-icon>
-                    {{ t('admin.llmUsage.tables.byCategory') }}
-                  </v-card-title>
-                  <v-divider />
-                  <v-data-table
-                    :headers="categoryHeaders"
-                    :items="store.analytics?.by_category || []"
-                    :items-per-page="5"
-                    density="compact"
-                  >
-                    <template #item.category_name="{ item }">
-                      {{ item.category_name || t('admin.llmUsage.uncategorized') }}
-                    </template>
-                    <template #item.total_tokens="{ item }">
-                      {{ formatTokens(item.total_tokens) }}
-                    </template>
-                    <template #item.cost_cents="{ item }">
-                      {{ formatCurrency(item.cost_cents) }}
-                    </template>
-                    <template #no-data>
-                      <div class="text-center py-4 text-medium-emphasis">
-                        {{ t('admin.llmUsage.noData') }}
-                      </div>
-                    </template>
-                  </v-data-table>
-                </v-card>
-              </v-col>
-            </v-row>
+            <!-- Task Type Table -->
+            <v-card variant="outlined" class="mb-4">
+              <v-card-title class="text-subtitle-1 py-2">
+                <v-icon start size="small">mdi-format-list-bulleted-type</v-icon>
+                {{ t('admin.llmUsage.tables.byTaskType') }}
+              </v-card-title>
+              <v-divider />
+              <v-data-table
+                :headers="taskTypeHeaders"
+                :items="store.analytics?.by_task || []"
+                :items-per-page="5"
+                density="compact"
+              >
+                <template #item.task_type="{ item }">
+                  <v-chip size="x-small" label>{{ getTaskTypeLabel(item.task_type) }}</v-chip>
+                </template>
+                <template #item.total_tokens="{ item }">
+                  {{ formatTokens(item.total_tokens) }}
+                </template>
+                <template #item.cost_cents="{ item }">
+                  {{ formatCurrency(item.cost_cents) }}
+                </template>
+                <template #item.avg_duration_ms="{ item }">
+                  {{ item.avg_duration_ms?.toFixed(0) || '-' }} ms
+                </template>
+                <template #no-data>
+                  <div class="text-center py-4 text-medium-emphasis">
+                    {{ t('admin.llmUsage.noData') }}
+                  </div>
+                </template>
+              </v-data-table>
+            </v-card>
 
             <!-- Top Consumers -->
             <v-card variant="outlined">
@@ -860,13 +826,6 @@ const taskTypeHeaders = computed(() => [
   { title: t('admin.llmUsage.tables.headers.tokens'), key: 'total_tokens', align: 'end' as const },
   { title: t('admin.llmUsage.tables.headers.cost'), key: 'cost_cents', align: 'end' as const },
   { title: t('admin.llmUsage.tables.headers.avgDuration'), key: 'avg_duration_ms', align: 'end' as const },
-])
-
-const categoryHeaders = computed(() => [
-  { title: t('admin.llmUsage.tables.headers.category'), key: 'category_name' },
-  { title: t('admin.llmUsage.tables.headers.requests'), key: 'request_count', align: 'end' as const },
-  { title: t('admin.llmUsage.tables.headers.tokens'), key: 'total_tokens', align: 'end' as const },
-  { title: t('admin.llmUsage.tables.headers.cost'), key: 'cost_cents', align: 'end' as const },
 ])
 
 const topConsumersHeaders = computed(() => [
