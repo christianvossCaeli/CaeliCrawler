@@ -75,6 +75,14 @@ export const STATUS_COLORS: Record<string, string> = {
 /**
  * Status icon mappings.
  */
+/**
+ * Status values that should have a spinning animation.
+ */
+export const SPINNING_STATUSES = new Set([
+  'running',
+  'RUNNING',
+])
+
 export const STATUS_ICONS: Record<string, string> = {
   // Success states
   success: 'mdi-check-circle',
@@ -104,7 +112,7 @@ export const STATUS_ICONS: Record<string, string> = {
   // Info states
   info: 'mdi-information',
   running: 'mdi-play-circle',
-  RUNNING: 'mdi-sync mdi-spin',
+  RUNNING: 'mdi-sync',
   in_progress: 'mdi-progress-clock',
   scheduled: 'mdi-calendar-clock',
   SCHEDULED: 'mdi-calendar-clock',
@@ -191,6 +199,17 @@ export function getStatusIcon(status: string | null | undefined, defaultIcon = '
 }
 
 /**
+ * Check if a status should have a spinning animation.
+ *
+ * @param status - The status string
+ * @returns true if the status icon should spin
+ */
+export function shouldStatusSpin(status: string | null | undefined): boolean {
+  if (!status) return false
+  return SPINNING_STATUSES.has(status) || SPINNING_STATUSES.has(status.toLowerCase())
+}
+
+/**
  * Vue composable for status colors and icons.
  *
  * @example
@@ -203,7 +222,9 @@ export function useStatusColors() {
   return {
     getStatusColor,
     getStatusIcon,
+    shouldStatusSpin,
     STATUS_COLORS,
     STATUS_ICONS,
+    SPINNING_STATUSES,
   }
 }

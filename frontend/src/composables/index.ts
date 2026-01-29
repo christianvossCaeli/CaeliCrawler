@@ -20,6 +20,9 @@
  * - useEntitiesFilters: Entity list filtering state
  * - usePySisHelpers: PySis integration utilities
  *
+ * ## Performance
+ * - useVirtualScroll: Efficient rendering of large lists via virtualization
+ *
  * ## AI Features
  * - useAssistant: Chat assistant state management
  */
@@ -162,3 +165,8 @@ export {
   type CrawlerEvent,
   type CrawlerEventType,
 } from './useCrawlerEvents'
+export {
+  useVirtualScroll,
+  type VirtualScrollOptions,
+  type VirtualItem,
+} from './useVirtualScroll'

@@ -30,6 +30,7 @@ import type {
   SuggestedAction,
   ResponseData,
 } from './types'
+import { generateMessageId } from './types'
 
 // Import validation
 import { validateStreamEvent } from './validation'
@@ -190,6 +191,7 @@ export function useAssistant() {
 
     // Add user message
     const userMessage: ConversationMessage = {
+      id: generateMessageId(),
       role: 'user',
       content: text.trim(),
       timestamp: new Date()
@@ -230,6 +232,7 @@ export function useAssistant() {
 
       // Add assistant message
       const assistantMessage: ConversationMessage = {
+        id: generateMessageId(),
         role: 'assistant',
         content: assistantContent,
         timestamp: new Date(),
@@ -252,6 +255,7 @@ export function useAssistant() {
     } catch (e: unknown) {
       error.value = extractErrorMessage(e)
       const errorMessage: ConversationMessage = {
+        id: generateMessageId(),
         role: 'assistant',
         content: `Fehler: ${error.value}`,
         timestamp: new Date(),
@@ -281,6 +285,7 @@ export function useAssistant() {
 
     // Add user message
     const userMessage: ConversationMessage = {
+      id: generateMessageId(),
       role: 'user',
       content: text.trim(),
       timestamp: new Date()
@@ -299,6 +304,7 @@ export function useAssistant() {
     // Create a placeholder assistant message that will be updated
     const assistantMessageIndex = messages.value.length
     const assistantMessage: ConversationMessage = {
+      id: generateMessageId(),
       role: 'assistant',
       content: '',
       timestamp: new Date(),
@@ -492,6 +498,7 @@ export function useAssistant() {
     if (mode.value === 'plan') {
       // Add info message to chat
       const infoMessage: ConversationMessage = {
+        id: generateMessageId(),
         role: 'assistant',
         content: t('assistant.planModeRedirect'),
         timestamp: new Date(),
@@ -535,6 +542,7 @@ export function useAssistant() {
 
       // Add result message
       const resultMessage: ConversationMessage = {
+        id: generateMessageId(),
         role: 'assistant',
         content: result.message,
         timestamp: new Date(),
@@ -553,6 +561,7 @@ export function useAssistant() {
     } catch (e: unknown) {
       error.value = extractErrorMessage(e)
       const errorMessage: ConversationMessage = {
+        id: generateMessageId(),
         role: 'assistant',
         content: `Fehler: ${error.value}`,
         timestamp: new Date(),
@@ -569,6 +578,7 @@ export function useAssistant() {
   function cancelAction() {
     pendingAction.value = null
     const cancelMessage: ConversationMessage = {
+      id: generateMessageId(),
       role: 'assistant',
       content: 'Aktion abgebrochen.',
       timestamp: new Date()
@@ -640,6 +650,7 @@ export function useAssistant() {
 
     // Add message indicating redirect
     const redirectMessage: ConversationMessage = {
+      id: generateMessageId(),
       role: 'assistant',
       content: writeMode
         ? `Öffne Smart Query im Schreib-Modus für: "${query}"`
@@ -670,6 +681,7 @@ export function useAssistant() {
       if (results) {
         // Add result message to chat
         const resultMessage: ConversationMessage = {
+          id: generateMessageId(),
           role: 'assistant',
           content: `Smart Query ${results.mode === 'write' ? 'Aktion' : 'Ergebnis'}: ${results.summary}`,
           timestamp: new Date(),

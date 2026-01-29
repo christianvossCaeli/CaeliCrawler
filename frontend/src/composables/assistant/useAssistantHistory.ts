@@ -16,6 +16,7 @@ import {
   QUERY_HISTORY_KEY,
   MAX_HISTORY_LENGTH,
   MAX_QUERY_HISTORY_LENGTH,
+  generateMessageId,
 } from './types'
 import { validateStoredMessages, validateStoredQueryHistory } from './validation'
 
@@ -41,6 +42,8 @@ export function useAssistantHistory(options: UseAssistantHistoryOptions) {
 
         if (result.success && result.data) {
           messages.value = result.data.map((msg) => ({
+            // Generate new ID for restored messages, or use existing if available
+            id: (msg as { id?: string }).id || generateMessageId(),
             role: msg.role,
             content: msg.content,
             timestamp: new Date(msg.timestamp),

@@ -9,6 +9,7 @@ import { assistantApi } from '@/services/api'
 import { extractErrorMessage } from '@/utils/errorMessage'
 import { useLogger } from '@/composables/useLogger'
 import type { AttachmentInfo, AttachmentUploadResponse, ConversationMessage } from './types'
+import { generateMessageId } from './types'
 
 const logger = useLogger('useAssistantAttachments')
 
@@ -151,6 +152,7 @@ export function useAssistantAttachments(options: UseAssistantAttachmentsOptions)
 
       // Add result message to chat
       const resultMessage: ConversationMessage = {
+        id: generateMessageId(),
         role: 'assistant',
         content: result.message,
         timestamp: new Date(),
@@ -163,6 +165,7 @@ export function useAssistantAttachments(options: UseAssistantAttachmentsOptions)
     } catch (e: unknown) {
       error.value = extractErrorMessage(e)
       const errorMessage: ConversationMessage = {
+        id: generateMessageId(),
         role: 'assistant',
         content: `Fehler: ${error.value}`,
         timestamp: new Date(),

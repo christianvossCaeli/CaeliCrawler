@@ -14,6 +14,7 @@ import type {
   BatchActionResponse,
   ConversationMessage,
 } from './types'
+import { generateMessageId } from './types'
 
 const logger = useLogger('useAssistantBatch')
 
@@ -76,6 +77,7 @@ export function useAssistantBatch(options: UseAssistantBatchOptions) {
 
           // Add completion message to chat
           const completionMessage: ConversationMessage = {
+            id: generateMessageId(),
             role: 'assistant',
             content: getBatchCompletionMessage(status),
             timestamp: new Date(),

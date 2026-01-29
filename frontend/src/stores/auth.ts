@@ -71,9 +71,6 @@ export const useAuthStore = defineStore('auth', () => {
     ['ADMIN', 'EDITOR', 'VIEWER'].includes(user.value?.role || '') || user.value?.is_superuser
   )
 
-  const canEdit = computed(() => isEditor.value)
-  const canView = computed(() => isAuthenticated.value)
-
   const userDisplayName = computed(() => user.value?.full_name || user.value?.email || 'Unknown')
 
   // Actions
@@ -98,6 +95,7 @@ export const useAuthStore = defineStore('auth', () => {
       token.value = response.data.access_token
       refreshToken.value = response.data.refresh_token
       user.value = response.data.user
+      initialized.value = true
 
       // Calculate token expiry timestamp
       const expiryTime = Date.now() + (response.data.expires_in * 1000)
@@ -313,8 +311,6 @@ export const useAuthStore = defineStore('auth', () => {
     isAdmin,
     isEditor,
     isViewer,
-    canEdit,
-    canView,
     userDisplayName,
 
     // Actions

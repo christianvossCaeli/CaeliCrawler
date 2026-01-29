@@ -77,6 +77,25 @@ export const RESERVED_CONTENT_FIELDS = new Set([
   'summary',
   'outreach_recommendation',
   'municipality',
+  // Internal AI extraction fields (not user-facing data)
+  'suggested_additional_pages',
+  'source_page',
+  'source_pages',
+  'page_numbers',
+  'analyzed_pages',
+  'total_pages',
+  // Document metadata
+  'document_type',
+  'relevance',
+  'relevance_score',
+  'confidence',
+  'extraction_date',
+  'processing_notes',
+  'raw_text',
+  // Summary/meta fields
+  'zusammenfassung',
+  'meta',
+  'metadata',
 ])
 
 export const CHIP_DISPLAY_FIELDS = new Set([

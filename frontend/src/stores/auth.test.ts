@@ -78,7 +78,6 @@ describe('Auth Store', () => {
       // When user is null, these should be falsy (false or undefined)
       expect(store.isAdmin).toBeFalsy()
       expect(store.isEditor).toBeFalsy()
-      expect(store.canEdit).toBeFalsy()
     })
   })
 
@@ -455,7 +454,6 @@ describe('Auth Store', () => {
       await store.login('editor@example.com', 'password')
 
       expect(store.isEditor).toBe(true)
-      expect(store.canEdit).toBe(true)
     })
 
     it('userDisplayName returns full_name or email', async () => {

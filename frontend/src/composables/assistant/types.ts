@@ -302,6 +302,8 @@ export interface SmartQueryResultResponse extends BaseResponse {
 }
 
 export interface ConversationMessage {
+  /** Unique message ID for stable rendering keys */
+  id: string
   role: 'user' | 'assistant'
   content: string
   timestamp: Date
@@ -434,6 +436,7 @@ export interface QueryHistoryItem {
  * Stored message structure for local storage
  */
 export interface StoredMessage {
+  id?: string // Optional for backward compatibility with older stored messages
   role: 'user' | 'assistant'
   content: string
   timestamp: string
@@ -504,3 +507,11 @@ export const STORAGE_KEY = 'assistant_conversation_history'
 export const QUERY_HISTORY_KEY = 'assistant_query_history'
 export const MAX_HISTORY_LENGTH = 50
 export const MAX_QUERY_HISTORY_LENGTH = 100
+
+/**
+ * Generate a unique message ID for stable rendering keys.
+ * Uses crypto.randomUUID() for cryptographically unique IDs.
+ */
+export function generateMessageId(): string {
+  return crypto.randomUUID()
+}

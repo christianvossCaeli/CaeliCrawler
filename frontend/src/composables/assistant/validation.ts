@@ -115,6 +115,7 @@ export function validateStreamEvent(data: unknown): ValidationResult<StreamEvent
  * Schema for stored conversation messages in localStorage
  */
 export const StoredMessageSchema = z.object({
+  id: z.string().optional(), // Optional for backward compatibility with older stored messages
   role: z.enum(['user', 'assistant']),
   content: z.string(),
   timestamp: z.string(),

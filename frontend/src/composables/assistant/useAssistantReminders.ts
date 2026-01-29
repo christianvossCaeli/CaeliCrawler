@@ -13,6 +13,7 @@ import type {
   ConversationMessage,
   AssistantContext,
 } from './types'
+import { generateMessageId } from './types'
 
 const logger = useLogger('useAssistantReminders')
 
@@ -90,6 +91,7 @@ export function useAssistantReminders(options: UseAssistantRemindersOptions) {
       if (response.data.success) {
         // Add confirmation message
         const confirmMessage: ConversationMessage = {
+          id: generateMessageId(),
           role: 'assistant',
           content: response.data.message,
           timestamp: new Date(),

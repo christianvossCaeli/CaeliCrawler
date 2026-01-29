@@ -16,6 +16,7 @@ import type {
   ConversationMessage,
   AssistantContext,
 } from './types'
+import { generateMessageId } from './types'
 
 const logger = useLogger('useAssistantWizard')
 
@@ -74,6 +75,7 @@ export function useAssistantWizard(options: UseAssistantWizardOptions) {
 
       // Add wizard start message to chat
       const wizardMessage: ConversationMessage = {
+        id: generateMessageId(),
         role: 'assistant',
         content: data.message,
         timestamp: new Date(),
@@ -113,6 +115,7 @@ export function useAssistantWizard(options: UseAssistantWizardOptions) {
       if (wizardResponse.wizard_state.completed || wizardResponse.wizard_state.cancelled) {
         // Wizard finished
         const completionMessage: ConversationMessage = {
+          id: generateMessageId(),
           role: 'assistant',
           content: wizardResponse.message,
           timestamp: new Date(),
@@ -140,6 +143,7 @@ export function useAssistantWizard(options: UseAssistantWizardOptions) {
 
         // Add step message to chat
         const stepMessage: ConversationMessage = {
+          id: generateMessageId(),
           role: 'assistant',
           content: wizardResponse.message,
           timestamp: new Date(),
@@ -199,6 +203,7 @@ export function useAssistantWizard(options: UseAssistantWizardOptions) {
 
     // Add cancellation message
     const cancelMessage: ConversationMessage = {
+      id: generateMessageId(),
       role: 'assistant',
       content: 'Wizard abgebrochen.',
       timestamp: new Date(),

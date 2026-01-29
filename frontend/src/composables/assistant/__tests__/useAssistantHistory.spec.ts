@@ -6,7 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ref } from 'vue'
 import { useAssistantHistory } from '../useAssistantHistory'
 import type { ConversationMessage } from '../types'
-import { STORAGE_KEY } from '../types'
+import { STORAGE_KEY, generateMessageId } from '../types'
 
 describe('useAssistantHistory', () => {
   const localStorageMock = {
@@ -74,6 +74,7 @@ describe('useAssistantHistory', () => {
     it('should save messages to localStorage', () => {
       const messages = ref<ConversationMessage[]>([
         {
+          id: generateMessageId(),
           role: 'user',
           content: 'Test message',
           timestamp: new Date('2024-01-01T10:00:00.000Z'),
@@ -94,6 +95,7 @@ describe('useAssistantHistory', () => {
       // Create 60 messages (more than MAX_HISTORY_LENGTH of 50)
       for (let i = 0; i < 60; i++) {
         messages.value.push({
+          id: generateMessageId(),
           role: 'user',
           content: `Message ${i}`,
           timestamp: new Date(),
@@ -111,7 +113,7 @@ describe('useAssistantHistory', () => {
   describe('clearConversation', () => {
     it('should clear all messages', () => {
       const messages = ref<ConversationMessage[]>([
-        { role: 'user', content: 'Test', timestamp: new Date() },
+        { id: generateMessageId(), role: 'user', content: 'Test', timestamp: new Date() },
       ])
 
       const { clearConversation } = useAssistantHistory({ messages })
