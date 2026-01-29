@@ -158,3 +158,46 @@ async def blacklist_token(token: str) -> bool:
         return False
 
     return await blacklist.add(token)
+
+
+async def blacklist_token_by_jti(jti: str, ttl_seconds: int) -> bool:
+    """
+    Add a token to the blacklist by its JWT ID (jti).
+
+    Useful for revoking tokens during session invalidation without
+    having access to the full token.
+
+    Args:
+        jti: The JWT ID (jti claim) of the token to blacklist
+        ttl_seconds: Time-to-live in seconds (should match token expiry)
+
+    Returns:
+        True if added successfully, False if blacklist not configured
+    """
+    blacklist = get_token_blacklist()
+
+    if blacklist is None:
+        return False
+
+    if ttl_seconds <= 0:
+        return False
+
+    key = f"{blacklist.KEY_PREFIX}{jti}"
+    await blacklist.redis.setex(key, ttl_seconds, "1")
+    return True
+
+
+def extract_jti_from_token(token: str) -> str | None:
+    """
+    Extract the JWT ID (jti) from a token without full validation.
+
+    Args:
+        token: The JWT token string
+
+    Returns:
+        The jti claim value or None if not present/invalid
+    """
+    payload = decode_access_token(token)
+    if payload is None:
+        return None
+    return payload.get("jti")

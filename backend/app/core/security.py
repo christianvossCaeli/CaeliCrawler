@@ -3,7 +3,7 @@
 import hashlib
 import secrets
 from datetime import UTC, datetime, timedelta
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import bcrypt
 from jose import JWTError, jwt
@@ -57,11 +57,14 @@ def create_access_token(
         Encoded JWT token string
     """
     expire = datetime.now(UTC) + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    token_id = str(uuid4())  # Unique JWT ID for individual token revocation
     to_encode = {
         "sub": str(user_id),
         "role": role,
         "exp": expire,
         "type": "access",
+        "jti": token_id,  # RFC 7519: JWT ID claim for token identification
+        "iat": datetime.now(UTC),  # Issued at timestamp
     }
     if session_id:
         to_encode["sid"] = str(session_id)
@@ -209,11 +212,13 @@ def create_sse_ticket(user_id: UUID, role: str) -> str:
         Encoded JWT ticket string
     """
     expire = datetime.now(UTC) + timedelta(seconds=SSE_TICKET_EXPIRE_SECONDS)
+    token_id = str(uuid4())  # Unique JWT ID for individual token revocation
     to_encode = {
         "sub": str(user_id),
         "role": role,
         "exp": expire,
         "type": "sse_ticket",  # Distinguishes from regular access tokens
+        "jti": token_id,  # RFC 7519: JWT ID claim for token identification
         "iat": datetime.now(UTC),
     }
     return jwt.encode(to_encode, settings.secret_key, algorithm=ALGORITHM)

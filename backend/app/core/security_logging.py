@@ -6,7 +6,8 @@ such as SSRF attempts, rate limiting, authentication failures, and
 authorization denials.
 
 All security events are logged with consistent structure for easy
-monitoring, alerting, and audit trails.
+monitoring, alerting, and audit trails. Events are also persisted
+to the database for compliance and incident response.
 
 Usage:
     from app.core.security_logging import security_logger
@@ -24,6 +25,9 @@ from uuid import UUID
 import structlog
 
 logger = structlog.get_logger()
+
+# Late imports to avoid circular dependencies
+# These are imported inside methods that need them
 
 
 class SecurityEventType(str, Enum):
@@ -62,7 +66,8 @@ class SecurityLogger:
     Centralized security event logger.
 
     Provides structured logging methods for all security-relevant events
-    with consistent format and context.
+    with consistent format and context. Events are both logged to structlog
+    and persisted to the database for compliance purposes.
     """
 
     def __init__(self):
@@ -80,6 +85,8 @@ class SecurityLogger:
         """
         Log a security event with structured context.
 
+        Events are logged to structlog and persisted to the database.
+
         Args:
             event_type: Type of security event
             severity: Log level (info, warning, error, critical)
@@ -90,6 +97,7 @@ class SecurityLogger:
         """
         log_method = getattr(self._logger, severity, self._logger.warning)
 
+        # Log to structlog (sync, immediate)
         log_method(
             message,
             event_type=event_type.value,
@@ -98,6 +106,94 @@ class SecurityLogger:
             timestamp=datetime.now(UTC).isoformat(),
             **extra_context,
         )
+
+        # Extract known fields from extra_context for database persistence
+        email = extra_context.pop("email", None)
+        endpoint = extra_context.get("endpoint")  # Keep in context for details
+
+        # Persist to database (async, background)
+        self._persist_event(
+            event_type=event_type,
+            severity=severity,
+            message=message,
+            user_id=user_id,
+            ip_address=ip_address,
+            email=email,
+            endpoint=endpoint,
+            details=extra_context if extra_context else None,
+        )
+
+    def _persist_event(
+        self,
+        event_type: SecurityEventType,
+        severity: str,
+        message: str,
+        user_id: UUID | None = None,
+        ip_address: str | None = None,
+        email: str | None = None,
+        endpoint: str | None = None,
+        details: dict | None = None,
+    ) -> None:
+        """Persist security event to database asynchronously."""
+        try:
+            # Late imports to avoid circular dependencies
+            from app.models.security_event import SecurityEventSeverity
+            from app.models.security_event import SecurityEventType as DBSecurityEventType
+            from services.security_event_service import security_event_service
+
+            # Mapping from local event types to database event types
+            event_type_mapping = {
+                SecurityEventType.AUTH_FAILURE: DBSecurityEventType.LOGIN_FAILURE,
+                SecurityEventType.AUTH_SUCCESS: DBSecurityEventType.LOGIN_SUCCESS,
+                SecurityEventType.AUTH_LOGOUT: DBSecurityEventType.LOGOUT,
+                SecurityEventType.AUTH_TOKEN_INVALID: DBSecurityEventType.ACCESS_DENIED,
+                SecurityEventType.AUTH_TOKEN_EXPIRED: DBSecurityEventType.ACCESS_DENIED,
+                SecurityEventType.AUTHZ_DENIED: DBSecurityEventType.ACCESS_DENIED,
+                SecurityEventType.AUTHZ_ESCALATION_ATTEMPT: DBSecurityEventType.PERMISSION_ESCALATION_ATTEMPT,
+                SecurityEventType.RATE_LIMIT_EXCEEDED: DBSecurityEventType.RATE_LIMIT_EXCEEDED,
+                SecurityEventType.RATE_LIMIT_WARNING: DBSecurityEventType.RATE_LIMIT_WARNING,
+                SecurityEventType.SSRF_BLOCKED: DBSecurityEventType.SSRF_ATTEMPT,
+                SecurityEventType.SSRF_REDIRECT_BLOCKED: DBSecurityEventType.SSRF_ATTEMPT,
+                SecurityEventType.SUSPICIOUS_PATTERN: DBSecurityEventType.SUSPICIOUS_REQUEST,
+                SecurityEventType.BRUTE_FORCE_DETECTED: DBSecurityEventType.SUSPICIOUS_REQUEST,
+                SecurityEventType.INPUT_VALIDATION_FAILED: DBSecurityEventType.INVALID_INPUT,
+                SecurityEventType.INPUT_SIZE_EXCEEDED: DBSecurityEventType.INVALID_INPUT,
+            }
+
+            # Mapping from string severity to enum
+            severity_mapping = {
+                "info": SecurityEventSeverity.INFO,
+                "warning": SecurityEventSeverity.WARNING,
+                "error": SecurityEventSeverity.ERROR,
+                "critical": SecurityEventSeverity.CRITICAL,
+            }
+
+            db_event_type = event_type_mapping.get(event_type)
+            if not db_event_type:
+                return  # Event type not mapped, skip persistence
+
+            db_severity = severity_mapping.get(severity, SecurityEventSeverity.INFO)
+
+            # Determine success based on event type
+            success = event_type in {
+                SecurityEventType.AUTH_SUCCESS,
+                SecurityEventType.AUTH_LOGOUT,
+            }
+
+            security_event_service.log_event_background(
+                event_type=db_event_type,
+                message=message,
+                severity=db_severity,
+                user_id=str(user_id) if user_id else None,
+                user_email=email,
+                ip_address=ip_address,
+                endpoint=endpoint,
+                details=details,
+                success=success,
+            )
+        except Exception:
+            # Never let persistence failure break the application
+            pass
 
     # =========================================================================
     # SSRF Protection Events
