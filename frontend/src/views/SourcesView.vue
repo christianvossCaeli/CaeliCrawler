@@ -911,8 +911,11 @@ onMounted(async () => {
     store.setFilter('status', route.query.status as SourceStatus)
   }
 
-  // Initialize store data
-  await store.initialize()
+  // Initialize store data and fetch running jobs in parallel for faster load
+  await Promise.all([
+    store.initialize(),
+    fetchRunningJobs(),
+  ])
 
   // Check for id query parameter to auto-select source (from DataFreshness widget)
   if (route.query.id) {
@@ -922,9 +925,6 @@ onMounted(async () => {
       store.selectedSource = source
     }
   }
-
-  // Fetch running jobs on mount
-  await fetchRunningJobs()
 })
 
 onUnmounted(() => {

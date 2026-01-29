@@ -2,6 +2,9 @@
 import { api } from './client'
 export { api }
 
+// Export request deduplication utilities
+export { deduplicatedGet, clearRequestCache, getRequestCacheSize } from './cache'
+
 // Category API - dedicated module for category operations
 import * as categoryExports from './categories'
 export const categoryApi = categoryExports.categoryApi

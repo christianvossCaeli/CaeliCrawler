@@ -4,25 +4,30 @@ import App from './App.vue'
 import router from './router'
 import { setupApiInterceptors } from './services/api/client'
 
-// Vuetify
+// Vuetify - components auto-imported by vite-plugin-vuetify
 import 'vuetify/styles'
 import './styles/global.css'
 import { createVuetify } from 'vuetify'
-import * as components from 'vuetify/components'
 import * as directives from 'vuetify/directives'
-import * as labsComponents from 'vuetify/labs/components'
-import '@mdi/font/css/materialdesignicons.css'
 import { de, en } from 'vuetify/locale'
+
+// SVG Icons - tree-shakeable, replaces ~200KB @mdi/font
+import { mdiSvgIconSet, iconAliases } from './plugins/icons'
 
 // i18n
 import i18n, { getLocale } from './locales'
 
 const vuetify = createVuetify({
-  components: {
-    ...components,
-    ...labsComponents,
-  },
+  // Components auto-imported by vite-plugin-vuetify for tree-shaking
   directives,
+  // SVG Icons - tree-shakeable (~5KB vs ~200KB font)
+  icons: {
+    defaultSet: 'mdi',
+    aliases: iconAliases,
+    sets: {
+      mdi: mdiSvgIconSet,
+    },
+  },
   locale: {
     locale: getLocale(),
     fallback: 'de',

@@ -84,7 +84,7 @@
         >
           <v-card-text class="text-center py-3">
             <div class="text-h5" aria-hidden="true">
-              <v-icon v-if="stats.processing > 0" class="mdi-spin mr-1" size="small" aria-hidden="true">mdi-loading</v-icon>
+              <v-icon v-if="stats.processing > 0" class="icon-spin mr-1" size="small" aria-hidden="true">mdi-loading</v-icon>
               {{ stats.processing }}
             </div>
             <div class="text-caption" aria-hidden="true">{{ $t('documents.stats.processing') }}</div>
@@ -106,7 +106,7 @@
         >
           <v-card-text class="text-center py-3">
             <div class="text-h5" aria-hidden="true">
-              <v-icon v-if="stats.analyzing > 0" class="mdi-spin mr-1" size="small" aria-hidden="true">mdi-brain</v-icon>
+              <v-icon v-if="stats.analyzing > 0" class="icon-spin mr-1" size="small" aria-hidden="true">mdi-brain</v-icon>
               {{ stats.analyzing }}
             </div>
             <div class="text-caption" aria-hidden="true">{{ $t('documents.stats.analyzing') }}</div>
@@ -305,7 +305,7 @@
 
         <template #item.processing_status="{ item }">
           <v-chip :color="getStatusColor(item.processing_status)" size="small">
-            <v-icon v-if="item.processing_status === 'PROCESSING' || item.processing_status === 'ANALYZING'" class="mr-1 mdi-spin" size="small">
+            <v-icon v-if="item.processing_status === 'PROCESSING' || item.processing_status === 'ANALYZING'" class="mr-1 icon-spin" size="small">
               {{ item.processing_status === 'ANALYZING' ? 'mdi-brain' : 'mdi-loading' }}
             </v-icon>
             {{ getStatusLabel(item.processing_status) }}
@@ -678,3 +678,18 @@ function clearSelection() {
 // Initialize on mount
 onMounted(() => initialize())
 </script>
+
+<style scoped>
+.icon-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+</style>

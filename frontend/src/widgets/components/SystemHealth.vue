@@ -18,7 +18,7 @@
         class="mb-4"
       >
         <template #prepend>
-          <v-icon :icon="healthIcon" />
+          <v-icon :icon="healthIcon" :class="{ 'icon-spin': overallHealth === 'active' }" />
         </template>
         <span class="text-subtitle-2 font-weight-medium">
           {{ $t(`dashboard.health.${overallHealth}`) }}
@@ -183,7 +183,7 @@ const healthColor = computed(() => {
 const healthIcon = computed(() => {
   const iconMap: Record<string, string> = {
     healthy: 'mdi-check-circle',
-    active: 'mdi-sync mdi-spin',
+    active: 'mdi-sync',
     warning: 'mdi-alert',
     unknown: 'mdi-help-circle',
   }
@@ -234,5 +234,18 @@ const handleKeydownResults = (event: KeyboardEvent) => {
 .non-interactive {
   cursor: default;
   pointer-events: none;
+}
+
+.icon-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>

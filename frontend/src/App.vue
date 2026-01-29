@@ -162,14 +162,14 @@
             <template #prepend>
               <v-icon>mdi-lock-reset</v-icon>
             </template>
-            <v-list-item-title>{{ $t('auth.changePassword') }}</v-list-item-title>
+            <v-list-item-title>{{ $t('auth.changePassword.title') }}</v-list-item-title>
           </v-list-item>
           <v-divider></v-divider>
           <v-list-item class="text-error" @click="logout">
             <template #prepend>
               <v-icon color="error">mdi-logout</v-icon>
             </template>
-            <v-list-item-title>{{ $t('auth.logout') }}</v-list-item-title>
+            <v-list-item-title>{{ $t('auth.logout.title') }}</v-list-item-title>
           </v-list-item>
         </v-list>
       </v-menu>
@@ -186,19 +186,19 @@
     <!-- Password Change Dialog -->
     <v-dialog v-model="passwordDialogOpen" :max-width="DIALOG_SIZES.XS" role="dialog" aria-modal="true">
       <v-card>
-        <v-card-title>{{ $t('auth.changePassword') }}</v-card-title>
+        <v-card-title>{{ $t('auth.changePassword.title') }}</v-card-title>
         <v-card-text class="pt-4">
           <v-form @submit.prevent="changePassword">
             <v-text-field
               v-model="currentPassword"
-              :label="$t('auth.currentPassword')"
+              :label="$t('auth.changePassword.currentPassword')"
               type="password"
               variant="outlined"
               class="mb-3"
             />
             <v-text-field
               v-model="newPassword"
-              :label="$t('auth.newPassword')"
+              :label="$t('auth.changePassword.newPassword')"
               type="password"
               :rules="[v => v.length >= 8 || $t('auth.validation.passwordMinLength', { min: 8 })]"
               variant="outlined"
@@ -206,7 +206,7 @@
             />
             <v-text-field
               v-model="confirmPassword"
-              :label="$t('auth.confirmPassword')"
+              :label="$t('auth.changePassword.confirmPassword')"
               type="password"
               :rules="[v => v === newPassword || $t('auth.validation.passwordsDoNotMatch')]"
               variant="outlined"
@@ -256,12 +256,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, defineAsyncComponent } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTheme, useLocale } from 'vuetify'
 import { useI18n } from 'vue-i18n'
 import CaeliWindLogo from './components/CaeliWindLogo.vue'
-import ChatAssistant from './components/assistant/ChatAssistant.vue'
+// Lazy load ChatAssistant to reduce initial bundle by ~50KB
+const ChatAssistant = defineAsyncComponent(() =>
+  import('./components/assistant/ChatAssistant.vue')
+)
 import LanguageSwitcher from './components/LanguageSwitcher.vue'
 import AriaLiveRegion from './components/AriaLiveRegion.vue'
 import { ErrorBoundary } from './components/common'
@@ -441,14 +444,31 @@ async function changePassword() {
 
   if (result.success) {
     passwordDialogOpen.value = false
-    showMessage(t('auth.passwordChanged'), 'success')
+    showMessage(t('auth.changePassword.success'), 'success')
   } else {
-    showMessage(result.error || t('auth.passwordChangeError'), 'error')
+    showMessage(result.error || t('auth.changePassword.error'), 'error')
   }
 }
 
 // Badge counts polling interval (notifications now use SSE)
 let badgeInterval: ReturnType<typeof setInterval> | null = null
+
+// Visibility API: pause polling when tab is hidden to save resources
+function handleVisibilityChange() {
+  if (document.hidden) {
+    // Tab is hidden - stop polling
+    if (badgeInterval) {
+      clearInterval(badgeInterval)
+      badgeInterval = null
+    }
+  } else {
+    // Tab is visible again - resume polling if authenticated
+    if (auth.isAuthenticated && auth.initialized && !badgeInterval) {
+      loadBadgeCounts() // Immediate refresh
+      badgeInterval = setInterval(loadBadgeCounts, 60000)
+    }
+  }
+}
 
 // Load badge counts for navigation
 async function loadBadgeCounts() {
@@ -516,10 +536,15 @@ onMounted(() => {
     locale.value = savedLanguage
     vuetifyLocale.current.value = savedLanguage
   }
+
+  // Register visibility change handler to pause polling when tab is hidden
+  document.addEventListener('visibilitychange', handleVisibilityChange)
 })
 
 // Cleanup all resources on unmount to prevent memory leaks
 onUnmounted(() => {
+  // Remove visibility change listener
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
   // Cleanup SSE and any polling fallback
   cleanupRealtime()
   if (badgeInterval) {

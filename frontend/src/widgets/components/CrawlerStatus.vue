@@ -70,7 +70,7 @@
             @keydown="handleKeydownJob($event, job.id)"
           >
             <template #prepend>
-              <v-icon icon="mdi-sync mdi-spin" color="info" size="small" />
+              <v-icon icon="mdi-sync" color="info" size="small" class="icon-spin" />
             </template>
             <v-list-item-title class="text-body-2">
               {{ job.source_name }}
@@ -268,5 +268,18 @@ const handleKeydownJob = (event: KeyboardEvent, jobId: string) => {
 .non-interactive {
   cursor: default;
   pointer-events: none;
+}
+
+.icon-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>

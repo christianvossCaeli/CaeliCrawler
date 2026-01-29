@@ -1,4 +1,5 @@
 import { api } from './client'
+import { deduplicatedGet } from './cache'
 import type {
   EntityTypeListParams,
   EntityTypeCreate,
@@ -8,20 +9,20 @@ import type {
   EntityUpdate,
 } from '@/types/entity'
 
-// Entity Types
-export const getEntityTypes = (params?: EntityTypeListParams) => api.get('/v1/entity-types', { params })
+// Entity Types - uses deduplicatedGet as this is called frequently by many components
+export const getEntityTypes = (params?: EntityTypeListParams) => deduplicatedGet('/v1/entity-types', { params })
 export const getEntityType = (id: string) => api.get(`/v1/entity-types/${id}`)
 export const getEntityTypeBySlug = (slug: string) => api.get(`/v1/entity-types/by-slug/${slug}`)
 export const createEntityType = (data: EntityTypeCreate) => api.post('/v1/entity-types', data)
 export const updateEntityType = (id: string, data: EntityTypeUpdate) => api.put(`/v1/entity-types/${id}`, data)
 export const deleteEntityType = (id: string) => api.delete(`/v1/entity-types/${id}`)
 
-// Entities
+// Entities - uses deduplicatedGet for frequently accessed lookups
 export const getEntities = (params?: EntityListParams) => api.get('/v1/entities', { params })
-export const getEntity = (id: string) => api.get(`/v1/entities/${id}`)
+export const getEntity = (id: string) => deduplicatedGet(`/v1/entities/${id}`)
 export const getEntityBySlug = (typeSlug: string, entitySlug: string) =>
-  api.get(`/v1/entities/by-slug/${typeSlug}/${entitySlug}`)
-export const getEntityBrief = (id: string) => api.get(`/v1/entities/${id}/brief`)
+  deduplicatedGet(`/v1/entities/by-slug/${typeSlug}/${entitySlug}`)
+export const getEntityBrief = (id: string) => deduplicatedGet(`/v1/entities/${id}/brief`)
 export const getEntityChildren = (id: string, params?: EntityListParams) =>
   api.get(`/v1/entities/${id}/children`, { params })
 export const getEntityHierarchy = (entityTypeSlug: string, params?: { max_depth?: number }) =>

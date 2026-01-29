@@ -1,4 +1,5 @@
 import { api } from './client'
+import { deduplicatedGet } from './cache'
 import type {
   CrawlJobListParams,
   CrawlStartRequest,
@@ -40,8 +41,9 @@ export const deleteCancelledJobs = () => api.delete<{
   success: boolean
   data: { deleted_count: number }
 }>('/admin/crawler/jobs/cancelled')
-export const getCrawlerStats = () => api.get('/admin/crawler/stats')
-export const getCrawlerStatus = () => api.get('/admin/crawler/status')
+// Use deduplicatedGet for frequently polled endpoints
+export const getCrawlerStats = () => deduplicatedGet('/admin/crawler/stats')
+export const getCrawlerStatus = () => deduplicatedGet('/admin/crawler/status')
 export const reanalyzeDocuments = (params?: { category_id?: string; reanalyze_all?: boolean; limit?: number }) =>
   api.post('/admin/crawler/reanalyze', null, { params })
 export const getRunningJobs = () => api.get('/admin/crawler/running')
@@ -421,17 +423,17 @@ export const getCheckUpdatesStatus = (summaryId: string, taskId: string) =>
     error?: string
   }>(`/admin/summaries/${summaryId}/check-updates/${taskId}/status`)
 
-// Dashboard
+// Dashboard - uses deduplicatedGet for stats that are often requested in parallel
 export const getDashboardPreferences = () => api.get('/v1/dashboard/preferences')
 export const updateDashboardPreferences = (data: DashboardPreferences) =>
   api.put('/v1/dashboard/preferences', data)
-export const getDashboardStats = () => api.get('/v1/dashboard/stats')
+export const getDashboardStats = () => deduplicatedGet('/v1/dashboard/stats')
 export const getDashboardActivityFeed = (params?: { limit?: number; offset?: number }) =>
   api.get('/v1/dashboard/activity', { params })
 export const getDashboardInsights = (params?: { period_days?: number }) =>
-  api.get('/v1/dashboard/insights', { params })
+  deduplicatedGet('/v1/dashboard/insights', { params })
 export const getDashboardChartData = (chartType: string) =>
-  api.get(`/v1/dashboard/charts/${chartType}`)
+  deduplicatedGet(`/v1/dashboard/charts/${chartType}`)
 
 // LLM Usage Analytics
 export const getLLMAnalytics = (params?: {

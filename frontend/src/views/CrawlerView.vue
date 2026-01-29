@@ -111,7 +111,7 @@
     <!-- Running AI Tasks -->
     <v-card v-if="runningAiTasks.length > 0" class="mb-4" color="info-lighten-5">
       <v-card-title class="d-flex align-center">
-        <v-icon color="info" class="mr-2 mdi-spin">mdi-loading</v-icon>
+        <v-icon color="info" class="mr-2 icon-spin">mdi-loading</v-icon>
         {{ $t('crawler.aiTasks') }} ({{ runningAiTasks.length }})
         <v-spacer></v-spacer>
         <v-chip size="small" color="info">{{ $t('crawler.liveUpdates') }}</v-chip>
@@ -123,7 +123,7 @@
             :key="task.id"
           >
             <template #prepend>
-              <v-icon color="info" class="mdi-spin" size="small">mdi-brain</v-icon>
+              <v-icon color="info" class="icon-spin" size="small">mdi-brain</v-icon>
             </template>
             <v-list-item-title>{{ task.name }}</v-list-item-title>
             <v-list-item-subtitle>
@@ -160,7 +160,7 @@
     <!-- Active Crawlers with Live Log -->
     <v-card v-if="runningJobs.length > 0" class="mb-4 card-running">
       <v-card-title class="d-flex align-center">
-        <v-icon color="info" class="mr-2 mdi-spin">mdi-loading</v-icon>
+        <v-icon color="info" class="mr-2 icon-spin">mdi-loading</v-icon>
         {{ $t('crawler.activeCrawlers') }} ({{ runningJobs.length }})
         <v-spacer></v-spacer>
         <v-chip size="small" color="info">{{ $t('crawler.liveUpdatesInterval') }}</v-chip>
@@ -174,7 +174,7 @@
           >
             <v-expansion-panel-title>
               <div class="d-flex align-center w-100">
-                <v-icon color="info" class="mr-2 mdi-spin" size="small">mdi-web-sync</v-icon>
+                <v-icon color="info" class="mr-2 icon-spin" size="small">mdi-web-sync</v-icon>
                 <div class="flex-grow-1">
                   <div class="font-weight-bold">{{ rj.source_name }}</div>
                   <div class="text-caption text-primary">
@@ -376,7 +376,7 @@
 
         <template #item.status="{ item }">
           <v-chip :color="getStatusColor(item.status)" size="small">
-            <v-icon v-if="item.status === 'RUNNING'" class="mr-1" size="small">mdi-loading mdi-spin</v-icon>
+            <v-icon v-if="item.status === 'RUNNING'" class="mr-1 icon-spin" size="small">mdi-loading</v-icon>
             {{ item.status }}
           </v-chip>
         </template>
@@ -672,4 +672,19 @@ usePageContextProvider(
 // Initialize on mount
 onMounted(() => initialize())
 </script>
+
+<style scoped>
+.icon-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+</style>
 

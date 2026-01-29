@@ -145,21 +145,32 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, type Component } from 'vue'
+import { ref, computed, onMounted, defineAsyncComponent, type Component } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
 import { extractErrorMessage } from '@/utils/errorMessage'
 
-// Import visualization components
+// Lightweight visualization components - static imports (small bundle impact)
 import TableVisualization from '@/components/smartquery/visualizations/TableVisualization.vue'
-import BarChartVisualization from '@/components/smartquery/visualizations/BarChartVisualization.vue'
-import LineChartVisualization from '@/components/smartquery/visualizations/LineChartVisualization.vue'
-import PieChartVisualization from '@/components/smartquery/visualizations/PieChartVisualization.vue'
 import StatCardVisualization from '@/components/smartquery/visualizations/StatCardVisualization.vue'
 import TextVisualization from '@/components/smartquery/visualizations/TextVisualization.vue'
 import ComparisonVisualization from '@/components/smartquery/visualizations/ComparisonVisualization.vue'
-import MapVisualization from '@/components/smartquery/visualizations/MapVisualization.vue'
+
+// Heavy visualization components - lazy loaded to reduce initial bundle
+// Chart.js (~180KB) and MapLibre (~1MB) are loaded on-demand
+const BarChartVisualization = defineAsyncComponent(
+  () => import('@/components/smartquery/visualizations/BarChartVisualization.vue')
+)
+const LineChartVisualization = defineAsyncComponent(
+  () => import('@/components/smartquery/visualizations/LineChartVisualization.vue')
+)
+const PieChartVisualization = defineAsyncComponent(
+  () => import('@/components/smartquery/visualizations/PieChartVisualization.vue')
+)
+const MapVisualization = defineAsyncComponent(
+  () => import('@/components/smartquery/visualizations/MapVisualization.vue')
+)
 import { useFileDownload } from '@/composables/useFileDownload'
 import { useLogger } from '@/composables/useLogger'
 import { useDateFormatter } from '@/composables'
