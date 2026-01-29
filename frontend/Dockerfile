@@ -34,6 +34,14 @@ RUN npm run build
 # Production stage with nginx (security hardened)
 FROM nginx:alpine AS production
 
+# OCI Image Labels (https://github.com/opencontainers/image-spec/blob/main/annotations.md)
+LABEL org.opencontainers.image.title="CaeliCrawler Frontend"
+LABEL org.opencontainers.image.description="Vue.js frontend for CaeliCrawler municipal data platform"
+LABEL org.opencontainers.image.vendor="CaeliCrawler"
+LABEL org.opencontainers.image.licenses="Proprietary"
+LABEL org.opencontainers.image.source="https://github.com/caelichrawler/caelichrawler"
+LABEL org.opencontainers.image.base.name="nginx:alpine"
+
 # Create non-root user for security
 RUN addgroup -g 1001 -S nginx-user && \
     adduser -S -D -H -u 1001 -h /var/cache/nginx -s /sbin/nologin -G nginx-user nginx-user && \

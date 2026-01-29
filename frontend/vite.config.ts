@@ -1,6 +1,8 @@
 /// <reference types="vitest" />
 import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import vuetify from 'vite-plugin-vuetify'
+import Icons from 'unplugin-icons/vite'
 import { fileURLToPath, URL } from 'node:url'
 
 export default defineConfig(({ mode }) => {
@@ -8,7 +10,16 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
 
   return {
-    plugins: [vue()],
+    plugins: [
+      vue(),
+      // Vuetify tree-shaking: only include components actually used
+      vuetify({ autoImport: true }),
+      // Icon tree-shaking: only bundle icons actually used (replaces ~200KB @mdi/font)
+      Icons({
+        compiler: 'vue3',
+        autoInstall: true,
+      }),
+    ],
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url))
@@ -26,13 +37,21 @@ export default defineConfig(({ mode }) => {
       proxy: {
         '/api': {
           target: env.VITE_API_BASE_URL || 'http://backend:8000',
-          changeOrigin: true
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api/, '')
         }
       }
     },
     build: {
       // Increase chunk warning limit since we have intentional large chunks
       chunkSizeWarningLimit: 600,
+      // esbuild minification with production optimizations
+      minify: 'esbuild',
+      // Drop console.log in production for smaller bundles
+      esbuild: mode === 'production' ? {
+        drop: ['console', 'debugger'],
+        legalComments: 'none',
+      } : undefined,
       rollupOptions: {
         output: {
           manualChunks: (id) => {

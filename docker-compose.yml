@@ -5,7 +5,15 @@
 # - Copy .env.example to .env and configure all variables
 # - In production: NEVER use default passwords
 # - In production: Use docker secrets or external secret management
+# - In production: Set BEHIND_HTTPS_PROXY=true
 # - Review resource limits for your infrastructure
+#
+# REQUIRED FOR PRODUCTION:
+# - POSTGRES_PASSWORD: Strong password (not default!)
+# - SECRET_KEY: At least 32 characters (generate with: python -c "import secrets; print(secrets.token_urlsafe(32))")
+# - APP_ENV: Set to "production"
+# - BEHIND_HTTPS_PROXY: Set to "true" when behind HTTPS proxy
+# - CORS_ORIGINS: Set to your frontend domain(s)
 # ============================================
 
 services:
@@ -19,15 +27,27 @@ services:
       # Default 'caelichrawler_secret' is ONLY for local development
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-caelichrawler_secret}
       POSTGRES_DB: caelichrawler
-    # PostgreSQL configuration with connection protection:
+    # PostgreSQL configuration optimized for 2GB RAM limit:
+    # Memory settings: shared_buffers=25% RAM, effective_cache_size=75% RAM
     # - max_connections: Total connection limit
+    # - shared_buffers: Memory for shared data cache (25% of container RAM)
+    # - effective_cache_size: Planner hint for OS cache size (75% of container RAM)
+    # - work_mem: Memory per sort/hash operation (per connection, be conservative)
+    # - maintenance_work_mem: Memory for VACUUM, CREATE INDEX
     # - idle_in_transaction_session_timeout: Auto-kill idle transactions after 5 minutes
     # - statement_timeout: Maximum query execution time (10 minutes)
     # - tcp_keepalives_*: Detect dead connections faster
+    # - random_page_cost: Tuned for SSD storage (default 4.0 is for HDD)
+    # - checkpoint_completion_target: Spread checkpoints over longer time
     command: >
       postgres
       -c max_connections=200
-      -c shared_buffers=256MB
+      -c shared_buffers=512MB
+      -c effective_cache_size=1536MB
+      -c work_mem=32MB
+      -c maintenance_work_mem=128MB
+      -c random_page_cost=1.1
+      -c checkpoint_completion_target=0.9
       -c idle_in_transaction_session_timeout=300000
       -c statement_timeout=600000
       -c tcp_keepalives_idle=60
@@ -36,6 +56,7 @@ services:
       -c log_min_duration_statement=5000
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./backend/docker/postgres-init:/docker-entrypoint-initdb.d:ro
     ports:
       - "5432:5432"
     healthcheck:
@@ -57,7 +78,8 @@ services:
   redis:
     image: redis:7-alpine
     container_name: caelichrawler-redis
-    command: redis-server --appendonly yes
+    # Memory management: 450MB limit with LRU eviction to prevent OOM crashes
+    command: redis-server --appendonly yes --maxmemory 450mb --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data
     ports:
@@ -111,7 +133,17 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    # Development: use --reload for hot-reloading (uncomment below, comment production line)
+    # command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    # Production: multi-worker, optimized settings (2 workers for 2 CPU cores)
+    command: >
+      uvicorn app.main:app
+      --host 0.0.0.0
+      --port 8000
+      --workers 2
+      --timeout-keep-alive 65
+      --limit-concurrency 100
+      --limit-max-requests 10000
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s

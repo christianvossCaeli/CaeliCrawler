@@ -1,0 +1,35 @@
+# Development Override Configuration
+# This file is automatically loaded by docker-compose and overrides docker-compose.yml
+# For production, use: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  backend:
+    # Development: single worker with hot-reload
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./backend:/app
+      - document_storage:/app/storage/documents
+
+  celery-worker:
+    volumes:
+      - ./backend:/app
+      - document_storage:/app/storage/documents
+
+  celery-worker-crawl:
+    volumes:
+      - ./backend:/app
+      - document_storage:/app/storage/documents
+
+  celery-worker-ai:
+    volumes:
+      - ./backend:/app
+      - document_storage:/app/storage/documents
+
+  celery-beat:
+    volumes:
+      - ./backend:/app
+
+  frontend:
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules

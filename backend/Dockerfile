@@ -34,6 +34,14 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # -----------------------------------------------------------------------------
 FROM python:3.13-slim AS runtime
 
+# OCI Image Labels (https://github.com/opencontainers/image-spec/blob/main/annotations.md)
+LABEL org.opencontainers.image.title="CaeliCrawler Backend"
+LABEL org.opencontainers.image.description="FastAPI backend for CaeliCrawler municipal data platform"
+LABEL org.opencontainers.image.vendor="CaeliCrawler"
+LABEL org.opencontainers.image.licenses="Proprietary"
+LABEL org.opencontainers.image.source="https://github.com/caelichrawler/caelichrawler"
+LABEL org.opencontainers.image.base.name="python:3.13-slim"
+
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
