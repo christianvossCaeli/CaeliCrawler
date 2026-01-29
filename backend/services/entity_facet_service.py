@@ -730,25 +730,39 @@ async def check_duplicate_facet(
     Check if a similar facet value already exists.
 
     Uses simple string matching for now. Could be enhanced with embeddings.
+
+    Performance optimization: Only loads text_representation column with a
+    reasonable limit to avoid memory issues with entities having many facet values.
     """
     # Normalize for comparison
     normalized = normalize_name(text_representation)
 
-    # Get existing facet values for this entity and type
+    # Early exit for very short text (too generic to dedupe)
+    if len(normalized) < 3:
+        return False
+
+    # Get existing facet values - only load text_representation column
+    # Use LIMIT to avoid loading thousands of records for entities with many facets
+    # The unique index prevents exact duplicates at DB level anyway
     result = await session.execute(
-        select(FacetValue).where(
+        select(FacetValue.text_representation)
+        .where(
             FacetValue.entity_id == entity_id,
             FacetValue.facet_type_id == facet_type_id,
+            FacetValue.is_active == True,  # noqa: E712
         )
+        .limit(500)  # Reasonable limit for similarity checking
     )
-    existing = result.scalars().all()
+    existing_texts = result.scalars().all()
 
-    for fv in existing:
-        existing_normalized = normalize_name(fv.text_representation or "")
+    for existing_text in existing_texts:
+        if not existing_text:
+            continue
+        existing_normalized = normalize_name(existing_text)
         # Simple substring check
         if normalized in existing_normalized or existing_normalized in normalized:
             return True
-        # Check for high similarity (Jaccard-like)
+        # Check for high similarity (Jaccard-like) only for longer text
         if len(normalized) > 10 and len(existing_normalized) > 10:
             set1 = set(normalized.split())
             set2 = set(existing_normalized.split())
@@ -880,7 +894,9 @@ async def convert_extraction_to_facets(
     counts: dict[str, int] = {}
 
     # Metadata fields to skip (not actual facet data)
+    # These are internal/structural fields from AI extraction, not user-facing facet data
     SKIP_FIELDS = {
+        # Geographic/location metadata
         "municipality",
         "source_location",
         "source_region",
@@ -890,6 +906,7 @@ async def convert_extraction_to_facets(
         "bundesland",
         "land",
         "country",
+        # Document/processing metadata
         "document_type",
         "relevance",
         "relevance_score",
@@ -897,6 +914,18 @@ async def convert_extraction_to_facets(
         "extraction_date",
         "processing_notes",
         "raw_text",
+        # Internal AI extraction fields (not user-facing data)
+        "suggested_additional_pages",
+        "source_page",
+        "source_pages",
+        "page_numbers",
+        "analyzed_pages",
+        "total_pages",
+        # Summary/meta fields
+        "summary",
+        "zusammenfassung",
+        "meta",
+        "metadata",
     }
 
     # Process each field in extracted_content

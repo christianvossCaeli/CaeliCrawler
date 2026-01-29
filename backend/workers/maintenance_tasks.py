@@ -43,16 +43,36 @@ def cleanup_idle_connections():
 
 @celery_app.task(name="workers.maintenance_tasks.log_connection_stats")
 def log_connection_stats():
-    """Log current database connection statistics.
+    """Log current database connection statistics and update Prometheus metrics.
 
     This task runs periodically (every 15 minutes) to provide visibility
     into connection pool usage. The stats can be used for alerting when
     connection usage approaches the limit.
+
+    Also updates Prometheus gauges for connection pool monitoring.
     """
-    from app.database import get_connection_stats
+    from app.database import get_celery_engine, get_connection_stats
+    from app.monitoring.metrics import (
+        db_connections_max,
+        db_connections_total,
+        update_db_pool_metrics,
+    )
 
     async def _stats():
         stats = await get_connection_stats()
+
+        # Update Prometheus metrics for PostgreSQL connection stats
+        for state, count in stats.items():
+            if state not in ("total_current", "max_connections", "error"):
+                db_connections_total.labels(state=state).set(count)
+
+        if "max_connections" in stats:
+            db_connections_max.set(stats["max_connections"])
+
+        # Update Celery pool metrics
+        celery_engine = get_celery_engine()
+        if celery_engine:
+            update_db_pool_metrics(celery_engine, "celery")
 
         # Calculate usage percentage
         total = stats.get("total_current", 0)

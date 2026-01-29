@@ -162,6 +162,10 @@ def register_tasks(celery_app):
                         if source_admin_level_1:
                             content["source_admin_level_1"] = source_admin_level_1
 
+                        # Extract internal AI fields before saving
+                        # These are used for processing but should not be stored as facets
+                        internal_fields = _extract_and_remove_internal_fields(content)
+
                         # Process entity references from AI extraction
                         # Also creates FacetValues linking non-primary entities to primary entity
                         entity_references, primary_entity_id = await _process_entity_references(
@@ -221,6 +225,29 @@ def register_tasks(celery_app):
                                 document_id=document_id,
                                 error=str(facet_error),
                             )
+
+                        # Process AI-suggested additional pages
+                        # This adds new pages to relevant_pages and triggers re-analysis
+                        suggested_pages = internal_fields.get("suggested_additional_pages")
+                        if suggested_pages:
+                            try:
+                                new_pages_count = await _process_suggested_additional_pages(
+                                    document.id,
+                                    suggested_pages,
+                                    analyze_document,  # Pass the task reference for re-triggering
+                                )
+                                if new_pages_count > 0:
+                                    logger.info(
+                                        "AI suggested additional pages queued",
+                                        document_id=document_id,
+                                        new_pages_count=new_pages_count,
+                                    )
+                            except Exception as page_error:
+                                logger.warning(
+                                    "Failed to process suggested pages (non-fatal)",
+                                    document_id=document_id,
+                                    error=str(page_error),
+                                )
 
                         # Emit notification events
                         from workers.notification_tasks import emit_event
@@ -374,8 +401,8 @@ async def _process_entity_references(
     # Merge defaults with config (config takes precedence)
     array_field_mappings = {**DEFAULT_ARRAY_FIELD_MAPPINGS, **config.get("array_field_mappings", {})}
 
-    # Track which entity types have primary already assigned
-    primary_assigned_types = set()
+    # Track if we have already assigned THE primary entity (only one allowed)
+    primary_assigned = False
 
     def get_nested_value(data: dict, path: str):
         """Get value from nested dict using dot notation path."""
@@ -391,7 +418,7 @@ async def _process_entity_references(
 
     async def process_field_value(field_value, entity_type, source_field):
         """Process a field value and extract entity references."""
-        nonlocal primary_entity_id
+        nonlocal primary_entity_id, primary_assigned
 
         if not field_value:
             return
@@ -405,29 +432,30 @@ async def _process_entity_references(
             if value.lower() in ("", "unbekannt", "null", "none", "n/a"):
                 continue
 
-            # Determine role - first of each type is primary
-            is_primary = entity_type not in primary_assigned_types
+            # Resolve to existing entity first
+            entity_id = await _resolve_entity(session, entity_type, value)
+
+            # Skip if entity could not be resolved (e.g., invalid person name)
+            if entity_id is None:
+                continue
+
+            # Determine role - ONLY the FIRST entity with a valid entity_id is primary
+            is_primary = not primary_assigned
             role = "primary" if is_primary else "secondary"
             if is_primary:
-                primary_assigned_types.add(entity_type)
-
-            # Resolve to existing entity
-            entity_id = await _resolve_entity(session, entity_type, value)
+                primary_assigned = True
+                primary_entity_id = entity_id
 
             entity_references.append(
                 {
                     "entity_type": entity_type,
                     "entity_name": value,
-                    "entity_id": str(entity_id) if entity_id else None,
+                    "entity_id": str(entity_id),
                     "role": role,
                     "confidence": 0.85,
                     "source_field": source_field,
                 }
             )
-
-            # Set primary_entity_id for first resolved entity
-            if entity_id and not primary_entity_id:
-                primary_entity_id = entity_id
 
     # 1. Process simple field mappings (top-level)
     for field_name, entity_type in field_mappings.items():
@@ -515,23 +543,54 @@ async def _process_entity_references(
             # Resolve entity
             entity_id = await _resolve_entity(session, entity_type, entity_name)
 
-            role = ref.get("role", "secondary")
+            # Skip if entity could not be resolved
+            if entity_id is None:
+                continue
+
+            # AI might have marked this as "primary", but we only allow ONE primary
+            ai_role = ref.get("role", "secondary")
+            if ai_role == "primary" and not primary_assigned:
+                role = "primary"
+                primary_assigned = True
+                primary_entity_id = entity_id
+            else:
+                role = "secondary"
 
             entity_references.append(
                 {
                     "entity_type": entity_type,
                     "entity_name": entity_name,
-                    "entity_id": str(entity_id) if entity_id else None,
+                    "entity_id": str(entity_id),
                     "role": role,
                     "confidence": ref.get("confidence", 0.7),
                 }
             )
 
-            # Set primary if marked and we don't have one yet
-            if entity_id and not primary_entity_id and role == "primary":
-                primary_entity_id = entity_id
+    # 5. Deduplicate entity references before creating facets
+    # Use entity_id as primary key, fallback to entity_type:entity_name
+    seen_keys: set[str] = set()
+    deduplicated_refs: list[dict[str, Any]] = []
 
-    # 5. Create FacetValues for non-primary entities linked to primary entity
+    for ref in entity_references:
+        # Create unique key: prefer entity_id, fallback to type:name
+        entity_id = ref.get("entity_id")
+        key = entity_id or f"{ref.get('entity_type', '')}:{ref.get('entity_name', '')}"
+
+        if key in seen_keys:
+            # Duplicate found - skip (first occurrence wins, which has higher priority)
+            logger.debug(
+                "Skipping duplicate entity reference",
+                entity_name=ref.get("entity_name"),
+                entity_type=ref.get("entity_type"),
+            )
+            continue
+
+        seen_keys.add(key)
+        deduplicated_refs.append(ref)
+
+    entity_references = deduplicated_refs
+
+    # 6. Create FacetValues for non-primary entities linked to primary entity
     # This creates bidirectional relationships: primary entity gets facets for linked entities
     if primary_entity_id:
         for ref in entity_references:
@@ -558,7 +617,7 @@ async def _process_entity_references(
                 confidence_score=ref.get("confidence", 0.7),
             )
 
-    # 6. Category-based fallback: If no entities found, use default_entity_id from config
+    # 7. Category-based fallback: If no entities found, use default_entity_id from config
     if not primary_entity_id and config.get("default_entity_id"):
         try:
             default_entity_id = UUID(str(config["default_entity_id"]))
@@ -707,12 +766,166 @@ Analysierte Seiten: {", ".join(map(str, page_numbers))}
 **Anforderungen für deine Antwort:**
 1. Gib bei JEDER extrahierten Information die Seitenzahl an (z.B. "Seite 5")
 2. Verwende das Format: "Information [Seite X]" oder füge ein "source_page" Feld hinzu
-3. Falls wichtiger Kontext auf anderen Seiten fehlen könnte, gib das im Feld "suggested_additional_pages" an (Array von Seitenzahlen)
+3. Falls der Text auf wichtige Informationen auf ANDEREN Seiten verweist (z.B. "siehe Seite 15", "Fortsetzung auf Seite 8", Inhaltsverzeichnis-Einträge), gib diese im Feld "suggested_additional_pages" an. NUR konkrete Seitenzahlen die im Text erwähnt werden! Beispiel: [8, 15, 23]. KEINE willkürlichen Zahlen!
 4. Sei AUSFÜHRLICH in deinen Beschreibungen - gib konkrete Details, Zahlen, Namen und Zusammenhänge an
 5. Die Zusammenfassung sollte mindestens 150 Wörter umfassen und die wichtigsten Punkte detailliert darstellen
 
 """
     return page_context + prompt
+
+
+# Internal AI extraction fields that should not be stored as facets
+INTERNAL_AI_FIELDS = {
+    "suggested_additional_pages",
+    "source_page",
+    "source_pages",
+    "page_numbers",
+    "analyzed_pages",
+    "total_pages",
+}
+
+
+def _extract_and_remove_internal_fields(content: dict[str, Any]) -> dict[str, Any]:
+    """
+    Extract internal AI fields from content and return them separately.
+
+    These fields are used for processing but should not be stored as facets.
+    The original content dict is modified in-place.
+
+    Args:
+        content: AI extraction content (modified in-place)
+
+    Returns:
+        Dict of extracted internal fields
+    """
+    internal_fields = {}
+    for field in INTERNAL_AI_FIELDS:
+        if field in content:
+            internal_fields[field] = content.pop(field)
+    return internal_fields
+
+
+async def _process_suggested_additional_pages(
+    document_id: UUID,
+    suggested_pages: list[int] | Any,
+    analyze_document_task,
+) -> int:
+    """
+    Process AI-suggested additional pages for analysis.
+
+    Validates suggested pages, adds them to relevant_pages, and triggers
+    re-analysis if there are new pages to analyze.
+
+    Args:
+        document_id: UUID of the document
+        suggested_pages: List of page numbers suggested by AI
+        analyze_document_task: Reference to analyze_document Celery task
+
+    Returns:
+        Number of new pages queued for analysis
+    """
+    from app.database import get_celery_session_context
+    from app.models import Document
+
+    # Validate input
+    if not suggested_pages:
+        return 0
+
+    if not isinstance(suggested_pages, list):
+        logger.warning(
+            "suggested_additional_pages is not a list",
+            document_id=str(document_id),
+            value_type=type(suggested_pages).__name__,
+        )
+        return 0
+
+    # Filter to valid integers
+    valid_pages = []
+    for page in suggested_pages:
+        if isinstance(page, int) and page > 0:
+            valid_pages.append(page)
+        elif isinstance(page, (float, str)):
+            try:
+                page_int = int(page)
+                if page_int > 0:
+                    valid_pages.append(page_int)
+            except (ValueError, TypeError):
+                pass
+
+    if not valid_pages:
+        logger.debug(
+            "No valid page numbers in suggested_additional_pages",
+            document_id=str(document_id),
+            original_values=suggested_pages,
+        )
+        return 0
+
+    async with get_celery_session_context() as session:
+        # Lock the row for update
+        stmt = select(Document).where(Document.id == document_id).with_for_update()
+        result = await session.execute(stmt)
+        document = result.scalar_one_or_none()
+
+        if not document:
+            logger.warning("Document not found", document_id=str(document_id))
+            return 0
+
+        # Filter pages within valid range
+        max_page = document.page_count or 1000  # Fallback if page_count not set
+        valid_pages = [p for p in valid_pages if 1 <= p <= max_page]
+
+        if not valid_pages:
+            logger.debug(
+                "All suggested pages out of range",
+                document_id=str(document_id),
+                max_page=max_page,
+            )
+            return 0
+
+        # Get already analyzed and relevant pages
+        analyzed = set(document.analyzed_pages or [])
+        relevant = set(document.relevant_pages or [])
+
+        # Find new pages (not yet analyzed and not already in relevant)
+        new_pages = [p for p in valid_pages if p not in analyzed and p not in relevant]
+
+        if not new_pages:
+            logger.debug(
+                "All suggested pages already analyzed or queued",
+                document_id=str(document_id),
+                suggested=valid_pages,
+            )
+            return 0
+
+        # Add new pages to relevant_pages
+        updated_relevant = sorted(relevant | set(new_pages))
+        document.relevant_pages = updated_relevant
+        document.total_relevant_pages = len(updated_relevant)
+
+        # Update status to indicate more pages available
+        if document.page_analysis_status == "complete":
+            document.page_analysis_status = "has_more"
+            document.page_analysis_note = f"{len(new_pages)} neue Seiten von AI vorgeschlagen"
+
+        await session.commit()
+
+        logger.info(
+            "Added AI-suggested pages to relevant_pages",
+            document_id=str(document_id),
+            new_pages=new_pages,
+            total_relevant=len(updated_relevant),
+        )
+
+    # Trigger re-analysis for the new pages
+    analyze_document_task.delay(str(document_id), skip_relevance_check=True)
+
+    logger.info(
+        "Triggered re-analysis for AI-suggested pages",
+        document_id=str(document_id),
+        new_pages_count=len(new_pages),
+    )
+
+    return len(new_pages)
 
 
 async def _update_analyzed_pages_atomic(

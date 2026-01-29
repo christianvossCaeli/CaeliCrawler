@@ -213,7 +213,7 @@ def extract_core_entity_name(name: str, country: str = "DE") -> str:
     1. Slash-separated qualifiers: "X / Y" -> "X"
     2. Parenthetical content at the end: "X (Y)" -> "X"
     3. Trailing comma-separated qualifiers: "X, Y" -> "X"
-    4. Content after trailing colon with short text: "X: Y" -> "X" (only if Y is short)
+    4. German administrative prefixes: "Region X" -> "X", "Markt X" -> "X"
 
     It does NOT remove:
     - Important prefixes that are part of the name (FC, The, etc.)
@@ -240,8 +240,10 @@ def extract_core_entity_name(name: str, country: str = "DE") -> str:
         'The Witcher 3'
         >>> extract_core_entity_name("Metropole Ruhr / Nordrhein-Westfalen")
         'Metropole Ruhr'
-        >>> extract_core_entity_name("Region Ruhr / Regionalverband Ruhr (RVR)")
-        'Region Ruhr'
+        >>> extract_core_entity_name("Region Hannover")
+        'Hannover'
+        >>> extract_core_entity_name("Markt Erlbach")
+        'Erlbach'
     """
     result = name.strip()
     original = result
@@ -280,7 +282,31 @@ def extract_core_entity_name(name: str, country: str = "DE") -> str:
         if len(before_comma) >= 3 and (after_comma[0].isupper() or len(after_comma) <= 20):
             result = before_comma
 
-    # 4. If we stripped too much (result too short), restore original
+    # 4. Remove German administrative prefixes for duplicate detection
+    # Handles: "Region X" -> "X", "Markt X" -> "X", "Stadt X" -> "X"
+    # These are common prefixes that should not differentiate entities
+    # E.g., "Region Hannover" and "Hannover" should match
+    # E.g., "Markt Erlbach" and "Erlbach" should match
+    german_admin_prefixes = (
+        "region ",
+        "markt ",
+        "stadt ",
+        "gemeinde ",
+        "kreis ",
+        "landkreis ",
+        "große kreisstadt ",
+        "kreisfreie stadt ",
+    )
+    result_lower = result.lower()
+    for prefix in german_admin_prefixes:
+        if result_lower.startswith(prefix):
+            remainder = result[len(prefix) :].strip()
+            # Only strip if remainder is substantial (>= 3 chars)
+            if len(remainder) >= 3:
+                result = remainder
+                break
+
+    # 5. If we stripped too much (result too short), restore original
     if len(result) < 2:
         result = original
 
@@ -311,6 +337,158 @@ def normalize_core_entity_name(name: str, country: str = "DE") -> str:
     """
     core = extract_core_entity_name(name, country)
     return normalize_entity_name(core, country)
+
+
+# =============================================================================
+# Person Name Validation
+# =============================================================================
+
+# Administrative terms that indicate NOT a person name
+ADMIN_TERMS = frozenset(
+    {
+        "amt",
+        "region",
+        "landkreis",
+        "behörde",
+        "ministerium",
+        "verwaltung",
+        "abteilung",
+        "referat",
+        "dezernat",
+        "fachbereich",
+        "dienststelle",
+        "kreisverwaltung",
+        "stadtverwaltung",
+        "gemeinde",
+        "bezirk",
+        "landesamt",
+        "bundesamt",
+        "finanzamt",
+        "bauamt",
+        "ordnungsamt",
+        "standesamt",
+        "einwohnermeldeamt",
+        "bürgeramt",
+        "rathaus",
+        "stadtrat",
+        "kreistag",
+        "gemeinderat",
+        "verband",
+        "zweckverband",
+        "anstalt",
+        "körperschaft",
+        "stiftung",
+        "kammer",
+        "gericht",
+        "polizei",
+        "feuerwehr",
+        "rettungsdienst",
+        "klinikum",
+        "krankenhaus",
+        "universität",
+        "hochschule",
+        "schule",
+        "gymnasium",
+        "realschule",
+        "grundschule",
+        "kindergarten",
+        "kita",
+        "gmbh",
+        "ag",
+        "kg",
+        "ohg",
+        "e.v.",
+        "e. v.",
+        "mbh",
+        "ug",
+    }
+)
+
+# Placeholder texts that indicate NOT a real person name
+PLACEHOLDER_PATTERNS = frozenset(
+    {
+        "kontaktinformation",
+        "kontaktdaten",
+        "nicht enthalten",
+        "nicht verfügbar",
+        "nicht angegeben",
+        "unbekannt",
+        "keine angabe",
+        "n/a",
+        "tbd",
+        "todo",
+        "platzhalter",
+        "ansprechpartner",
+        "zuständig",
+        "verantwortlich",
+        "kontakt",
+        "info@",
+        "mail@",
+        "email",
+        "telefon",
+        "fax",
+    }
+)
+
+
+def is_valid_person_name(name: str) -> bool:
+    """
+    Validate whether a string looks like a valid person name.
+
+    Used to filter out invalid AI extractions such as:
+    - Administrative terms mistaken as persons
+    - Placeholder texts
+    - Organization names
+    - Overly long strings
+
+    Args:
+        name: The name string to validate
+
+    Returns:
+        True if the name looks like a valid person name, False otherwise
+
+    Examples:
+        >>> is_valid_person_name("Dr. Hans Müller")
+        True
+        >>> is_valid_person_name("Amt für Stadtentwicklung")
+        False
+        >>> is_valid_person_name("Kontaktinformationen nicht verfügbar")
+        False
+        >>> is_valid_person_name("Max Mustermann, Bürgermeister")
+        True
+    """
+    if not name or not isinstance(name, str):
+        return False
+
+    name = name.strip()
+
+    # Check 1: Maximum length (60 characters should be enough for any name)
+    if len(name) > 60:
+        return False
+
+    # Check 2: Maximum 2 commas (e.g., "Müller, Hans, Dr." is valid)
+    if name.count(",") > 2:
+        return False
+
+    # Check 3: Maximum 6 words (handles titles like "Prof. Dr. med. Hans Peter Müller")
+    words = name.split()
+    if len(words) > 6:
+        return False
+
+    # Check 4: Minimum 2 characters
+    if len(name) < 2:
+        return False
+
+    # Normalize for pattern matching
+    name_lower = name.lower()
+
+    # Check 5: No administrative terms
+    for term in ADMIN_TERMS:
+        if term in name_lower:
+            return False
+
+    # Check 6: No placeholder patterns
+    return all(pattern not in name_lower for pattern in PLACEHOLDER_PATTERNS)
 
 
 # Backwards compatibility aliases

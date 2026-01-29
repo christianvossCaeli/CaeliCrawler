@@ -154,7 +154,14 @@ Analysiere das folgende Dokument und extrahiere AUSFÜHRLICH und DETAILLIERT:
 - Sei KONKRET und DETAILLIERT - allgemeine Aussagen wie "verschiedene Maßnahmen" sind nicht hilfreich
 - Nenne konkrete Zahlen, Daten, Namen, Orte wenn vorhanden
 - Gib bei wichtigen Fakten immer die Seitenzahl an: [Seite X]
-- Bei Unsicherheit über fehlenden Kontext: nutze "suggested_additional_pages" Array
+- Falls der Text auf Informationen auf anderen Seiten verweist (z.B. "siehe Seite 15"), gib diese im Feld "suggested_additional_pages" an - NUR konkret im Text erwähnte Seitenzahlen!
+
+**WICHTIG bei Personennamen:**
+- NUR echte Personennamen extrahieren (z.B. "Dr. Hans Müller", "Maria Schmidt")
+- KEINE Behördenbezeichnungen als Personen (z.B. "Amt für Stadtentwicklung" ist KEINE Person)
+- KEINE Platzhalter-Texte (z.B. "Kontaktinformationen nicht verfügbar", "Ansprechpartner")
+- KEINE Organisationsnamen als Personen (z.B. "Stadtverwaltung Köln" ist KEINE Person)
+- Bei Unsicherheit ob es sich um eine Person handelt: weglassen
 
 Antworte im JSON-Format.
 """
@@ -707,6 +714,16 @@ async def _resolve_entity_smart(
         - entity_id may be None if not found and auto_create=False
         - entity_type_slug is always returned (classified type)
     """
+    from app.utils.text import is_valid_person_name
+
+    # Validate person names early if default_type is person
+    if default_type == "person" and not is_valid_person_name(name):
+        logger.debug(
+            "Skipping invalid person name in smart resolution",
+            entity_name=name,
+        )
+        return None, default_type or "person"
+
     # Phase 1: Multi-type search for existing entity
     entity_id, found_type = await _resolve_entity_any_type(session, name, allowed_types)
     if entity_id:
@@ -754,6 +771,7 @@ async def _resolve_entity(
     Returns:
         Entity UUID if found or created, None otherwise
     """
+    from app.utils.text import is_valid_person_name
     from services.entity_matching_service import EntityMatchingService
 
     # Skip invalid names
@@ -761,6 +779,14 @@ async def _resolve_entity(
         return None
 
     entity_name = entity_name.strip()
+
+    # Validate person names to filter out invalid AI extractions
+    if entity_type_slug == "person" and not is_valid_person_name(entity_name):
+        logger.debug(
+            "Skipping invalid person name",
+            entity_name=entity_name,
+        )
+        return None
 
     try:
         # Ensure entity type exists (auto-creates standard types like person, organization)

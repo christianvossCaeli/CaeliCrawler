@@ -28,6 +28,8 @@ from uuid import UUID, uuid4
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.query_cache import get_cached_query, set_cached_query
+
 from .ai_generation import (
     ai_generate_category_config,
     ai_generate_crawl_config,
@@ -319,6 +321,8 @@ async def smart_query(
     4. If read: interprets the question and executes the query
     5. Returns structured results
 
+    Performance: Read-only queries are cached in Redis for 5 minutes.
+
     Args:
         session: Database session
         question: Natural language query/command
@@ -327,6 +331,13 @@ async def smart_query(
         mode: Optional mode override ("plan" for Plan Mode)
         conversation_history: Optional conversation history for Plan Mode
     """
+    # Check Redis cache for read-only queries (not plan mode, not write)
+    if mode != "plan" and not allow_write:
+        cached_result = await get_cached_query(question)
+        if cached_result:
+            logger.info("Smart query cache hit", question=question[:50])
+            return cached_result
+
     # Plan Mode - interactive assistant for prompt formulation
     if mode == "plan":
         logger.info(
@@ -424,6 +435,29 @@ async def smart_query(
     results["original_question"] = question
     results["mode"] = "read"
     results["is_compound"] = False
+
+    # Generate a user-friendly message summarizing the results
+    total = results.get("total", 0)
+    explanation = query_params.get("explanation", "")
+    entity_type = query_params.get("primary_entity_type", "Ergebnisse")
+
+    if total == 0:
+        results["message"] = f"Keine Ergebnisse gefunden für: {explanation}" if explanation else "Keine Ergebnisse gefunden."
+    elif total == 1:
+        # Single result - show item details if available
+        first_item = items[0] if items else {}
+        item_name = first_item.get("entity_name") or first_item.get("name", "")
+        entity_type_name = first_item.get("entity_type") or entity_type
+        if item_name:
+            results["message"] = f"**{item_name}** ({entity_type_name}) gefunden. Details werden unten angezeigt."
+        else:
+            results["message"] = "1 Ergebnis gefunden."
+    else:
+        results["message"] = f"{total} Ergebnisse gefunden."
+
+    # Cache successful read-only queries
+    if not allow_write and mode != "plan":
+        await set_cached_query(question, results)
 
     return results
 

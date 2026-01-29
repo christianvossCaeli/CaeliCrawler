@@ -1160,7 +1160,13 @@ def find_similar_locations_by_name(
     existing_locations: list["Location"],  # noqa: F821
     threshold: float = None,
 ) -> list[tuple["Location", float, str]]:  # noqa: F821
-    """Find locations with similar names using normalization and fuzzy matching."""
+    """Find locations with similar names using normalization and fuzzy matching.
+
+    Uses multiple matching strategies:
+    1. Exact normalized match (score: 1.0)
+    2. Substring containment - one name fully contained in the other (score: 0.95)
+    3. Fuzzy SequenceMatcher similarity above threshold
+    """
     from difflib import SequenceMatcher
 
     if threshold is None:
@@ -1176,11 +1182,26 @@ def find_similar_locations_by_name(
     matches: list[tuple[Location, float, str]] = []
 
     for loc in existing_locations:
+        # Strategy 1: Exact normalized match
         if loc.name_normalized == new_normalized:
             matches.append((loc, 1.0, f"Exakter Match (normalisiert): '{loc.name}'"))
             continue
 
-        similarity = SequenceMatcher(None, new_normalized, loc.name_normalized).ratio()
+        # Strategy 2: Substring containment (handles "Hannover" vs "Region Hannover")
+        # One name fully contained in the other, with minimum length of 4 chars
+        loc_normalized = loc.name_normalized or ""
+        if len(new_normalized) >= 4 and len(loc_normalized) >= 4:
+            if new_normalized in loc_normalized:
+                # New name is contained in existing (e.g., "Hannover" in "Region Hannover")
+                matches.append((loc, 0.95, f"Name enthalten in: '{loc.name}'"))
+                continue
+            elif loc_normalized in new_normalized:
+                # Existing name is contained in new (e.g., "Hannover" found when creating "Region Hannover")
+                matches.append((loc, 0.95, f"Enthält existierenden Namen: '{loc.name}'"))
+                continue
+
+        # Strategy 3: Fuzzy SequenceMatcher similarity
+        similarity = SequenceMatcher(None, new_normalized, loc_normalized).ratio()
 
         if similarity >= threshold:
             matches.append((loc, similarity, f"Ähnlicher Name: '{loc.name}' ({int(similarity * 100)}%)"))
