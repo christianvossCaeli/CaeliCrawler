@@ -2,9 +2,10 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.cache_headers import cache_for_dashboard
 from app.core.deps import get_current_user
 from app.database import get_session
 from app.models.user import User
@@ -44,12 +45,15 @@ async def update_dashboard_preferences(
 
 @router.get("/stats", response_model=DashboardStatsResponse)
 async def get_dashboard_stats(
+    response: Response,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> DashboardStatsResponse:
     """Get aggregated statistics for the dashboard."""
     service = DashboardService(session)
-    return await service.get_stats()
+    data = await service.get_stats()
+    cache_for_dashboard(response, data.model_dump())
+    return data
 
 
 @router.get("/activity", response_model=ActivityFeedResponse)
@@ -78,6 +82,7 @@ async def get_user_insights(
 @router.get("/charts/{chart_type}", response_model=ChartDataResponse)
 async def get_chart_data(
     chart_type: str,
+    response: Response,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> ChartDataResponse:
@@ -89,4 +94,6 @@ async def get_chart_data(
     - crawler-trend: Crawler jobs over time (line chart)
     """
     service = DashboardService(session)
-    return await service.get_chart_data(chart_type)
+    data = await service.get_chart_data(chart_type)
+    cache_for_dashboard(response, data.model_dump())
+    return data

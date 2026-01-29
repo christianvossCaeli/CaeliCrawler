@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Boolean, DateTime, Enum, String, func
+from sqlalchemy import Boolean, DateTime, Enum, Index, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -37,6 +37,14 @@ class User(Base):
     """User account for authentication."""
 
     __tablename__ = "users"
+
+    # Composite indexes for admin queries
+    __table_args__ = (
+        # List active users by role: WHERE is_active = true AND role = ?
+        Index("ix_users_active_role", "is_active", "role"),
+        # User listing with pagination: ORDER BY created_at
+        Index("ix_users_created_at", "created_at"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),

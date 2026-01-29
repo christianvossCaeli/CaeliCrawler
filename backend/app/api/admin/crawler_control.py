@@ -1,5 +1,6 @@
 """Admin API endpoints for crawler control operations."""
 
+import asyncio
 from datetime import date
 from uuid import UUID
 
@@ -492,20 +493,31 @@ async def get_crawler_status(
         )
     ).scalar()
 
-    # Get Celery worker status
+    # Get Celery worker status with timeout to avoid blocking
+    # The inspector.ping() call can take 2-10+ seconds if workers are slow/unavailable
+    def _check_celery_status() -> tuple[bool, int]:
+        """Synchronous Celery status check (runs in thread pool)."""
+        try:
+            inspector = celery_app.control.inspect(timeout=1.0)
+            ping_result = inspector.ping()
+            if ping_result:
+                return True, len(ping_result)
+            return False, 0
+        except Exception:
+            return False, 0
+
     celery_connected = False
     worker_count = 0
     try:
-        inspector = celery_app.control.inspect()
-        ping_result = inspector.ping()
-        if ping_result:
-            worker_count = len(ping_result)
-            celery_connected = True
-        else:
-            # Fallback: check active tasks
-            active_tasks = inspector.active() or {}
-            celery_connected = len(active_tasks) > 0
-            worker_count = len(active_tasks)
+        # Run blocking Celery call in thread with 2s timeout
+        celery_connected, worker_count = await asyncio.wait_for(
+            asyncio.to_thread(_check_celery_status),
+            timeout=2.0,
+        )
+    except TimeoutError:
+        logger.warning("Celery status check timed out")
+        celery_connected = False
+        worker_count = 0
     except Exception:
         celery_connected = False
         worker_count = 0

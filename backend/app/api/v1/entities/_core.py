@@ -5,13 +5,14 @@ from typing import Annotated, Any
 from uuid import UUID
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 
 logger = structlog.get_logger(__name__)
 from sqlalchemy import Numeric, and_, delete, func, or_, select, text  # noqa: E402
 from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
 
 from app.core.audit import AuditContext  # noqa: E402
+from app.core.cache_headers import cache_for_detail  # noqa: E402
 from app.core.deps import require_editor  # noqa: E402
 from app.database import get_session  # noqa: E402
 from app.models import Entity, EntityRelation, EntityType, FacetValue  # noqa: E402
@@ -921,6 +922,7 @@ async def _build_entity_response(
 @router.get("/{entity_id}", response_model=EntityResponse)
 async def get_entity(
     entity_id: UUID,
+    response: Response,
     session: AsyncSession = Depends(get_session),
 ):
     """Get a single entity by ID."""
@@ -929,13 +931,16 @@ async def get_entity(
         raise NotFoundError("Entity", str(entity_id))
 
     entity_type = await session.get(EntityType, entity.entity_type_id)
-    return await _build_entity_response(entity, entity_type, session)
+    result = await _build_entity_response(entity, entity_type, session)
+    cache_for_detail(response, result.model_dump())
+    return result
 
 
 @router.get("/by-slug/{entity_type_slug}/{entity_slug}", response_model=EntityResponse)
 async def get_entity_by_slug(
     entity_type_slug: str,
     entity_slug: str,
+    response: Response,
     session: AsyncSession = Depends(get_session),
 ):
     """Get an entity by type slug and entity slug."""
@@ -946,14 +951,16 @@ async def get_entity_by_slug(
         raise NotFoundError("EntityType", entity_type_slug)
 
     # Then get entity
-    result = await session.execute(
+    query_result = await session.execute(
         select(Entity).where(and_(Entity.entity_type_id == entity_type.id, Entity.slug == entity_slug))
     )
-    entity = result.scalar()
+    entity = query_result.scalar()
     if not entity:
         raise NotFoundError("Entity", f"{entity_type_slug}/{entity_slug}")
 
-    return await _build_entity_response(entity, entity_type, session)
+    result = await _build_entity_response(entity, entity_type, session)
+    cache_for_detail(response, result.model_dump())
+    return result
 
 
 @router.get("/{entity_id}/children", response_model=EntityListResponse)
@@ -1237,6 +1244,7 @@ async def delete_entity(
 @router.get("/{entity_id}/brief", response_model=EntityBrief)
 async def get_entity_brief(
     entity_id: UUID,
+    response: Response,
     session: AsyncSession = Depends(get_session),
 ):
     """Get brief entity info (for references/dropdowns)."""
@@ -1246,7 +1254,7 @@ async def get_entity_brief(
 
     entity_type = await session.get(EntityType, entity.entity_type_id)
 
-    return EntityBrief(
+    result = EntityBrief(
         id=entity.id,
         name=entity.name,
         slug=entity.slug,
@@ -1254,6 +1262,8 @@ async def get_entity_brief(
         entity_type_name=entity_type.name if entity_type else None,
         hierarchy_path=entity.hierarchy_path,
     )
+    cache_for_detail(response, result.model_dump())
+    return result
 
 
 @router.get("/{entity_id}/documents")

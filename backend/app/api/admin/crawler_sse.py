@@ -2,10 +2,16 @@
 
 SSE provides push-based updates from server to client, eliminating the need
 for polling and reducing server load while improving user experience.
+
+Performance optimization: Uses in-memory cache to reduce DB query frequency.
+A full Redis Pub/Sub implementation would eliminate polling entirely, but
+this approach significantly reduces DB load while maintaining simplicity.
 """
 
 import asyncio
 import json
+import threading
+import time
 from collections.abc import AsyncGenerator
 from uuid import UUID
 
@@ -24,6 +30,49 @@ router = APIRouter()
 # Update interval in seconds
 SSE_UPDATE_INTERVAL = 2.0
 
+# Simple in-memory cache for SSE status to reduce DB queries
+# Multiple SSE clients share the same cached data
+# Thread-safe via lock for concurrent access
+
+_sse_cache: dict = {"data": None, "timestamp": 0.0}
+_sse_cache_lock = threading.Lock()
+_SSE_CACHE_TTL = 1.0  # Cache TTL in seconds
+
+
+async def _get_cached_status(session: AsyncSession) -> tuple[int, int, list]:
+    """
+    Get crawler status with caching to reduce DB queries.
+
+    Multiple SSE clients share the same cached status data,
+    significantly reducing database load. Thread-safe via lock.
+    """
+    current_time = time.time()
+
+    # Check cache (thread-safe read)
+    with _sse_cache_lock:
+        if _sse_cache["data"] and (current_time - _sse_cache["timestamp"]) < _SSE_CACHE_TTL:
+            return _sse_cache["data"]
+
+    # Refresh cache (DB queries outside lock to avoid blocking)
+    running_count = (
+        await session.execute(select(func.count()).where(CrawlJob.status == JobStatus.RUNNING))
+    ).scalar() or 0
+
+    pending_count = (
+        await session.execute(select(func.count()).where(CrawlJob.status == JobStatus.PENDING))
+    ).scalar() or 0
+
+    result = await session.execute(select(CrawlJob).where(CrawlJob.status == JobStatus.RUNNING))
+    running_jobs = result.scalars().all()
+
+    # Update cache (thread-safe write)
+    cached_data = (running_count, pending_count, running_jobs)
+    with _sse_cache_lock:
+        _sse_cache["data"] = cached_data
+        _sse_cache["timestamp"] = current_time
+
+    return cached_data
+
 
 async def _generate_crawler_events(
     session: AsyncSession,
@@ -36,23 +85,15 @@ async def _generate_crawler_events(
     - event: status - Overall crawler status
     - event: jobs - Running jobs with live stats
     - event: log - Log entries (if include_logs=True and job_id specified)
+
+    Performance: Uses cached DB queries to reduce load when multiple clients connect.
     """
     last_log_count = 0
 
     while True:
         try:
-            # Get running/pending job counts
-            running_count = (
-                await session.execute(select(func.count()).where(CrawlJob.status == JobStatus.RUNNING))
-            ).scalar() or 0
-
-            pending_count = (
-                await session.execute(select(func.count()).where(CrawlJob.status == JobStatus.PENDING))
-            ).scalar() or 0
-
-            # Get running jobs with live stats
-            result = await session.execute(select(CrawlJob).where(CrawlJob.status == JobStatus.RUNNING))
-            running_jobs = result.scalars().all()
+            # Get cached status to reduce DB queries across multiple SSE clients
+            running_count, pending_count, running_jobs = await _get_cached_status(session)
 
             jobs_data = []
             for job in running_jobs:

@@ -46,6 +46,16 @@ class Settings(BaseSettings):
     frontend_url: str = "https://app.caeli-wind.de"  # For email verification links
     schedule_timezone: str = "Europe/Berlin"
 
+    # Security: TLS enforcement for production
+    # Set to True when running behind HTTPS reverse proxy (nginx, CloudFront, etc.)
+    behind_https_proxy: bool = False
+
+    # CSP (Content Security Policy) Configuration
+    # Report URI for CSP violation reports - set to a logging endpoint to monitor violations
+    csp_report_uri: str | None = None
+    # Report-only mode: logs violations without blocking (useful for testing)
+    csp_report_only: bool = False
+
     @model_validator(mode="after")
     def validate_production_settings(self) -> "Settings":
         """Validate critical settings for production environment."""
@@ -71,6 +81,31 @@ class Settings(BaseSettings):
             # Ensure debug is disabled in production
             if self.debug:
                 raise ValueError("SECURITY ERROR: DEBUG must be False in production")
+
+            # Ensure TLS is enabled in production (via reverse proxy)
+            if not self.behind_https_proxy:
+                raise ValueError(
+                    "SECURITY ERROR: Production deployment requires HTTPS! "
+                    "Set BEHIND_HTTPS_PROXY=true when running behind an HTTPS reverse proxy."
+                )
+
+            # Ensure CORS origins don't include wildcards in production
+            if "*" in self.cors_origins:
+                raise ValueError(
+                    "SECURITY ERROR: CORS_ORIGINS cannot include wildcards in production! "
+                    "Specify explicit allowed origins."
+                )
+
+            # Warn about localhost origins in production (but don't block)
+            localhost_origins = [o for o in self.cors_origins if "localhost" in o or "127.0.0.1" in o]
+            if localhost_origins:
+                import warnings
+                warnings.warn(
+                    f"SECURITY WARNING: CORS_ORIGINS includes localhost origins in production: {localhost_origins}. "
+                    "Consider removing these for production deployment.",
+                    UserWarning,
+                    stacklevel=2,
+                )
 
         return self
 

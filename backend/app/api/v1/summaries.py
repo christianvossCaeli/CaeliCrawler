@@ -181,29 +181,33 @@ async def access_shared_summary(
     share.view_count += 1
     share.last_viewed_at = datetime.now(UTC)
 
-    # Load summary with widgets
-    summary_result = await session.execute(
-        select(CustomSummary).options(selectinload(CustomSummary.widgets)).where(CustomSummary.id == share.summary_id)
+    # Load summary and execution in parallel for better performance
+    summary_query = select(CustomSummary).options(selectinload(CustomSummary.widgets)).where(
+        CustomSummary.id == share.summary_id
     )
+    execution_query = (
+        select(SummaryExecution)
+        .where(
+            SummaryExecution.summary_id == share.summary_id,
+            SummaryExecution.status == ExecutionStatus.COMPLETED,
+        )
+        .order_by(SummaryExecution.created_at.desc())
+        .limit(1)
+    )
+
+    summary_result, exec_result = await asyncio.gather(
+        session.execute(summary_query),
+        session.execute(execution_query),
+    )
+
     summary = summary_result.scalar_one_or_none()
+    last_execution = exec_result.scalar_one_or_none()
 
     if not summary:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Zusammenfassung nicht gefunden",
         )
-
-    # Get latest execution with cached data
-    exec_result = await session.execute(
-        select(SummaryExecution)
-        .where(
-            SummaryExecution.summary_id == summary.id,
-            SummaryExecution.status == ExecutionStatus.COMPLETED,
-        )
-        .order_by(SummaryExecution.created_at.desc())
-        .limit(1)
-    )
-    last_execution = exec_result.scalar_one_or_none()
 
     await session.commit()
 

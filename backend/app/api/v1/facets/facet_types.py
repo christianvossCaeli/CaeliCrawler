@@ -2,13 +2,14 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.audit import AuditContext
 from app.core.cache import facet_type_cache
+from app.core.cache_headers import cache_for_detail, cache_for_list
 from app.core.deps import require_editor
 from app.core.exceptions import ConflictError, NotFoundError
 from app.core.validators import validate_entity_type_slugs
@@ -37,6 +38,7 @@ router = APIRouter()
 
 @router.get("/types", response_model=FacetTypeListResponse)
 async def list_facet_types(
+    response: Response,
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=50, ge=1, le=100),
     is_active: bool | None = Query(default=None),
@@ -97,13 +99,15 @@ async def list_facet_types(
         items.append(item)
 
     pages = (total + per_page - 1) // per_page if total > 0 else 1
-    return FacetTypeListResponse(
+    result = FacetTypeListResponse(
         items=items,
         total=total,
         page=page,
         per_page=per_page,
         pages=pages,
     )
+    cache_for_list(response, result.model_dump())
+    return result
 
 
 @router.get("/types/for-category/{category_id}", response_model=list[FacetTypeResponse])
@@ -235,6 +239,7 @@ async def create_facet_type(
 @router.get("/types/{facet_type_id}", response_model=FacetTypeResponse)
 async def get_facet_type(
     facet_type_id: UUID,
+    http_response: Response,
     session: AsyncSession = Depends(get_session),
 ):
     """Get a single facet type by ID."""
@@ -246,15 +251,17 @@ async def get_facet_type(
         await session.execute(select(func.count()).where(FacetValue.facet_type_id == facet_type.id))
     ).scalar()
 
-    response = FacetTypeResponse.model_validate(facet_type)
-    response.value_count = value_count
+    facet_response = FacetTypeResponse.model_validate(facet_type)
+    facet_response.value_count = value_count
 
-    return response
+    cache_for_detail(http_response, facet_response.model_dump())
+    return facet_response
 
 
 @router.get("/types/by-slug/{slug}", response_model=FacetTypeResponse)
 async def get_facet_type_by_slug(
     slug: str,
+    http_response: Response,
     session: AsyncSession = Depends(get_session),
 ):
     """Get a single facet type by slug (cached)."""
@@ -267,9 +274,10 @@ async def get_facet_type_by_slug(
         value_count = (
             await session.execute(select(func.count()).where(FacetValue.facet_type_id == cached["id"]))
         ).scalar()
-        response = FacetTypeResponse(**cached)
-        response.value_count = value_count
-        return response
+        facet_response = FacetTypeResponse(**cached)
+        facet_response.value_count = value_count
+        cache_for_detail(http_response, facet_response.model_dump())
+        return facet_response
 
     # Fetch from database
     result = await session.execute(select(FacetType).where(FacetType.slug == slug))
@@ -281,13 +289,14 @@ async def get_facet_type_by_slug(
         await session.execute(select(func.count()).where(FacetValue.facet_type_id == facet_type.id))
     ).scalar()
 
-    response = FacetTypeResponse.model_validate(facet_type)
-    response.value_count = value_count
+    facet_response = FacetTypeResponse.model_validate(facet_type)
+    facet_response.value_count = value_count
 
     # Cache the facet type data (without value_count as it changes)
-    facet_type_cache.set(cache_key, response.model_dump(exclude={"value_count"}))
+    facet_type_cache.set(cache_key, facet_response.model_dump(exclude={"value_count"}))
 
-    return response
+    cache_for_detail(http_response, facet_response.model_dump())
+    return facet_response
 
 
 @router.post("/types/generate-schema", response_model=FacetTypeSchemaGenerateResponse)

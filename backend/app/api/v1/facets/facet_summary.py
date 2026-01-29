@@ -3,16 +3,16 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.cache_headers import cache_for_detail, cache_for_list
 from app.core.exceptions import NotFoundError
 from app.database import get_session
 from app.models import (
     Entity,
-    EntityType,
     FacetType,
     FacetValue,
 )
@@ -29,6 +29,7 @@ router = APIRouter()
 @router.get("/entity/{entity_id}/referenced-by", response_model=FacetValueListResponse)
 async def get_facets_referencing_entity(
     entity_id: UUID,
+    http_response: Response,
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=50, ge=1, le=200),
     facet_type_slug: str | None = Query(default=None),
@@ -90,18 +91,21 @@ async def get_facets_referencing_entity(
         item.target_entity_slug = entity.slug
         items.append(item)
 
-    return FacetValueListResponse(
+    result = FacetValueListResponse(
         items=items,
         total=total,
         page=page,
         per_page=per_page,
         pages=(total + per_page - 1) // per_page if per_page > 0 else 0,
     )
+    cache_for_list(http_response, result.model_dump())
+    return result
 
 
 @router.get("/entity/{entity_id}/summary", response_model=EntityFacetsSummary)
 async def get_entity_facets_summary(
     entity_id: UUID,
+    http_response: Response,
     category_id: UUID | None = Query(default=None),
     time_filter: str | None = Query(
         default=None,
@@ -112,12 +116,17 @@ async def get_entity_facets_summary(
     session: AsyncSession = Depends(get_session),
 ):
     """Get summary of all facets for an entity."""
-    entity = await session.get(Entity, entity_id)
+    # Load entity with eager loading of entity_type to avoid N+1
+    result = await session.execute(
+        select(Entity)
+        .options(selectinload(Entity.entity_type))
+        .where(Entity.id == entity_id)
+    )
+    entity = result.scalar_one_or_none()
     if not entity:
         raise NotFoundError("Entity", str(entity_id))
 
-    entity_type = await session.get(EntityType, entity.entity_type_id)
-    entity_type_slug = entity_type.slug if entity_type else None
+    entity_type_slug = entity.entity_type.slug if entity.entity_type else None
 
     # Build subquery for applicable facet types based on entity type
     # A FacetType is applicable if:
@@ -283,12 +292,14 @@ async def get_entity_facets_summary(
     # Sort by display order
     facets_by_type.sort(key=lambda x: x.display_order)
 
-    return EntityFacetsSummary(
+    summary_result = EntityFacetsSummary(
         entity_id=entity.id,
         entity_name=entity.name,
-        entity_type_slug=entity_type.slug if entity_type else None,
+        entity_type_slug=entity_type_slug,
         total_facet_values=total_values,
         verified_count=verified_count,
         facet_type_count=len(facets_by_type),
         facets_by_type=facets_by_type,
     )
+    cache_for_detail(http_response, summary_result.model_dump())
+    return summary_result

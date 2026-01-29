@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, func
+from sqlalchemy import DateTime, Enum, ForeignKey, Index, Integer, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -36,6 +36,12 @@ class CrawlJob(Base):
     """
 
     __tablename__ = "crawl_jobs"
+
+    # Composite indexes for common query patterns
+    __table_args__ = (
+        # Filter by source + status: WHERE source_id = ? AND status = ?
+        Index("ix_crawl_jobs_source_status", "source_id", "status"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -87,6 +93,7 @@ class CrawlJob(Base):
     completed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
+        index=True,  # Index for ORDER BY completed_at DESC queries
     )
 
     # Statistics

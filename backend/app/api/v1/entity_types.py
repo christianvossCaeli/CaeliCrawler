@@ -3,13 +3,14 @@
 from uuid import UUID
 
 import structlog
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, Response
 
 logger = structlog.get_logger(__name__)
 from sqlalchemy import func, or_, select  # noqa: E402
 from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
 
 from app.core.audit import AuditContext  # noqa: E402
+from app.core.cache_headers import cache_for_detail  # noqa: E402
 from app.core.deps import get_current_user_optional, require_admin, require_editor  # noqa: E402
 from app.core.exceptions import ConflictError, NotFoundError  # noqa: E402
 from app.database import get_session  # noqa: E402
@@ -237,6 +238,7 @@ async def create_entity_type(
 @router.get("/{entity_type_id}", response_model=EntityTypeResponse)
 async def get_entity_type(
     entity_type_id: UUID,
+    http_response: Response,
     session: AsyncSession = Depends(get_session),
 ):
     """Get a single entity type by ID."""
@@ -246,29 +248,32 @@ async def get_entity_type(
 
     entity_count = (await session.execute(select(func.count()).where(Entity.entity_type_id == entity_type.id))).scalar()
 
-    response = EntityTypeResponse.model_validate(entity_type)
-    response.entity_count = entity_count
+    result = EntityTypeResponse.model_validate(entity_type)
+    result.entity_count = entity_count
 
-    return response
+    cache_for_detail(http_response, result.model_dump())
+    return result
 
 
 @router.get("/by-slug/{slug}", response_model=EntityTypeResponse)
 async def get_entity_type_by_slug(
     slug: str,
+    http_response: Response,
     session: AsyncSession = Depends(get_session),
 ):
     """Get a single entity type by slug."""
-    result = await session.execute(select(EntityType).where(EntityType.slug == slug))
-    entity_type = result.scalar()
+    query_result = await session.execute(select(EntityType).where(EntityType.slug == slug))
+    entity_type = query_result.scalar()
     if not entity_type:
         raise NotFoundError("EntityType", slug)
 
     entity_count = (await session.execute(select(func.count()).where(Entity.entity_type_id == entity_type.id))).scalar()
 
-    response = EntityTypeResponse.model_validate(entity_type)
-    response.entity_count = entity_count
+    result = EntityTypeResponse.model_validate(entity_type)
+    result.entity_count = entity_count
 
-    return response
+    cache_for_detail(http_response, result.model_dump())
+    return result
 
 
 @router.put("/{entity_type_id}", response_model=EntityTypeResponse)

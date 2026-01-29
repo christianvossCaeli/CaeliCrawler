@@ -94,6 +94,13 @@ from app.models.summary_execution import ExecutionStatus, SummaryExecution
 from app.models.summary_share import SummaryShare
 from app.models.summary_widget import SummaryWidget, SummaryWidgetType
 
+# Security Event Logging
+from app.models.security_event import (
+    SecurityEvent,
+    SecurityEventSeverity,
+    SecurityEventType,
+)
+
 # Authentication & Authorization
 from app.models.user import User, UserRole
 from app.models.user_api_credentials import (
@@ -240,4 +247,8 @@ __all__ = [
     "ModelPricing",
     "PricingProvider",
     "PricingSource",
+    # Security Event Logging
+    "SecurityEvent",
+    "SecurityEventSeverity",
+    "SecurityEventType",
 ]

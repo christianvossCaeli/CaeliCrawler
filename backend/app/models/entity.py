@@ -55,6 +55,8 @@ class Entity(Base):
         # For location-based filtering
         Index("ix_entities_country_admin1", "country", "admin_level_1"),
         Index("ix_entities_admin1_admin2", "admin_level_1", "admin_level_2"),
+        # GIN index for fast JSONB searches on core_attributes
+        Index("ix_entities_core_attributes_gin", "core_attributes", postgresql_using="gin"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -111,7 +113,6 @@ class Entity(Base):
     hierarchy_path: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
-        index=True,
         comment="Materialized path: /DE/Bayern/Muenchen",
     )
     hierarchy_level: Mapped[int] = mapped_column(

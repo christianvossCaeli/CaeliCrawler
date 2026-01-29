@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from sqlalchemy import (
     DateTime,
     Enum,
+    Index,
     String,
     Text,
     UniqueConstraint,
@@ -62,6 +63,8 @@ class DataSource(Base):
     __table_args__ = (
         # Unique constraint on base_url only (category handled via N:M)
         UniqueConstraint("base_url", name="uq_source_base_url"),
+        # Composite index: Filter by type + status (admin source list)
+        Index("ix_data_sources_type_status", "source_type", "status"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -94,6 +97,7 @@ class DataSource(Base):
     last_crawl: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
+        index=True,  # Index for default sorting (ORDER BY last_crawl DESC)
     )
     last_change_detected: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),

@@ -5,9 +5,10 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 import structlog
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from redis.asyncio import Redis
 
@@ -58,10 +59,13 @@ from app.api.v1 import summaries as public_summaries
 from app.api.v1.analysis_api import router as analysis_router
 from app.api.v1.data_api import router as data_router
 from app.config import settings
+from app.core.cache_headers import cache_for_config
 from app.core.exceptions import AppException
 from app.core.i18n_middleware import I18nMiddleware
+from app.core.query_cache import set_query_cache_client
 from app.core.rate_limit import RateLimiter, set_rate_limiter
 from app.core.security_headers import SecurityHeadersMiddleware, TrustedHostMiddleware
+from app.core.telemetry import setup_telemetry, shutdown_telemetry
 from app.core.token_blacklist import TokenBlacklist, set_token_blacklist
 from app.database import close_db, init_db
 from app.i18n import load_translations
@@ -164,6 +168,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
         set_token_blacklist(token_blacklist)
         logger.info("Token blacklist initialized")
 
+        # Initialize query cache
+        set_query_cache_client(_redis_client)
+        logger.info("Query cache initialized")
+
     except Exception as e:
         logger.warning(
             "Redis not available, security features degraded",
@@ -176,9 +184,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     llm_tracker.start_background_flush()
     logger.info("LLM usage tracker initialized")
 
+    # Initialize OpenTelemetry (if OTEL_EXPORTER_OTLP_ENDPOINT is set)
+    telemetry_enabled = setup_telemetry(app, settings)
+
     yield
 
     # Shutdown
+    if telemetry_enabled:
+        shutdown_telemetry()
     logger.info("Shutting down CaeliCrawler")
 
     # Flush pending LLM usage records before shutdown
@@ -238,7 +251,12 @@ Diese API verwendet JWT (JSON Web Tokens) für die Authentifizierung.
     # Security headers middleware (add first, executes last)
     # Enable HSTS only in production with HTTPS
     enable_hsts = settings.app_env == "production"
-    app.add_middleware(SecurityHeadersMiddleware, enable_hsts=enable_hsts)
+    app.add_middleware(
+        SecurityHeadersMiddleware,
+        enable_hsts=enable_hsts,
+        csp_report_uri=settings.csp_report_uri,
+        csp_report_only=settings.csp_report_only,
+    )
 
     # Trusted hosts middleware in production
     if settings.app_env == "production":
@@ -256,6 +274,11 @@ Diese API verwendet JWT (JSON Web Tokens) für die Authentifizierung.
 
     # i18n middleware - sets locale based on request headers
     app.add_middleware(I18nMiddleware)
+
+    # GZip compression for responses > 2KB
+    # Minimum size of 2000 bytes avoids compression overhead for small responses
+    # where the gzip headers would negate bandwidth savings
+    app.add_middleware(GZipMiddleware, minimum_size=2000)
 
     # Exception handlers
     @app.exception_handler(AppException)
@@ -348,15 +371,17 @@ Diese API verwendet JWT (JSON Web Tokens) für die Authentifizierung.
     # Set application info for metrics
     set_app_info(version=__version__, environment=settings.app_env)
 
-    # Feature flags endpoint
+    # Feature flags endpoint (cached for 5 minutes)
     @app.get("/api/config/features", tags=["Config"])
-    async def get_feature_flags():
+    async def get_feature_flags(response: Response):
         """Get feature flags for the frontend."""
-        return {
+        data = {
             "entityLevelFacets": settings.feature_entity_level_facets,
             "pysisFieldTemplates": settings.feature_pysis_field_templates,
             "entityHierarchyEnabled": True,  # Enable entity hierarchy features
         }
+        cache_for_config(response, data)
+        return data
 
     # Root endpoint
     @app.get("/", tags=["Root"])

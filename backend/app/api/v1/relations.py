@@ -137,12 +137,18 @@ async def create_relation_type(
     session: AsyncSession = Depends(get_session),
 ) -> RelationTypeResponse:
     """Create a new relation type. Requires Editor role."""
-    # Verify entity types exist
-    source_et = await session.get(EntityType, data.source_entity_type_id)
+    # Verify entity types exist - batch query for efficiency
+    entity_type_ids = [data.source_entity_type_id, data.target_entity_type_id]
+    result = await session.execute(
+        select(EntityType).where(EntityType.id.in_(entity_type_ids))
+    )
+    entity_types = {et.id: et for et in result.scalars().all()}
+
+    source_et = entity_types.get(data.source_entity_type_id)
     if not source_et:
         raise NotFoundError("Source EntityType", str(data.source_entity_type_id))
 
-    target_et = await session.get(EntityType, data.target_entity_type_id)
+    target_et = entity_types.get(data.target_entity_type_id)
     if not target_et:
         raise NotFoundError("Target EntityType", str(data.target_entity_type_id))
 

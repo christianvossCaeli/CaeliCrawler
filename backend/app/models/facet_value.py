@@ -62,6 +62,8 @@ class FacetValue(Base):
         Index("ix_facet_values_entity_active", "entity_id", "is_active"),
         # For time-based facet queries
         Index("ix_facet_values_entity_event_date", "entity_id", "event_date"),
+        # For filtering facets by entity and source type
+        Index("ix_facet_values_entity_source", "entity_id", "source_type"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -250,10 +252,13 @@ class FacetValue(Base):
     category: Mapped[Optional["Category"]] = relationship("Category")
     source_document: Mapped[Optional["Document"]] = relationship("Document")
     source_attachment: Mapped[Optional["EntityAttachment"]] = relationship("EntityAttachment")
+    # lazy="selectin" for efficient batch loading when accessed
+    # Avoids unnecessary JOINs when target_entity isn't needed
+    # Use explicit selectinload() in queries when eager loading is required
     target_entity: Mapped[Optional["Entity"]] = relationship(
         "Entity",
         foreign_keys=[target_entity_id],
-        lazy="joined",
+        lazy="selectin",
     )
 
     @property
