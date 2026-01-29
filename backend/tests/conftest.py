@@ -1,8 +1,7 @@
 """Pytest configuration and fixtures."""
 
-import asyncio
 import os
-from collections.abc import AsyncGenerator, Generator
+from collections.abc import AsyncGenerator
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -24,14 +23,6 @@ def pytest_configure(config):
     """Configure pytest with custom markers."""
     config.addinivalue_line("markers", "integration: mark test as integration test (requires running server)")
     config.addinivalue_line("markers", "e2e: mark test as end-to-end test (requires full stack)")
-
-
-@pytest.fixture(scope="session")
-def event_loop() -> Generator:
-    """Create event loop for session scope."""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
 
 
 @pytest_asyncio.fixture(scope="function")
