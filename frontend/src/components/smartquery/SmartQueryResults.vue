@@ -85,7 +85,7 @@
         <SmartQueryResult
           :data="resultData"
           :visualization="visualizationConfig"
-          :explanation="results.explanation"
+          :explanation="results.message || results.explanation"
           :source-info="sourceInfo"
           :suggested-actions="results.suggested_actions || []"
           @action="(action, params) => $emit('visualization-action', action, params)"

@@ -16,7 +16,7 @@
           @keydown.enter="handleClick"
           @keydown.space.prevent="handleClick"
         >
-          <v-icon v-if="loading" size="x-small" class="mr-1">mdi-loading mdi-spin</v-icon>
+          <v-icon v-if="loading" size="x-small" class="mr-1 icon-spin">mdi-loading</v-icon>
           <v-icon v-else-if="status?.is_blocked" size="x-small" class="mr-1">mdi-lock</v-icon>
           <v-icon v-else size="x-small" class="mr-1">mdi-chart-donut</v-icon>
           <span v-if="!loading" class="status-text">

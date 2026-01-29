@@ -11,7 +11,7 @@
           role="status"
           :aria-label="ariaLabel"
         >
-          <v-icon v-if="loading" size="x-small" class="mr-1">mdi-loading mdi-spin</v-icon>
+          <v-icon v-if="loading" size="x-small" class="mr-1 icon-spin">mdi-loading</v-icon>
           <v-icon v-else :icon="providerIcon" size="x-small" class="mr-1" />
           <span v-if="!loading">{{ displayText }}</span>
           <span v-else>{{ t('common.loading') }}</span>

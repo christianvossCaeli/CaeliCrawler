@@ -13,8 +13,9 @@
           <v-icon
             :color="step.done ? 'success' : (step.active ? 'primary' : 'grey')"
             size="small"
+            :class="{ 'icon-spin': step.active && !step.done }"
           >
-            {{ step.done ? 'mdi-check-circle' : (step.active ? 'mdi-loading mdi-spin' : 'mdi-circle-outline') }}
+            {{ step.done ? 'mdi-check-circle' : (step.active ? 'mdi-loading' : 'mdi-circle-outline') }}
           </v-icon>
         </template>
         <v-list-item-title :class="{ 'text-grey': !step.active && !step.done }">
@@ -44,3 +45,18 @@ interface Props {
 
 defineProps<Props>()
 </script>
+
+<style scoped>
+.icon-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+</style>

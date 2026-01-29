@@ -7,7 +7,7 @@
       :disabled="isUploading"
       @click="triggerFileInput"
     >
-      <v-icon size="20">{{ isUploading ? 'mdi-loading mdi-spin' : 'mdi-paperclip' }}</v-icon>
+      <v-icon size="20" :class="{ 'icon-spin': isUploading }">{{ isUploading ? 'mdi-loading' : 'mdi-paperclip' }}</v-icon>
     </button>
     <input
       ref="fileInputRef"

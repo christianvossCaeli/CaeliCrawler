@@ -450,6 +450,40 @@
   }
 }
 
+/* Streaming Cursor */
+.chat-message__cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: rgb(var(--v-theme-primary));
+  margin-left: 2px;
+  animation: blink 1s step-end infinite;
+  vertical-align: text-bottom;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.chat-message--streaming .chat-message__bubble {
+  border-color: rgba(var(--v-theme-primary), 0.3);
+}
+
+/* Error Message */
+.chat-message--error .chat-message__bubble {
+  background: rgba(var(--v-theme-error), 0.1);
+  border: 1px solid rgba(var(--v-theme-error), 0.3);
+}
+
+.chat-message__error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: rgb(var(--v-theme-error));
+  font-size: 0.875rem;
+}
+
 /* ==========================================================================
    Results Panel (Inline)
    ========================================================================== */

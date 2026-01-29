@@ -214,29 +214,41 @@
     }
   },
   "auth": {
-    "login": "Login",
-    "logout": "Logout",
-    "email": "Email",
-    "enterEmail": "Enter email",
-    "password": "Password",
-    "enterPassword": "Enter password",
-    "rememberMe": "Remember me",
-    "forgotPassword": "Forgot password?",
-    "changePassword": "Change Password",
-    "currentPassword": "Current Password",
-    "newPassword": "New Password",
-    "confirmPassword": "Confirm Password",
-    "loginTitle": "Login",
-    "loginSubtitle": "Data Collection Platform",
-    "loginFailed": "Login failed",
-    "loginFailedMessage": "Invalid email or password",
-    "passwordChanged": "Password changed successfully",
-    "passwordChangeError": "Error changing password",
+    "login": {
+      "title": "Login",
+      "subtitle": "Data Collection Platform",
+      "email": "Email Address",
+      "emailPlaceholder": "Enter your email",
+      "password": "Password",
+      "passwordPlaceholder": "Enter your password",
+      "submit": "Login",
+      "forgotPassword": "Forgot password?",
+      "rememberMe": "Remember me"
+    },
+    "logout": {
+      "title": "Logout",
+      "confirm": "Are you sure you want to logout?",
+      "success": "Successfully logged out"
+    },
+    "errors": {
+      "invalidCredentials": "Invalid credentials",
+      "accountDisabled": "Account disabled",
+      "sessionExpired": "Session expired"
+    },
+    "changePassword": {
+      "title": "Change Password",
+      "currentPassword": "Current Password",
+      "newPassword": "New Password",
+      "confirmPassword": "Confirm Password",
+      "submit": "Change Password",
+      "success": "Password changed successfully",
+      "error": "Error changing password"
+    },
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
     "sessionExpired": "Your session has expired. Please log in again.",
     "unauthorized": "You are not authorized to access this page.",
     "accountDeactivated": "Your account has been deactivated.",
-    "showPassword": "Show password",
-    "hidePassword": "Hide password",
     "validation": {
       "emailRequired": "Email is required",
       "emailInvalid": "Invalid email address",

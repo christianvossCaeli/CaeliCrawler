@@ -214,29 +214,41 @@
     }
   },
   "auth": {
-    "login": "Anmelden",
-    "logout": "Abmelden",
-    "email": "E-Mail",
-    "enterEmail": "E-Mail eingeben",
-    "password": "Passwort",
-    "enterPassword": "Passwort eingeben",
-    "rememberMe": "Angemeldet bleiben",
-    "forgotPassword": "Passwort vergessen?",
-    "changePassword": "Passwort ändern",
-    "currentPassword": "Aktuelles Passwort",
-    "newPassword": "Neues Passwort",
-    "confirmPassword": "Passwort bestätigen",
-    "loginTitle": "Anmelden",
-    "loginSubtitle": "Datensammlungsplattform",
-    "loginFailed": "Anmeldung fehlgeschlagen",
-    "loginFailedMessage": "Ungültige E-Mail oder Passwort",
-    "passwordChanged": "Passwort erfolgreich geändert",
-    "passwordChangeError": "Fehler beim Ändern des Passworts",
+    "login": {
+      "title": "Anmelden",
+      "subtitle": "Datensammlungsplattform",
+      "email": "E-Mail-Adresse",
+      "emailPlaceholder": "E-Mail eingeben",
+      "password": "Passwort",
+      "passwordPlaceholder": "Passwort eingeben",
+      "submit": "Anmelden",
+      "forgotPassword": "Passwort vergessen?",
+      "rememberMe": "Angemeldet bleiben"
+    },
+    "logout": {
+      "title": "Abmelden",
+      "confirm": "Möchten Sie sich wirklich abmelden?",
+      "success": "Erfolgreich abgemeldet"
+    },
+    "errors": {
+      "invalidCredentials": "Ungültige Anmeldedaten",
+      "accountDisabled": "Konto deaktiviert",
+      "sessionExpired": "Sitzung abgelaufen"
+    },
+    "changePassword": {
+      "title": "Passwort ändern",
+      "currentPassword": "Aktuelles Passwort",
+      "newPassword": "Neues Passwort",
+      "confirmPassword": "Passwort bestätigen",
+      "submit": "Passwort ändern",
+      "success": "Passwort erfolgreich geändert",
+      "error": "Fehler beim Ändern des Passworts"
+    },
+    "showPassword": "Passwort anzeigen",
+    "hidePassword": "Passwort verbergen",
     "sessionExpired": "Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.",
     "unauthorized": "Sie sind nicht berechtigt, diese Seite aufzurufen.",
     "accountDeactivated": "Ihr Konto wurde deaktiviert.",
-    "showPassword": "Passwort anzeigen",
-    "hidePassword": "Passwort verbergen",
     "validation": {
       "emailRequired": "E-Mail ist erforderlich",
       "emailInvalid": "Ungültige E-Mail-Adresse",

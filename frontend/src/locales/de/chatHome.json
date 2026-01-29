@@ -12,6 +12,7 @@
       "placeholderPlan": "Beschreibe dein Vorhaben und ich erstelle einen Plan...",
       "listening": "Ich höre zu...",
       "send": "Senden",
+      "cancel": "Abbrechen",
       "attachFile": "Datei anhängen",
       "startRecording": "Spracheingabe starten",
       "stopRecording": "Spracheingabe beenden"
@@ -65,6 +66,9 @@
         "query": "Zeige mir wichtige Änderungen dieser Woche"
       }
     },
+    "actions": {
+      "newChat": "Neuer Chat"
+    },
     "history": {
       "title": "Verlauf",
       "toggle": "Verlauf anzeigen",
@@ -81,7 +85,15 @@
       "visualization": "Visualisierung",
       "results": "Ergebnisse",
       "items": "Einträge",
-      "showAll": "Alle {count} anzeigen"
+      "showAll": "Alle {count} anzeigen",
+      "smartQuery": "Smart Query",
+      "navigation": "Navigation",
+      "analysis": "Analyse",
+      "recommendations": "Empfehlungen",
+      "redirectToSmartQuery": "Diese Abfrage kann am besten in Smart Query bearbeitet werden.",
+      "openSmartQuery": "Smart Query öffnen",
+      "navigate": "Navigieren",
+      "navigateTo": "Zu {name} navigieren"
     },
     "messages": {
       "complete": "Fertig! Kann ich noch etwas für dich tun?",
